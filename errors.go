@@ -1,0 +1,22 @@
+package ggdb
+
+const (
+	// Table should or shouldn't exist
+	ErrorTableExists      = 1001
+	ErrorTableDoesntExist = 1002
+
+	// Missing set-up requirements
+	ErrorSchemaRequired      = 1003
+	ErrorTableNameRequired   = 1004
+	ErrorSchemaItemsRequired = 1005
+
+	// Unhashable errors
+	ErrorUnhashableGroupValue  = 1006
+	ErrorUnhashableUniqueValue = 1007
+
+	// Table's index is being optimized
+	ErrorTableIndexOptimizing = 1008
+
+	// Requested index chunk is out of range
+	ErrorIndexChunkOutOfRange = 1009
+)
