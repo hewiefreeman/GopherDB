@@ -3,6 +3,7 @@ package ggdb
 import (
 	"sync"
 	"time"
+	"github.com/hewiefreeman/GopherGameDB/helpers"
 )
 
 var (
@@ -54,7 +55,7 @@ type table struct {
 	uMux       sync.Mutex
 	uniqueVals map[int]map[interface{}]*tableEntry
 
-	gMux
+	gMux        sync.Mutex
 	groupedVals map[int]map[interface{}][]*tableEntry
 
 	pMux   sync.Mutex
@@ -94,14 +95,51 @@ const (
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
+//   tableSchema   //////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+func newTableSchema(items []string, unique []int, grouped map[int][]interface{}) (tableSchema, int) {
+	if len(items) == 0 {
+		return tableSchema{}, helpers.ErrorSchemaItemsRequired
+	}
+	var s tableSchema
+	s.items = make(map[string]tableSchemaEntry)
+	// Go through items
+	for i := 0; i < len(items); i++ {
+		se := tableSchemaEntry{index: i}
+		// check for unique
+		for j := 0; j < len(unique); j++ {
+			if unique[j] == i {
+				se.unique = true
+			}
+		}
+		// check for grouped
+		if !se.unique {
+			if v, ok := grouped[i]; ok {
+				// check if any of the values aren't hashable
+				for j := 0; j < len(v); j++ {
+					if !helpers.isHashable(v[j]) {
+						return tableSchema{}, helpers.ErrorUnhashableGroupValue
+					}
+				}
+				se.grouped = true
+				se.groupedVals = v
+			}
+		}
+		s.items[items[i]] = se
+	}
+	return s, 0
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
 //   table   ////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 func createTable(name string, maxEntries int, schema tableSchema, fileOn int, lineOn int, partitionMax int) int {
 	if len(name) == 0 {
-		return ErrorTableNameRequired
+		return helpers.ErrorTableNameRequired
 	} else if tableExists(name) {
-		return ErrorTableExists
+		return helpers.ErrorTableExists
 	}
 
 	//default partitionMax
@@ -130,6 +168,16 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 				fileOn: fileOn,
 				lineOn: lineOn }
 
+	// Apply schema
+	for _, v := range schema.items {
+		if v.unique {
+			t.uniqueVals[v.index] = make(map[interface{}]*tableEntry)
+		} else if v.grouped {
+			t.groupedVals[v.index] = make(map[interface{}][]*tableEntry)
+		}
+	}
+
+	//
 	tablesMux.Lock()
 	tables[name] = &t
 	tablesMux.Unlock()
@@ -141,9 +189,9 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 
 func deleteTable(name string) int {
 	if len(name) == 0 {
-		return ErrorTableNameRequired
+		return helpers.ErrorTableNameRequired
 	} else if !tableExists(name) {
-		return ErrorTableDoesntExist
+		return helpers.ErrorTableDoesntExist
 	}
 
 	tablesMux.Lock()
@@ -158,6 +206,13 @@ func deleteTable(name string) int {
 func getTable(n string) *table {
 	tablesMux.Lock()
 	t := tables[n]
+	tablesMux.Unlock()
+	return t
+}
+
+func tableExists(n string) bool {
+	tablesMux.Lock()
+	var t bool = (tables[n] != nil)
 	tablesMux.Unlock()
 	return t
 }
@@ -177,108 +232,22 @@ func (t *table) getEntry(n string) *tableEntry {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-//   table index   //////////////////////////////////////////////////////////////////////////////
+//   Misc methods   /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (t *table) optimizeIndex() {
-	(*t).iMux.Lock()
-	(*t).eMux.Lock()
-	(*t).index = make([]*tableEntry, len((*t).entries), len((*t).entries))
-	i := 0
-	for _, e := range (*t).entries {
-		(*t).index[i] = e
-		i++
-	}
-	(*t).optIMux.Lock()
-	(*t).lastOptIndex = time.Now()
-	(*t).optIMux.Unlock()
-	(*t).eMux.Unlock()
-	(*t).iMux.Unlock()
-}
-
-func (t *table) lastIndexOptimizationTime() time.Time {
-	(*t).optIMux.Lock()
-	i := (*t).lastOptIndex
-	(*t).optIMux.Unlock()
-	return i
-}
-
-func (t *table) addToIndex(v *tableEntry) {
-	(*t).iMux.Lock()
-	(*t).index = append((*t).index, v)
-	(*t).iMux.Unlock()
-}
-
-func (t *table) removeFromIndex(v *tableEntry) {
-	(*t).iMux.Lock()
-	for i := 0; i < len((*t).index); i++ {
-		if (*t).index[i] == v {
-			(*t).index[i] = nil
-		}
-	}
-	(*t).iMux.Unlock()
-}
-
-func (t *table) indexSize() int {
-	(*t).iMux.Lock()
-	s := len((*t).index)
-	(*t).iMux.Unlock()
-	return s
-}
-
-func (t *table) indexChunk(start int, amount int) ([]*tableEntry, int) {
-	if start < 0 || amount <= 0 {
-		return []*tableEntry{}, ErrorIndexChunkOutOfRange
-	}
-	max := start+amount;
-
-	(*t).iMux.Lock()
-	indexLen := len((*t).index)
-	if start >= indexLen {
-		start = indexLen-1
-		max = indexLen
-	} else if max > indexLen {
-		max = indexLen
-	}
-	c := (*t).index[start:max]
-	(*t).iMux.Unlock()
-
-	return c, 0
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//   tableSchema   //////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-func newTableSchema(items []string, unique []int, grouped map[int][]interface{}) (tableSchema, int) {
-	if len(items) == 0 {
-		return tableSchema{}, ErrorSchemaItemsRequired
-	}
-	var s tableSchema
-	s.items = make(map[string]tableSchemaEntry)
-	// Go through items
-	for i := 0; i < len(items); i++ {
-		se := tableSchemaEntry{index: i}
-		// check for unique
-		for j := 0; j < len(unique); j++ {
-			if unique[j] == i {
-				se.unique = true
-			}
-		}
-		// check for grouped
-		if !se.unique {
-			if v, ok := grouped[i]; ok {
-				// check if any of the values aren't hashable
-				for j := 0; j < len(v); j++ {
-					if !isHashable(v[j]) {
-						return tableSchema{}, ErrorUnhashableGroupValue
-					}
+func makeEntryMap(entry []interface{}, schema tableSchema, sel []string) map[string]interface{} {
+	entryMap := make(map[string]interface{})
+	selLen := len(sel)
+	for k, v := range schema.items {
+		if selLen > 0 {
+			for i := 0; i < selLen; i++ {
+				if sel[i] == k {
+					entryMap[k] = entry[v.index]
 				}
-				se.grouped = true
-				se.groupedVals = v
 			}
+		} else {
+			entryMap[k] = entry[v.index]
 		}
-		s.items[items[i]] = se
 	}
-	return s, 0
+	return entryMap
 }
