@@ -19,7 +19,7 @@ type tableSchemaItem struct {
 	index       int
 	unique      bool
 	grouped     bool
-	groupedVals []interface{}
+	groupedEntries []interface{}
 }
 
 type table struct {
@@ -32,14 +32,14 @@ type table struct {
 	eMux    sync.Mutex
 	entries map[string]*tableEntry
 
-	iMux     sync.Mutex
-	index    []*tableEntry
+	iMux  sync.Mutex
+	index []*tableEntry
 
 	uMux       sync.Mutex
-	uniqueVals map[int]*uniqueTableEntry
+	uniqueEntries map[int]*uniqueTableEntry
 
 	gMux        sync.Mutex
-	groupedVals map[int]*groupedTableEntry
+	groupedEntries map[int]*groupedTableEntry
 
 	pMux   sync.Mutex
 	fileOn int
@@ -106,7 +106,7 @@ func newTableSchema(items []string, unique []int, grouped map[int][]interface{})
 					}
 				}
 				se.grouped = true
-				se.groupedVals = v
+				se.groupedEntries = v
 			}
 		}
 		s.items[items[i]] = se
@@ -145,8 +145,8 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 				schema: schema,
 				entries: make(map[string]*tableEntry),
 				index: []*tableEntry{},
-				uniqueVals: make(map[int]*uniqueTableEntry),
-				groupedVals: make(map[int]*groupedTableEntry),
+				uniqueEntries: make(map[int]*uniqueTableEntry),
+				groupedEntries: make(map[int]*groupedTableEntry),
 				fileOn: fileOn,
 				lineOn: lineOn }
 
@@ -154,14 +154,14 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 	for _, v := range schema.items {
 		if v.unique {
 			ute := uniqueTableEntry{vals: make(map[interface{}]*tableEntry)}
-			t.uniqueVals[v.index] = &ute
+			t.uniqueEntries[v.index] = &ute
 		} else if v.grouped {
 			gte := groupedTableEntry{groups: make(map[interface{}]*tableEntryGroup)}
-			for i := 0; i < len(v.groupedVals); i++ {
+			for i := 0; i < len(v.groupedEntries); i++ {
 				teg := tableEntryGroup{entries: []*tableEntry{}}
-				gte.groups[v.groupedVals[i]] = &teg
+				gte.groups[v.groupedEntries[i]] = &teg
 			}
-			t.groupedVals[v.index] = &gte
+			t.groupedEntries[v.index] = &gte
 		}
 	}
 
@@ -217,6 +217,20 @@ func (t *table) getEntry(n string) *tableEntry {
 	e := (*t).entries[n]
 	(*t).eMux.Unlock()
 	return e
+}
+
+func (t *table) getUniqueEntry(index int) *uniqueTableEntry {
+	t.uMux.Lock()
+	u := t.uniqueEntries[index]
+	t.uMux.Unlock()
+	return u
+}
+
+func (t *table) getGroupedEntry(index int) *groupedTableEntry {
+	t.gMux.Lock()
+	g := t.groupedEntries[index]
+	t.gMux.Unlock()
+	return g
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
