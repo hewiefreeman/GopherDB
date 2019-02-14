@@ -1,35 +1,21 @@
-package ggdb
+package tables
 
 import (
 	"sync"
-	"time"
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 )
 
 var (
-	configFile string = "db.conf"
-
-	statusMux sync.Mutex
-	dbStatus  int
-	replica   bool
-	readOnly  bool
-
-	replicasMux sync.Mutex
-	replicas    []string = []string{}
-
-	balancersMux sync.Mutex
-	balancers    []string = []string{}
-
 	tablesMux      sync.Mutex
 	logPersistTime int = 30
 	tables         map[string]*table = make(map[string]*table)
 )
 
 type tableSchema struct {
-	items map[string]tableSchemaEntry
+	items map[string]tableSchemaItem
 }
 
-type tableSchemaEntry struct {
+type tableSchemaItem struct {
 	index       int
 	unique      bool
 	grouped     bool
@@ -49,14 +35,11 @@ type table struct {
 	iMux     sync.Mutex
 	index    []*tableEntry
 
-	optIMux      sync.Mutex
-	lastOptIndex time.Time
-
 	uMux       sync.Mutex
-	uniqueVals map[int]map[interface{}]*tableEntry
+	uniqueVals map[int]*uniqueTableEntry
 
 	gMux        sync.Mutex
-	groupedVals map[int]map[interface{}][]*tableEntry
+	groupedVals map[int]*groupedTableEntry
 
 	pMux   sync.Mutex
 	fileOn int
@@ -103,10 +86,10 @@ func newTableSchema(items []string, unique []int, grouped map[int][]interface{})
 		return tableSchema{}, helpers.ErrorSchemaItemsRequired
 	}
 	var s tableSchema
-	s.items = make(map[string]tableSchemaEntry)
+	s.items = make(map[string]tableSchemaItem)
 	// Go through items
 	for i := 0; i < len(items); i++ {
-		se := tableSchemaEntry{index: i}
+		se := tableSchemaItem{index: i}
 		// check for unique
 		for j := 0; j < len(unique); j++ {
 			if unique[j] == i {
@@ -118,7 +101,7 @@ func newTableSchema(items []string, unique []int, grouped map[int][]interface{})
 			if v, ok := grouped[i]; ok {
 				// check if any of the values aren't hashable
 				for j := 0; j < len(v); j++ {
-					if !helpers.isHashable(v[j]) {
+					if !helpers.IsHashable(v[j]) {
 						return tableSchema{}, helpers.ErrorUnhashableGroupValue
 					}
 				}
@@ -162,18 +145,23 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 				schema: schema,
 				entries: make(map[string]*tableEntry),
 				index: []*tableEntry{},
-				lastOptIndex: time.Now(),
-				uniqueVals: make(map[int]map[interface{}]*tableEntry),
-				groupedVals: make(map[int]map[interface{}][]*tableEntry),
+				uniqueVals: make(map[int]*uniqueTableEntry),
+				groupedVals: make(map[int]*groupedTableEntry),
 				fileOn: fileOn,
 				lineOn: lineOn }
 
 	// Apply schema
 	for _, v := range schema.items {
 		if v.unique {
-			t.uniqueVals[v.index] = make(map[interface{}]*tableEntry)
+			ute := uniqueTableEntry{vals: make(map[interface{}]*tableEntry)}
+			t.uniqueVals[v.index] = &ute
 		} else if v.grouped {
-			t.groupedVals[v.index] = make(map[interface{}][]*tableEntry)
+			gte := groupedTableEntry{groups: make(map[interface{}]*tableEntryGroup)}
+			for i := 0; i < len(v.groupedVals); i++ {
+				teg := tableEntryGroup{entries: []*tableEntry{}}
+				gte.groups[v.groupedVals[i]] = &teg
+			}
+			t.groupedVals[v.index] = &gte
 		}
 	}
 

@@ -1,4 +1,4 @@
-package ggdb
+package helpers
 
 const (
 	// Table should or shouldn't exist
@@ -13,10 +13,15 @@ const (
 	// Unhashable errors
 	ErrorUnhashableGroupValue  = 1006
 	ErrorUnhashableUniqueValue = 1007
+	ErrorUnhashableQueryKey    = 1011
 
 	// Table's index is being optimized
 	ErrorTableIndexOptimizing = 1008
 
 	// Requested index chunk is out of range
 	ErrorIndexChunkOutOfRange = 1009
+
+	// Schema errors
+	ErrorSchemaItemDoesntExist = 1010
+
 )
