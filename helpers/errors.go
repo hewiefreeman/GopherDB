@@ -23,5 +23,5 @@ const (
 
 	// Schema errors
 	ErrorSchemaItemDoesntExist = 1010
-
+	ErrorNilGroupValue         = 1011
 )

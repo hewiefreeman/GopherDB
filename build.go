@@ -19,6 +19,14 @@ var (
 	balancers    []string = []string{}
 )
 
+// Database statuses
+const (
+	statusSettingUp = iota
+	statusHealthy
+	statusReplicationFailure
+	statusOffline
+)
+
 func main() {
 	// initialize and start database server
 }

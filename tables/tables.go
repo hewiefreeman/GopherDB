@@ -11,35 +11,25 @@ var (
 	tables         map[string]*table = make(map[string]*table)
 )
 
-type tableSchema struct {
-	items map[string]tableSchemaItem
-}
-
-type tableSchemaItem struct {
-	index       int
-	unique      bool
-	grouped     bool
-	groupedEntries []interface{}
-}
-
 type table struct {
-	logFile       string
+	logFolder     string
 	persistFolder string
 	partitionMax  int
 	maxEntries    int
+	indexChunks   int
 	schema        tableSchema
 
 	eMux    sync.Mutex
 	entries map[string]*tableEntry
 
 	iMux  sync.Mutex
-	index []*tableEntry
+	index []*indexChunk
 
 	uMux       sync.Mutex
-	uniqueEntries map[int]*uniqueTableEntry
+	uniqueItems map[int]*uniqueTableEntry
 
 	gMux        sync.Mutex
-	groupedEntries map[int]*groupedTableEntry
+	groupedItems map[int]*groupedTableEntry
 
 	pMux   sync.Mutex
 	fileOn int
@@ -56,69 +46,32 @@ type tableEntry struct {
 	entry []interface{}
 }
 
-// Database statuses
-const (
-	statusSettingUp = iota
-	statusHealthy
-	statusReplicationFailure
-	statusOffline
-)
-
 // File/folder prefixes
 const (
-	prefixTableLogFile           = "log-"
+	prefixTableLogging           = "log-"
 	prefixTableDataFolder        = "data-"
 	prefixTableDataPartitionFile = "part-"
+)
+
+// File types
+const (
+	fileTypeConfig = ".gcf"
+	fileTypeLog    = ".glf"
+	fileTypeData   = ".gdf"
 )
 
 // Defaults
 const (
 	defaultPartitionMax = 1500
-	defaultConfig = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"tables\":[]}"
+	defaultIndexChunks  = 4
+	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"tables\":[]}"
 )
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//   tableSchema   //////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-func newTableSchema(items []string, unique []int, grouped map[int][]interface{}) (tableSchema, int) {
-	if len(items) == 0 {
-		return tableSchema{}, helpers.ErrorSchemaItemsRequired
-	}
-	var s tableSchema
-	s.items = make(map[string]tableSchemaItem)
-	// Go through items
-	for i := 0; i < len(items); i++ {
-		se := tableSchemaItem{index: i}
-		// check for unique
-		for j := 0; j < len(unique); j++ {
-			if unique[j] == i {
-				se.unique = true
-			}
-		}
-		// check for grouped
-		if !se.unique {
-			if v, ok := grouped[i]; ok {
-				// check if any of the values aren't hashable
-				for j := 0; j < len(v); j++ {
-					if !helpers.IsHashable(v[j]) {
-						return tableSchema{}, helpers.ErrorUnhashableGroupValue
-					}
-				}
-				se.grouped = true
-				se.groupedEntries = v
-			}
-		}
-		s.items[items[i]] = se
-	}
-	return s, 0
-}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   table   ////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func createTable(name string, maxEntries int, schema tableSchema, fileOn int, lineOn int, partitionMax int) int {
+func createTable(name string, schema tableSchema, maxEntries int, indexChunks int, partitionMax int, fileOn int, lineOn int) int {
 	if len(name) == 0 {
 		return helpers.ErrorTableNameRequired
 	} else if tableExists(name) {
@@ -130,6 +83,11 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 		partitionMax = defaultPartitionMax
 	}
 
+	//default indexChunks
+	if indexChunks <= 0 {
+		indexChunks = defaultIndexChunks
+	}
+
 	//cant be under 0
 	if fileOn < 0 {
 		fileOn = 0
@@ -138,15 +96,24 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 		lineOn = 0
 	}
 
-	t := table{	logFile: prefixTableLogFile+name,
+	// make indexChunk list
+	indexChunkList := make([]*indexChunk, indexChunks, indexChunks)
+	for i := 0; i < indexChunks; i++ {
+		ic := indexChunk{entries: []*tableEntry{}}
+		indexChunkList[i] = &ic
+	}
+
+	// make table
+	t := table{	logFolder: prefixTableLogging+name,
 				persistFolder: prefixTableDataFolder+name,
 				partitionMax: partitionMax,
 				maxEntries: maxEntries,
+				indexChunks: indexChunks,
 				schema: schema,
 				entries: make(map[string]*tableEntry),
-				index: []*tableEntry{},
-				uniqueEntries: make(map[int]*uniqueTableEntry),
-				groupedEntries: make(map[int]*groupedTableEntry),
+				index: indexChunkList,
+				uniqueItems: make(map[int]*uniqueTableEntry),
+				groupedItems: make(map[int]*groupedTableEntry),
 				fileOn: fileOn,
 				lineOn: lineOn }
 
@@ -154,14 +121,14 @@ func createTable(name string, maxEntries int, schema tableSchema, fileOn int, li
 	for _, v := range schema.items {
 		if v.unique {
 			ute := uniqueTableEntry{vals: make(map[interface{}]*tableEntry)}
-			t.uniqueEntries[v.index] = &ute
+			t.uniqueItems[v.index] = &ute
 		} else if v.grouped {
 			gte := groupedTableEntry{groups: make(map[interface{}]*tableEntryGroup)}
-			for i := 0; i < len(v.groupedEntries); i++ {
+			for i := 0; i < len(v.groupedVals); i++ {
 				teg := tableEntryGroup{entries: []*tableEntry{}}
-				gte.groups[v.groupedEntries[i]] = &teg
+				gte.groups[v.groupedVals[i]] = &teg
 			}
-			t.groupedEntries[v.index] = &gte
+			t.groupedItems[v.index] = &gte
 		}
 	}
 
@@ -221,16 +188,32 @@ func (t *table) getEntry(n string) *tableEntry {
 
 func (t *table) getUniqueEntry(index int) *uniqueTableEntry {
 	t.uMux.Lock()
-	u := t.uniqueEntries[index]
+	u := t.uniqueItems[index]
 	t.uMux.Unlock()
 	return u
 }
 
 func (t *table) getGroupedEntry(index int) *groupedTableEntry {
 	t.gMux.Lock()
-	g := t.groupedEntries[index]
+	g := t.groupedItems[index]
 	t.gMux.Unlock()
 	return g
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//   tableEntry   ///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (t *tableEntry) getKey() string {
+	return t.key
+}
+
+func (t *tableEntry) getPersistFile() int {
+	return t.persistFile
+}
+
+func (t *tableEntry) getPersistIndex() int {
+	return t.persistIndex
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
