@@ -23,5 +23,10 @@ const (
 
 	// Schema errors
 	ErrorSchemaItemDoesntExist = 1010
-	ErrorNilGroupValue         = 1011
+	ErrorNilGroupValue         = 1012
+	ErrorSchemaMustMatch       = 1015
+
+	// Leaderboard errors
+	ErrorLeaderboardExists      = 1013
+	ErrorLeaderboardDoesntExist = 1014
 )

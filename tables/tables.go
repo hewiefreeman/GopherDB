@@ -8,35 +8,35 @@ import (
 var (
 	tablesMux      sync.Mutex
 	logPersistTime int = 30
-	tables         map[string]*table = make(map[string]*table)
+	tables         map[string]*Table = make(map[string]*Table)
 )
 
-type table struct {
+type Table struct {
 	logFolder     string
 	persistFolder string
 	partitionMax  int
 	maxEntries    int
 	indexChunks   int
-	schema        tableSchema
+	schema        TableSchema
 
 	eMux    sync.Mutex
-	entries map[string]*tableEntry
+	entries map[string]*TableEntry
 
 	iMux  sync.Mutex
 	index []*indexChunk
 
 	uMux       sync.Mutex
-	uniqueItems map[int]*uniqueTableEntry
+	uniqueItems map[int]*UniqueTableItem
 
 	gMux        sync.Mutex
-	groupedItems map[int]*groupedTableEntry
+	groupedItems map[int]*GroupedTableEntry
 
 	pMux   sync.Mutex
 	fileOn int
 	lineOn int
 }
 
-type tableEntry struct {
+type TableEntry struct {
 	key string
 
 	persistFile  int
@@ -63,15 +63,15 @@ const (
 // Defaults
 const (
 	defaultPartitionMax = 1500
-	defaultIndexChunks  = 4
-	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"tables\":[]}"
+	defaultIndexChunks  = 10
+	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"Tables\":[]}"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   table   ////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func createTable(name string, schema tableSchema, maxEntries int, indexChunks int, partitionMax int, fileOn int, lineOn int) int {
+func New(name string, schema TableSchema, maxEntries int, indexChunks int, partitionMax int, fileOn int, lineOn int) int {
 	if len(name) == 0 {
 		return helpers.ErrorTableNameRequired
 	} else if tableExists(name) {
@@ -99,33 +99,33 @@ func createTable(name string, schema tableSchema, maxEntries int, indexChunks in
 	// make indexChunk list
 	indexChunkList := make([]*indexChunk, indexChunks, indexChunks)
 	for i := 0; i < indexChunks; i++ {
-		ic := indexChunk{entries: []*tableEntry{}}
+		ic := indexChunk{entries: []*TableEntry{}}
 		indexChunkList[i] = &ic
 	}
 
 	// make table
-	t := table{	logFolder: prefixTableLogging+name,
+	t := Table{	logFolder: prefixTableLogging+name,
 				persistFolder: prefixTableDataFolder+name,
 				partitionMax: partitionMax,
 				maxEntries: maxEntries,
 				indexChunks: indexChunks,
 				schema: schema,
-				entries: make(map[string]*tableEntry),
+				entries: make(map[string]*TableEntry),
 				index: indexChunkList,
-				uniqueItems: make(map[int]*uniqueTableEntry),
-				groupedItems: make(map[int]*groupedTableEntry),
+				uniqueItems: make(map[int]*UniqueTableItem),
+				groupedItems: make(map[int]*GroupedTableEntry),
 				fileOn: fileOn,
 				lineOn: lineOn }
 
 	// Apply schema
 	for _, v := range schema.items {
 		if v.unique {
-			ute := uniqueTableEntry{vals: make(map[interface{}]*tableEntry)}
+			ute := UniqueTableItem{vals: make(map[interface{}]*TableEntry)}
 			t.uniqueItems[v.index] = &ute
 		} else if v.grouped {
-			gte := groupedTableEntry{groups: make(map[interface{}]*tableEntryGroup)}
+			gte := GroupedTableEntry{groups: make(map[interface{}]*TableEntryGroup)}
 			for i := 0; i < len(v.groupedVals); i++ {
-				teg := tableEntryGroup{entries: []*tableEntry{}}
+				teg := TableEntryGroup{entries: []*TableEntry{}}
 				gte.groups[v.groupedVals[i]] = &teg
 			}
 			t.groupedItems[v.index] = &gte
@@ -142,7 +142,7 @@ func createTable(name string, schema tableSchema, maxEntries int, indexChunks in
 	return 0
 }
 
-func deleteTable(name string) int {
+func Delete(name string) int {
 	if len(name) == 0 {
 		return helpers.ErrorTableNameRequired
 	} else if !tableExists(name) {
@@ -158,7 +158,7 @@ func deleteTable(name string) int {
 	return 0
 }
 
-func getTable(n string) *table {
+func Get(n string) *Table {
 	tablesMux.Lock()
 	t := tables[n]
 	tablesMux.Unlock()
@@ -172,28 +172,28 @@ func tableExists(n string) bool {
 	return t
 }
 
-func (t *table) size() int {
+func (t *Table) Size() int {
 	(*t).eMux.Lock()
 	s := len((*t).entries)
 	(*t).eMux.Unlock()
 	return s
 }
 
-func (t *table) getEntry(n string) *tableEntry {
+func (t *Table) Get(n string) *TableEntry {
 	(*t).eMux.Lock()
 	e := (*t).entries[n]
 	(*t).eMux.Unlock()
 	return e
 }
 
-func (t *table) getUniqueEntry(index int) *uniqueTableEntry {
+func (t *Table) GetUnique(index int) *UniqueTableItem {
 	t.uMux.Lock()
 	u := t.uniqueItems[index]
 	t.uMux.Unlock()
 	return u
 }
 
-func (t *table) getGroupedEntry(index int) *groupedTableEntry {
+func (t *Table) GetGrouped(index int) *GroupedTableEntry {
 	t.gMux.Lock()
 	g := t.groupedItems[index]
 	t.gMux.Unlock()
@@ -201,38 +201,17 @@ func (t *table) getGroupedEntry(index int) *groupedTableEntry {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-//   tableEntry   ///////////////////////////////////////////////////////////////////////////////
+//   TableEntry   ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (t *tableEntry) getKey() string {
+func (t *TableEntry) Key() string {
 	return t.key
 }
 
-func (t *tableEntry) getPersistFile() int {
+func (t *TableEntry) PersistFile() int {
 	return t.persistFile
 }
 
-func (t *tableEntry) getPersistIndex() int {
+func (t *TableEntry) PersistIndex() int {
 	return t.persistIndex
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//   Misc methods   /////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-func makeEntryMap(entry []interface{}, schema tableSchema, sel []string) map[string]interface{} {
-	entryMap := make(map[string]interface{})
-	selLen := len(sel)
-	for k, v := range schema.items {
-		if selLen > 0 {
-			for i := 0; i < selLen; i++ {
-				if sel[i] == k {
-					entryMap[k] = entry[v.index]
-				}
-			}
-		} else {
-			entryMap[k] = entry[v.index]
-		}
-	}
-	return entryMap
 }

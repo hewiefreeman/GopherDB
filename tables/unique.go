@@ -5,12 +5,12 @@ import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 )
 
-type uniqueTableEntry struct {
+type UniqueTableItem struct {
 	mux  sync.Mutex
-	vals map[interface{}]*tableEntry
+	vals map[interface{}]*TableEntry
 }
 
-func (u *uniqueTableEntry) getEntry(val interface{}) *tableEntry {
+func (u *UniqueTableItem) getEntry(val interface{}) *TableEntry {
 	if !helpers.IsHashable(val) {
 		return nil
 	}
@@ -18,4 +18,8 @@ func (u *uniqueTableEntry) getEntry(val interface{}) *tableEntry {
 	e := u.vals[val]
 	u.mux.Unlock()
 	return e
+}
+
+func (u *UniqueTableItem) addEntry(val interface{}) {
+
 }

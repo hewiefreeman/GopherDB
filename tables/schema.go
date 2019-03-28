@@ -1,29 +1,29 @@
 package tables
 
 import (
-
+	"github.com/hewiefreeman/GopherGameDB/helpers"
 )
 
-type tableSchema struct {
-	items map[string]tableSchemaItem
+type TableSchema struct {
+	items map[string]TableSchemaItem
 }
 
-type tableSchemaItem struct {
+type TableSchemaItem struct {
 	index       int
 	unique      bool
 	grouped     bool
 	groupedVals []interface{}
 }
 
-func newTableSchema(items []string, unique []int, grouped map[int][]interface{}) (tableSchema, int) {
+func NewTableSchema(items []string, unique []int, grouped map[int][]interface{}) (TableSchema, int) {
 	if len(items) == 0 {
-		return tableSchema{}, helpers.ErrorSchemaItemsRequired
+		return TableSchema{}, helpers.ErrorSchemaItemsRequired
 	}
-	var s tableSchema
-	s.items = make(map[string]tableSchemaItem)
+	var s TableSchema
+	s.items = make(map[string]TableSchemaItem)
 	// Go through items
 	for i := 0; i < len(items); i++ {
-		se := tableSchemaItem{index: i}
+		se := TableSchemaItem{index: i}
 		// check for unique
 		for j := 0; j < len(unique); j++ {
 			if unique[j] == i {
@@ -37,9 +37,9 @@ func newTableSchema(items []string, unique []int, grouped map[int][]interface{})
 				// check if any of the values aren't hashable
 				for j := 0; j < len(v); j++ {
 					if !helpers.IsHashable(v[j]) {
-						return tableSchema{}, helpers.ErrorUnhashableGroupValue
+						return TableSchema{}, helpers.ErrorUnhashableGroupValue
 					} else if v[j] == nil {
-						return tableSchema{}, helpers.ErrorNilGroupValue
+						return TableSchema{}, helpers.ErrorNilGroupValue
 					}
 				}
 				se.grouped = true
@@ -51,25 +51,25 @@ func newTableSchema(items []string, unique []int, grouped map[int][]interface{})
 	return s, 0
 }
 
-func (s tableSchema) getItem(n string) (tableSchemaItem, int) {
+func (s TableSchema) Get(n string) (TableSchemaItem, int) {
 	if v, ok := s.items[n]; ok {
 		return v, 0
 	}
-	return tableSchemaItem{}, helpers.ErrorSchemaItemDoesntExist
+	return TableSchemaItem{}, helpers.ErrorSchemaItemDoesntExist
 }
 
-func (s tableSchemaItem) isUnique(n string) bool {
+func (s TableSchemaItem) IsUnique(n string) bool {
 	return v.unique
 }
 
-func (s tableSchemaItem) isGrouped(n string) bool {
+func (s TableSchemaItem) IsGrouped(n string) bool {
 	if v, ok := s.items[n]; ok {
 		return v.grouped
 	}
 	return false
 }
 
-func (s tableSchemaItem) isGroupedVal(v interface{}) bool {
+func (s TableSchemaItem) IsGroupedVal(v interface{}) bool {
 	if !helpers.IsHashable(v) {
 		return false
 	}

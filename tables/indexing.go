@@ -7,10 +7,10 @@ import (
 
 type indexChunk struct {
 	mux     sync.Mutex
-	entries []*tableEntry
+	entries []*TableEntry
 }
 
-func (t *table) getIndexChunk(i int) *indexChunk {
+func (t *Table) getIndexChunk(i int) *indexChunk {
 	if i < 0 || i > t.indexChunks-1 {
 		return nil
 	}
@@ -20,7 +20,7 @@ func (t *table) getIndexChunk(i int) *indexChunk {
 	return chunk
 }
 
-func (t *table) getIndexChunkForKey(key string) *indexChunk {
+func (t *Table) getIndexChunkForKey(key string) *indexChunk {
 	index := helpers.HashString(key)%t.indexChunks
 	t.iMux.Lock()
 	chunk := t.index[index]
@@ -28,7 +28,7 @@ func (t *table) getIndexChunkForKey(key string) *indexChunk {
 	return chunk
 }
 
-func (t *table) addToIndex(key string, entry *tableEntry) {
+func (t *Table) addToIndex(key string, entry *TableEntry) {
 	if entry == nil {
 		return
 	}
@@ -40,7 +40,7 @@ func (t *table) addToIndex(key string, entry *tableEntry) {
 	chunk.mux.Unlock()
 }
 
-func (t *table) removeFromIndex(key string, entry *tableEntry) {
+func (t *Table) removeFromIndex(key string, entry *TableEntry) {
 	if entry == nil {
 		return
 	}
