@@ -43,7 +43,7 @@ type TableEntry struct {
 	persistIndex int
 
 	mux   sync.Mutex
-	entry []interface{}
+	data []interface{}
 }
 
 // File/folder prefixes
@@ -214,4 +214,11 @@ func (t *TableEntry) PersistFile() int {
 
 func (t *TableEntry) PersistIndex() int {
 	return t.persistIndex
+}
+
+func (t *TableEntry) Data() map[string]interface{} {
+	t.mux.Lock()
+	d := t.data
+	t.mux.Unlock()
+	return d
 }

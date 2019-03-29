@@ -68,6 +68,29 @@ func (l *Leaderboard) Len() int {
 	return length
 }
 
+func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
+	if page < 0 {
+		page = 0
+	}
+	var p []*LeaderboardEntry
+	// Get entries
+	l.mux.Lock()
+	if page*limit >= len(l.entries) {
+		p = make([]*LeaderboardEntry, 0)
+	} else if (page+1)*limit > len(l.entries) {
+		p = l.entries[page*limit:]
+	} else {
+		p = l.entries[page*limit:(page+1)*limit]
+	}
+	l.mux.Unlock()
+	// Convert to non-pointer list
+	cp := make([]LeaderboardEntry, len(p), len(p))
+	for i := 0; i < len(p); i++ {
+		cp[i] = *p[i]
+	}
+	return cp
+}
+
 func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]interface{}) {
 	l.mux.Lock()
 	// Check if Leaderboard is empty
@@ -114,7 +137,6 @@ func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]int
 								newPos = -2
 							}
 						}
-						fmt.Println(newPos)
 					}
 				}
 			}

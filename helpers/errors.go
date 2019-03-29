@@ -29,4 +29,7 @@ const (
 	// Leaderboard errors
 	ErrorLeaderboardExists      = 1013
 	ErrorLeaderboardDoesntExist = 1014
+
+	// Unique value errors
+	ErrorUniqueValueInUse       = 1016
 )

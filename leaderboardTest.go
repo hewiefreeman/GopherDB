@@ -16,6 +16,7 @@ func main() {
 	lb.CheckAndPush("Bob", 1000, make(map[string]interface{}))
 	lb.CheckAndPush("Bush", 2312, make(map[string]interface{}))
 	lb.CheckAndPush("Boris", 1652, make(map[string]interface{}))
+	lb.CheckAndPush("Billy", 1431, make(map[string]interface{}))
 	lb.CheckAndPush("Bastard", 1423, make(map[string]interface{}))
 	lb.CheckAndPush("Bunk", 1732, make(map[string]interface{}))
 	lb.CheckAndPush("Brad", 1323, make(map[string]interface{}))
@@ -47,21 +48,9 @@ func main() {
 
 	time.Sleep(time.Second*1)
 
-	now := time.Now()
-	lb.CheckAndPush("Bjorn", 1432, make(map[string]interface{}))
-	lb.CheckAndPush("Billy", 2212, make(map[string]interface{}))
-	lb.CheckAndPush("Bob", 2212, make(map[string]interface{}))
-	lb.CheckAndPush("Bush", 3252, make(map[string]interface{}))
-	lb.CheckAndPush("Boris", 1623, make(map[string]interface{}))
-	lb.CheckAndPush("Bastard", 1672, make(map[string]interface{}))
-	lb.CheckAndPush("Bunk", 1672, make(map[string]interface{}))
-	lb.CheckAndPush("Brad", 1323, make(map[string]interface{}))
-	lb.CheckAndPush("Bruno", 3423, make(map[string]interface{}))
-	lb.CheckAndPush("Bweeb", 1672, make(map[string]interface{}))
-	lb.CheckAndPush("Bhem", 2662, make(map[string]interface{}))
-	timePassed := time.Since(now)
+	fmt.Println(lb.GetPage(10, 0))
 
 
 	lb.Print()
-	fmt.Println(timePassed)
+	//fmt.Println(timePassed)
 }
