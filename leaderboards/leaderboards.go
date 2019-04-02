@@ -17,14 +17,15 @@ type Leaderboard struct {
 	alwaysReplace bool
 
 	mux     sync.Mutex
-	least   int
+	least   float64
+	most    float64
 	entries []*LeaderboardEntry
 }
 
 // LeaderboardEntry is sorted in Leaderboard entries by the target.
 type LeaderboardEntry struct {
 	name   string
-	target int
+	target float64
 	extra  map[string]interface{}
 }
 
@@ -91,7 +92,7 @@ func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
 	return cp
 }
 
-func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]interface{}) {
+func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string]interface{}) {
 	l.mux.Lock()
 	// Check if Leaderboard is empty
 	entriesLen := len(l.entries)
@@ -99,14 +100,17 @@ func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]int
 		newEntry := LeaderboardEntry{name: name, target: target, extra: extra}
 		l.entries = []*LeaderboardEntry{&newEntry}
 		l.least = target
+		l.most = target
 		l.mux.Unlock()
 		return
 	}
 	// Check if entry is worthy and for previous entry by same name
 	previousPos := -1
-	previousTarget := -1
+	var previousTarget float64 = -1
 	newPos := -1
-	if entriesLen < l.maxEntries && target < l.least {
+	if target > l.most {
+		newPos = 0
+	} else if entriesLen < l.maxEntries && target < l.least {
 		newPos = entriesLen
 	} else if entriesLen == l.maxEntries && target < l.least {
 		newPos = -2
@@ -134,7 +138,11 @@ func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]int
 								newPos = j
 								break
 							} else if j == entriesLen-1 {
-								newPos = -2
+								if entriesLen < l.maxEntries {
+									newPos = j+1
+								} else {
+									newPos = -2
+								}
 							}
 						}
 					}
@@ -157,10 +165,12 @@ func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]int
 				l.entries = append(l.entries[:previousPos], l.entries[previousPos+1:]...)
 				l.entries = append(l.entries[:newPos], append([]*LeaderboardEntry{&newEntry}, l.entries[newPos:]...)...)
 				l.least = l.entries[len(l.entries)-1].target
+				l.most = l.entries[0].target
 			} else if previousPos == newPos && (previousTarget < target || l.alwaysReplace) {
 				// replace previousPos
 				l.entries[previousPos] = &newEntry
 				l.least = l.entries[len(l.entries)-1].target
+				l.most = l.entries[0].target
 			}
 		} else {
 			// insert to newPos
@@ -170,6 +180,7 @@ func (l *Leaderboard) CheckAndPush(name string, target int, extra map[string]int
 				l.entries = l.entries[:l.maxEntries]
 			}
 			l.least = l.entries[len(l.entries)-1].target
+			l.most = l.entries[0].target
 		}
 	} else if previousPos >= 0 && l.alwaysReplace {
 		// move previousPos to end
@@ -186,7 +197,7 @@ func (l *Leaderboard) Print() {
 	l.mux.Lock()
 	fmt.Println("[ Least:", l.least, "]")
 	for i := 0; i < len(l.entries); i++ {
-		fmt.Println(l.entries[i].name, "|", l.entries[i].target)
+		fmt.Println(l.entries[i].name, "|", l.entries[i].target, "|", l.entries[i].extra)
 	}
 	l.mux.Unlock()
 	fmt.Println("=================================================")

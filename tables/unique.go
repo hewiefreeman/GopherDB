@@ -10,7 +10,7 @@ type UniqueTableItem struct {
 	vals map[interface{}]*TableEntry
 }
 
-func (u *UniqueTableItem) getEntry(val interface{}) (*TableEntry, int) {
+func (u *UniqueTableItem) Get(val interface{}) (*TableEntry, int) {
 	if !helpers.IsHashable(val) {
 		return nil, helpers.ErrorUnhashableUniqueValue
 	}
@@ -20,7 +20,7 @@ func (u *UniqueTableItem) getEntry(val interface{}) (*TableEntry, int) {
 	return e, 0
 }
 
-func (u *UniqueTableItem) addEntry(val interface{}, entry *TableEntry) int {
+func (u *UniqueTableItem) Insert(val interface{}, entry *TableEntry) int {
 	if !helpers.IsHashable(val) {
 		return helpers.ErrorUnhashableUniqueValue
 	}
@@ -35,7 +35,7 @@ func (u *UniqueTableItem) addEntry(val interface{}, entry *TableEntry) int {
 	return 0
 }
 
-func (u *UniqueTableItem) updateEntry(oldVal interface{}, newVal interface{}, entry *TableEntry) int {
+func (u *UniqueTableItem) Update(oldVal interface{}, newVal interface{}, entry *TableEntry) int {
 	if !helpers.IsHashable(oldVal) || !helpers.IsHashable(newVal) {
 		return helpers.ErrorUnhashableUniqueValue
 	}
