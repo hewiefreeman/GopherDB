@@ -1,8 +1,6 @@
 package helpers
 
 const (
-
-
 	// Table should or shouldn't exist
 	ErrorUserTableExists      = iota + 1001
 	ErrorUserTableDoesntExist
@@ -28,7 +26,7 @@ const (
 	ErrorLeaderboardExists
 	ErrorLeaderboardDoesntExist
 
-	// Unique value errors !!!!!!!!!!
+	// Unique value errors
 	ErrorUniqueValueInUse
 	ErrorEntryNameInUse
 

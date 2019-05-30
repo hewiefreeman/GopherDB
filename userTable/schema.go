@@ -92,7 +92,7 @@ func makeSchemaItem(params []interface{}) (UserTableSchemaItem, int) {
 	// Get data type
 	if t, ok := params[0].(string); ok {
 		dti := itemTypeInitializor[t]
-		dtiPL := len(dti.paramTypes)
+		dtiPL := len(dti)
 		if dtiPL == 0 {
 			return UserTableSchemaItem{}, helpers.ErrorSchemaInvalidItemType
 		} else if dtiPL != len(params[1:]) {
@@ -100,23 +100,25 @@ func makeSchemaItem(params []interface{}) (UserTableSchemaItem, int) {
 		}
 		// Check for valid parameter data types
 		for i := 0; i < dtiPL; i++ {
-			if reflect.TypeOf(params[i+1]).Kind() != dti.paramTypes[i] {
+			if reflect.TypeOf(params[i+1]).Kind() != dti[i] {
 				return UserTableSchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
 			}
 		}
 		// Execute create for the type
-		if t == "Bool" {
-			return createBool(params[1:])
-		} else if t == "Number" {
-			return createNumber(params[1:])
-		} else if t == "String" {
-			return createString(params[1:])
-		} else if t == "Array" {
-			return createArray(params[1:])
-		} else if t == "Object" {
-			return createObject(params[1:])
+		switch t {
+			case "Bool":
+				return createBool(params[1:])
+			case "Number":
+				return createNumber(params[1:])
+			case "String":
+				return createString(params[1:])
+			case "Array":
+				return createArray(params[1:])
+			case "Object":
+				return createObject(params[1:])
+			default:
+				return UserTableSchemaItem{}, helpers.ErrorUnexpected
 		}
-		return UserTableSchemaItem{}, helpers.ErrorUnexpected
 	} else {
 		return UserTableSchemaItem{}, helpers.ErrorSchemaInvalidFormat
 	}

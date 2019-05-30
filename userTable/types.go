@@ -7,27 +7,22 @@ import (
 
 // Item data type initializers for table creation queries
 var (
-	itemTypeInitializor map[string]itemTypeInit = map[string]itemTypeInit{
-		"Bool": itemTypeInit{paramTypes: []reflect.Kind{reflect.Bool}},
-		"Number": itemTypeInit{paramTypes: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Bool}},
-		"String": itemTypeInit{paramTypes: []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool}},
-		"Array": itemTypeInit{paramTypes: []reflect.Kind{reflect.Slice, reflect.Float64}},
-		"Object": itemTypeInit{paramTypes: []reflect.Kind{reflect.Map}}}
+	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind {
+		"Bool": []reflect.Kind{reflect.Bool},
+		"Number": []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Bool},
+		"String": []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
+		"Array": []reflect.Kind{reflect.Slice, reflect.Float64},
+		"Object": []reflect.Kind{reflect.Map}}
 )
 
 // Item data type reflections
 var (
-	itemTypeRefBool reflect.Type = reflect.TypeOf(BoolItem{})
+	itemTypeRefBool = reflect.TypeOf(BoolItem{})
 	itemTypeRefNumber = reflect.TypeOf(NumberItem{})
 	itemTypeRefString = reflect.TypeOf(StringItem{})
 	itemTypeRefArray = reflect.TypeOf(ArrayItem{})
 	itemTypeRefObject = reflect.TypeOf(ObjectItem{})
 )
-
-type itemTypeInit struct {
-	paramTypes []reflect.Kind
-	//create func([]interface{})(UserTableSchemaItem, int)
-}
 
 type BoolItem struct {
 	defaultValue bool
