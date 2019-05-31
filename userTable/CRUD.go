@@ -30,10 +30,13 @@ func (t *UserTable) Insert(name string, password string, insertObj map[string]in
 				return defaultErr
 			}
 			ute.dataObj[schemaItem.dataIndex] = defaultVal
-		} else if checkItemType(insertItem, schemaItem.iType) {
-			ute.dataObj[schemaItem.dataIndex] = insertItem
 		} else {
-			return ErrorInsertInvalidItemType
+			// Deciding on what to do about unique values for strings here...
+			itemTypeErr := t.checkItemType(insertItem, schemaItem.iType)
+			if itemTypeErr != 0 {
+				return itemTypeErr
+			}
+			ute.dataObj[schemaItem.dataIndex] = insertItem
 		}
 	}
 

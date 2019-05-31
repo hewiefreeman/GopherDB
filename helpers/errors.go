@@ -19,13 +19,13 @@ const (
 	ErrorInsertPasswordLength
 	ErrorInsertPasswordEncryption
 	ErrorInsertInvalidFormat
-	ErrorInsertInvalidItemType
 
 	// Unhashable errors
 	ErrorUnhashableQueryKey
 	ErrorUnhashableQueryValue
 
 	// Schema errors
+	ErrorInvalidItemType
 	ErrorMissingRequiredItem
 
 	// Leaderboard errors

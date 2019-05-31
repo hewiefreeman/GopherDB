@@ -206,6 +206,33 @@ func (t *UserTable) GetUserItem(userName string, item string) interface{} {
 	return i
 }
 
+func (t *UserTable) checkItemType(item interface{}, itemType interface{}) int {
+	kind := reflect.TypeOf(itemType)
+	switch kind {
+		case itemTypeRefBool:
+			if reflect.TypeOf(item).Kind() == reflect.Bool {
+				return 0
+			}
+			return helpers.ErrorInvalidItemType
+
+		case itemTypeRefNumber:
+			if reflect.TypeOf(item).Kind() == reflect.Float64 {
+				return 0
+			}
+			return helpers.ErrorInvalidItemType
+
+		case itemTypeRefString:
+			t := itemType.(StringItem)
+
+		case itemTypeRefArray:
+			t := itemType.(ArrayItem)
+
+		case itemTypeRefObject:
+			t := itemType.(ObjectItem)
+
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   UserTableEntry Methods   ///////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
