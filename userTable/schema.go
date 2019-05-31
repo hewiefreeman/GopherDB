@@ -10,7 +10,7 @@ type UserTableSchema map[string]UserTableSchemaItem
 
 type UserTableSchemaItem struct {
 	dataIndex int32
-	iType interface{}
+	iType     interface{}
 }
 
 // NOTES:
@@ -42,21 +42,19 @@ type UserTableSchemaItem struct {
 //				Note: same as making the schema for a UserTable
 //				Note: if an Object's parent is the database, any unique Strings in the Object with be checked against the rest of the database. Use an Array of Object to make locally (to a User entry) unique Object lists
 //
-//	Example query to make a new UserTable:
+//	Example JSON for a new schema:
 //
-//		{"NewUserTable": [
-//			"users",
-//			{
-//				"email": ["String", "", 0, true, true],
-//				"friends": ["Array", ["Object", {
-//									"name": ["String", "", 0, true, true],
-//									"status": ["Number", 0, 0, false]
-//				}], 50],
-//				"vCode": ["String", "", 0, true, false],
-//				"verified": ["Bool", false]
-//			}
-//		]};
+//		{
+//			"email": ["String", "", 0, true, true],
+//			"friends": ["Array", ["Object", {
+//								"name": ["String", "", 0, true, true],
+//								"status": ["Number", 0, 0, false]
+//			}], 50],
+//			"vCode": ["String", "", 0, true, false],
+//			"verified": ["Bool", false]
+//		}
 //
+//	In this example we make 4 items that a
 
 func NewSchema(schema map[string]interface{}) (UserTableSchema, int) {
 	if len(schema) == 0 {
@@ -65,6 +63,7 @@ func NewSchema(schema map[string]interface{}) (UserTableSchema, int) {
 	s := make(UserTableSchema)
 
 	// Make Schema
+	var i uint32
 	for itemName, itemParams := range schema {
 		// Check item format
 		if params, ok := itemParams.([]interface{}); ok {
@@ -72,7 +71,9 @@ func NewSchema(schema map[string]interface{}) (UserTableSchema, int) {
 			if iErr != 0 {
 				return nil, iErr
 			}
+			schemaItem.dataIndex = i
 			s[itemName] = schemaItem
+			i++
 		} else {
 			// Invalid format
 			return nil, helpers.ErrorSchemaInvalidFormat
@@ -92,6 +93,7 @@ func makeSchemaItem(params []interface{}) (UserTableSchemaItem, int) {
 	// Get data type
 	if t, ok := params[0].(string); ok {
 		dti := itemTypeInitializor[t]
+		// Check for valid params length
 		dtiPL := len(dti)
 		if dtiPL == 0 {
 			return UserTableSchemaItem{}, helpers.ErrorSchemaInvalidItemType
@@ -106,18 +108,18 @@ func makeSchemaItem(params []interface{}) (UserTableSchemaItem, int) {
 		}
 		// Execute create for the type
 		switch t {
-			case "Bool":
-				return createBool(params[1:])
-			case "Number":
-				return createNumber(params[1:])
-			case "String":
-				return createString(params[1:])
-			case "Array":
-				return createArray(params[1:])
-			case "Object":
-				return createObject(params[1:])
-			default:
-				return UserTableSchemaItem{}, helpers.ErrorUnexpected
+		case "Bool":
+			return createBool(params[1:])
+		case "Number":
+			return createNumber(params[1:])
+		case "String":
+			return createString(params[1:])
+		case "Array":
+			return createArray(params[1:])
+		case "Object":
+			return createObject(params[1:])
+		default:
+			return UserTableSchemaItem{}, helpers.ErrorUnexpected
 		}
 	} else {
 		return UserTableSchemaItem{}, helpers.ErrorSchemaInvalidFormat
@@ -129,7 +131,7 @@ func validSchema(ts UserTableSchema) bool {
 		return false
 	}
 	for _, v := range ts {
-		if !validSchemaItem(v){
+		if !validSchemaItem(v) {
 			return false
 		}
 	}

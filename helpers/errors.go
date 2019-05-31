@@ -14,13 +14,19 @@ const (
 	ErrorSchemaInvalidFormat
 	ErrorSchemaInvalid
 
+	// Insert Errors
+	ErrorInsertNameRequired
+	ErrorInsertPasswordLength
+	ErrorInsertPasswordEncryption
+	ErrorInsertInvalidFormat
+	ErrorInsertInvalidItemType
+
 	// Unhashable errors
 	ErrorUnhashableQueryKey
 	ErrorUnhashableQueryValue
 
 	// Schema errors
-	ErrorSchemaItemDoesntExist
-	ErrorSchemaMissingRequiredItem
+	ErrorMissingRequiredItem
 
 	// Leaderboard errors
 	ErrorLeaderboardExists

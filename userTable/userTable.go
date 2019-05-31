@@ -1,8 +1,8 @@
 package userTable
 
 import (
-	"sync"
 	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"sync"
 )
 
 ////////////////// TODOs
@@ -17,7 +17,7 @@ import (
 
 var (
 	tablesMux      sync.Mutex
-	logPersistTime int16 = 30
+	logPersistTime int16                 = 30
 	tables         map[string]*UserTable = make(map[string]*UserTable)
 )
 
@@ -27,6 +27,7 @@ type UserTable struct {
 	persistFolder string
 	partitionMax  uint16
 	maxEntries    uint64
+	minPassword   uint8
 	schema        UserTableSchema
 
 	// entries
@@ -42,12 +43,12 @@ type UserTable struct {
 type UserTableEntry struct {
 	name string
 
-	persistFile  uint16
-	persistIndex uint16
+	persistFile  uint16 // 0 - Not persisted
+	persistIndex uint16 // 0 - Not persisted
 
-	mux   sync.Mutex
+	mux      sync.Mutex
 	password []byte
-	data []interface{}
+	data     []interface{}
 }
 
 // File/folder prefixes
@@ -67,14 +68,34 @@ const (
 // Defaults
 const (
 	defaultPartitionMax = 1500
+	defaultMinPassword = 6
 	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"UserTables\":[]}"
 )
+
+//	Example JSON query to make a new UserTable:
+//
+//		{"NewUserTable": [
+//			"users", //name
+//			{ // schema
+//				"email": ["String", "", 0, true, true],
+//				"friends": ["Array", ["Object", {
+//									"name": ["String", "", 0, true, true],
+//									"status": ["Number", 0, 0, false]
+//				}], 50],
+//				"vCode": ["String", "", 0, true, false],
+//				"verified": ["Bool", false]
+//			},
+//			0, // maxEntries
+//			0, // partitionMax
+//			0, // fileOn
+//			0  // lineOn
+//		]};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   UserTable   ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func New(name string, schema UserTableSchema, maxEntries uint64, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
+func New(name string, schema UserTableSchema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
 	} else if Get(name) != nil {
@@ -84,25 +105,23 @@ func New(name string, schema UserTableSchema, maxEntries uint64, partitionMax ui
 	}
 
 	// defaults
-	if partitionMax <= 0 {
+	if partitionMax == 0 {
 		partitionMax = defaultPartitionMax
 	}
-	if fileOn < 0 {
-		fileOn = 0
-	}
-	if lineOn < 0 {
-		lineOn = 0
+	if minPassword == 0 {
+		minPassword = defaultMinPassword
 	}
 
 	// make table
-	t := UserTable{	logFolder: prefixUserTableLogging+name,
-					persistFolder: prefixUserTableDataFolder+name,
-					partitionMax: partitionMax,
-					maxEntries: maxEntries,
-					schema: schema,
-					entries: make(map[string]*UserTableEntry),
-					fileOn: fileOn,
-					lineOn: lineOn }
+	t := UserTable{logFolder: prefixUserTableLogging + name,
+		persistFolder: prefixUserTableDataFolder + name,
+		partitionMax:  partitionMax,
+		maxEntries:    maxEntries,
+		minPassword:   minPassword,
+		schema:        schema,
+		entries:       make(map[string]*UserTableEntry),
+		fileOn:        fileOn,
+		lineOn:        lineOn}
 
 	//
 	tablesMux.Lock()
@@ -123,7 +142,7 @@ func Delete(name string) int {
 	}
 
 	tablesMux.Lock()
-	delete (tables, name)
+	delete(tables, name)
 	tablesMux.Unlock()
 
 	// !!!!!! delete data folder from system & delete log file & update config file
