@@ -25,20 +25,10 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 	// Fill entry data with insertObj
 	for itemName, schemaItem := range *(t.schema) {
 		insertItem := insertObj[itemName]
-		if insertItem == nil {
-			// Get default value
-			defaultVal, defaultErr := schema.GetDefaultVal(schemaItem.ItemType())
-			if defaultErr != 0 {
-				return defaultErr
-			}
-			ute.data[schemaItem.DataIndex()] = defaultVal
-		} else {
-			var iTypeErr int
-			insertItem, iTypeErr = schema.CheckQueryItemType(insertItem, schemaItem.ItemType())
-			if iTypeErr != 0 {
-				return iTypeErr
-			}
-			ute.data[schemaItem.DataIndex()] = insertItem
+		var filterErr int
+		ute.data[schemaItem.DataIndex()], filterErr = schema.SchemaFilter(insertItem, schemaItem.ItemType())
+		if filterErr != 0 {
+			return filterErr
 		}
 	}
 

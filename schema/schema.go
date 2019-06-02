@@ -5,8 +5,10 @@ import (
 	"reflect"
 )
 
+// Schema represents a database schema that one or more tables must adhere to.
 type Schema map[string]*SchemaItem
 
+// SchemaItem represents one of the items in a Schema. SchemaItem also holds info about the data type and it's settings.
 type SchemaItem struct {
 	dataIndex uint32
 	iType     interface{}
@@ -57,8 +59,9 @@ type SchemaItem struct {
 //			"verified": ["Bool", false]
 //		}
 //
-//	In this example we make 4 items that a
 
+
+// New creates a new schema from a JSON schema object
 func New(schema map[string]interface{}) (*Schema, int) {
 	if len(schema) == 0 {
 		return nil, helpers.ErrorSchemaItemsRequired
@@ -153,6 +156,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 	}
 }
 
+// ValidSchema checks if a *Schema is valid format
 func (ts *Schema) ValidSchema() bool {
 	if ts == nil || len(*ts) == 0 {
 		return false
@@ -165,6 +169,7 @@ func (ts *Schema) ValidSchema() bool {
 	return true
 }
 
+// ValidSchemaItem checks if a *SchemaItem is valid format
 func (si *SchemaItem) ValidSchemaItem() bool {
 	to := reflect.TypeOf(si.iType)
 	if to == itemTypeRefBool ||
@@ -177,25 +182,28 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 	return false
 }
 
+// ItemType gets the SchemaItem data type
 func (si *SchemaItem) ItemType() interface{} {
 	return si.iType
 }
 
+// DataIndex gets the SchemaItem data index (table specific).
 func (si *SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
 }
 
-func SchemaFilter(insertItem interface{}, schemaItem *SchemaItem) (interface{}, int) {
+// SchemaFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
+func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, int) {
 	if insertItem == nil {
 		// Get default value
-		defaultVal, defaultErr := defaultVal(schemaItem.iType)
+		defaultVal, defaultErr := defaultVal(itemType)
 		if defaultErr != 0 {
 			return nil, defaultErr
 		}
 		return defaultVal, 0
 	} else {
 		var iTypeErr int
-		insertItem, iTypeErr = filterItemType(insertItem, schemaItem.iType)
+		insertItem, iTypeErr = filterItemType(insertItem, itemType)
 		if iTypeErr != 0 {
 			return nil, iTypeErr
 		}
@@ -203,19 +211,19 @@ func SchemaFilter(insertItem interface{}, schemaItem *SchemaItem) (interface{}, 
 	}
 }
 
-func filterItemType(item interface{}, itemType interface{}) (interface{}, int) {
+func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, int) {
 	kind := reflect.TypeOf(itemType)
 	switch kind {
 		// Handle Bools
 		case itemTypeRefBool:
-			if i, ok := item.(bool); ok {
+			if i, ok := insertItem.(bool); ok {
 				return i, 0
 			}
 			return nil, helpers.ErrorInvalidItemValue
 
 		// Handle Numbers
 		case itemTypeRefNumber:
-			if i, ok := item.(float64); ok {
+			if i, ok := insertItem.(float64); ok {
 				it := itemType.(NumberItem)
 				// Check min/max unless both are the same
 				if it.min < it.max {
@@ -232,7 +240,7 @@ func filterItemType(item interface{}, itemType interface{}) (interface{}, int) {
 
 		// Handle Strings
 		case itemTypeRefString:
-			if i, ok := item.(string); ok {
+			if i, ok := insertItem.(string); ok {
 				it := itemType.(StringItem)
 				l := uint32(len(i))
 				// Check length and if required
@@ -251,12 +259,12 @@ func filterItemType(item interface{}, itemType interface{}) (interface{}, int) {
 
 		// Handle Arrays
 		case itemTypeRefArray:
-			if i, ok := item.([]interface{}); ok {
+			if i, ok := insertItem.([]interface{}); ok {
 				it := itemType.(ArrayItem)
 				var iTypeErr int
 				// Check inner item type
 				for k := 0; k < len(i); k++ {
-					i[k], iTypeErr = CheckQueryItemType(i[k], it.dataType.(*SchemaItem).iType)
+					i[k], iTypeErr = filterItemType(i[k], it.dataType.(*SchemaItem).iType)
 					if iTypeErr != 0 {
 						return nil, iTypeErr
 					}
@@ -267,13 +275,16 @@ func filterItemType(item interface{}, itemType interface{}) (interface{}, int) {
 
 		// Handle Objects
 		case itemTypeRefObject:
-			if i, ok := item.(map[string]interface{}); ok {
+			if i, ok := insertItem.(map[string]interface{}); ok {
 				it := itemType.(ObjectItem)
 				newObj := make(map[string]interface{})
 				for itemName, schemaItem := range *(it.schema) {
-					insertItem := i[itemName]
+					innerItem := i[itemName]
 					var filterErr int
-					newObj[itemName], filterErr = SchemaFilter(schemaItem)
+					newObj[itemName], filterErr = SchemaFilter(innerItem, schemaItem.iType)
+					if filterErr != 0 {
+						return nil, filterErr
+					}
 				}
 				return newObj, 0
 			}
