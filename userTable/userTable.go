@@ -2,6 +2,7 @@ package userTable
 
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherGameDB/schema"
 	"sync"
 )
 
@@ -28,7 +29,8 @@ type UserTable struct {
 	partitionMax  uint16
 	maxEntries    uint64
 	minPassword   uint8
-	schema        UserTableSchema
+	encryptCost   int
+	schema        *schema.Schema
 
 	// entries
 	eMux    sync.Mutex
@@ -69,6 +71,7 @@ const (
 const (
 	defaultPartitionMax = 1500
 	defaultMinPassword = 6
+	defaultEncryptCost = 8
 	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"UserTables\":[]}"
 )
 
@@ -95,12 +98,12 @@ const (
 //   UserTable   ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-func New(name string, schema UserTableSchema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
+func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
 	} else if Get(name) != nil {
 		return nil, helpers.ErrorUserTableExists
-	} else if !validSchema(schema) {
+	} else if !s.ValidSchema() {
 		return nil, helpers.ErrorUserTableExists
 	}
 
@@ -118,15 +121,16 @@ func New(name string, schema UserTableSchema, maxEntries uint64, minPassword uin
 		partitionMax:  partitionMax,
 		maxEntries:    maxEntries,
 		minPassword:   minPassword,
-		schema:        schema,
+		encryptCost:   defaultEncryptCost,
+		schema:        s,
 		entries:       make(map[string]*UserTableEntry),
 		fileOn:        fileOn,
 		lineOn:        lineOn}
 
 	//
 	tablesMux.Lock()
-	tr := &t
-	tables[name] = tr
+	tables[name] = &t
+	tr := tables[name]
 	tablesMux.Unlock()
 
 	// !!!!!! make new folder on system for persisting data & create log file & update config file
@@ -158,79 +162,14 @@ func Get(n string) *UserTable {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-//   UserTable Methods   ////////////////////////////////////////////////////////////////////////
+//   UserTable Misc. Methods   //////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 func (t *UserTable) Size() int {
-	(*t).eMux.Lock()
-	s := len((*t).entries)
-	(*t).eMux.Unlock()
+	t.eMux.Lock()
+	s := len(t.entries)
+	t.eMux.Unlock()
 	return s
-}
-
-func (t *UserTable) GetUserData(userName string) map[string]interface{} {
-	m := make(map[string]interface{})
-
-	// Get entry
-	(*t).eMux.Lock()
-	e := (*t).entries[userName]
-	(*t).eMux.Unlock()
-
-	// Make entry map
-	e.mux.Lock()
-	for k, v := range t.schema {
-		m[k] = e.data[v.dataIndex]
-	}
-	e.mux.Unlock()
-
-	return m
-}
-
-func (t *UserTable) GetUserItem(userName string, item string) interface{} {
-	// Get entry
-	(*t).eMux.Lock()
-	e := (*t).entries[userName]
-	(*t).eMux.Unlock()
-
-	// Get item index
-	schemaItem := t.schema[item]
-	if !validSchemaItem(schemaItem) {
-		return nil
-	}
-
-	// Get data item with schema index
-	e.mux.Lock()
-	i := e.data[schemaItem.dataIndex]
-	e.mux.Unlock()
-
-	return i
-}
-
-func (t *UserTable) checkItemType(item interface{}, itemType interface{}) int {
-	kind := reflect.TypeOf(itemType)
-	switch kind {
-		case itemTypeRefBool:
-			if reflect.TypeOf(item).Kind() == reflect.Bool {
-				return 0
-			}
-			return helpers.ErrorInvalidItemType
-
-		case itemTypeRefNumber:
-			if reflect.TypeOf(item).Kind() == reflect.Float64 {
-				return 0
-			}
-			return helpers.ErrorInvalidItemType
-
-		case itemTypeRefString:
-			t := itemType.(StringItem)
-
-		case itemTypeRefArray:
-			t := itemType.(ArrayItem)
-
-		case itemTypeRefObject:
-			t := itemType.(ObjectItem)
-
-	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

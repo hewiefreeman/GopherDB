@@ -25,8 +25,12 @@ const (
 	ErrorUnhashableQueryValue
 
 	// Schema errors
-	ErrorInvalidItemType
+	ErrorInvalidItemValue
 	ErrorMissingRequiredItem
+	ErrorStringTooLarge
+	ErrorStringRequired
+	ErrorNumberTooLarge
+	ErrorNumberTooSmall
 
 	// Leaderboard errors
 	ErrorLeaderboardExists
@@ -35,6 +39,8 @@ const (
 	// Unique value errors
 	ErrorUniqueValueInUse
 	ErrorEntryNameInUse
+	ErrorInvalidUserName
+	ErrorInvalidPassword
 
 	// Unexpected error
 	ErrorUnexpected
