@@ -3,6 +3,8 @@ package schema
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"reflect"
+	"strings"
+	//"fmt"
 )
 
 // Schema represents a database schema that one or more tables must adhere to.
@@ -20,20 +22,26 @@ type SchemaItem struct {
 //		- ["Bool", defaultValue] : store as Boolean
 //			> defaultValue: default value of the Bool
 //
-//		- ["Number", defaultValue, decimalPrecision, absolute, min, max] : store as float64
-//			> defaultValue: default value of the Number
-//			> decimalPrecision: precision for Number decimal
-//				Note: 0 stores as int64, anything higher is float64
-//			> absolute: when true, the Number can only be positive
-//				Note: if a negative value is assigned to an absolute Number, it will be set to 0
+//		    *INT_TYPE*: "Int8" | "Int16" | "Int32" | "Int64" | "Uint8" | "Uint16" | "Uint32" | "Uint64"
+//		- ["*INT_TYPE*", defaultValue, min, max, required] : store as int(8-64) | uint(8-64)
+//			> defaultValue: default value of the integer
 //			> min: minimum value
 //			> max: maximum value
+//			> required: when true, the value must be specified when inserting (does not check on update)
+//
+//		    *FLOAT_TYPE*: "Float32" | "Float64"
+//		- ["*FLOAT_TYPE*", defaultValue, min, max, absolute, required] : store as float32 | float64
+//			> defaultValue: default value of the integer
+//			> min: minimum value
+//			> max: maximum value
+//			> absolute: when true, the vale will always be a positive or 0 value (specifying a negative number will store it as positive)
+//			> required: when true, the value must be specified when inserting (does not check on update)
 //
 //		- ["String", defaultValue, maxChars, required, unique] : store as string
 //			> defaultValue: default value the of String
 //			> maxChars: maximum characters the String can be
-//			> required: when true, the value cannot be set to blank
-//			> unique: when true, no two database entries can be assigned the same value
+//			> required: when true, the value cannot be set to a blank string
+//			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
 //				Note: a unique String (or a unique String Object item) inside an Array checks the containing Array, and not other database entries
 //
 //		- ["Array", dataType, maxItems, required] : store as []interface{}
@@ -60,6 +68,9 @@ type SchemaItem struct {
 //		}
 //
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   CREATING A SCHEMA   ////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new schema from a JSON schema object
 func New(schema map[string]interface{}) (*Schema, int) {
@@ -71,6 +82,10 @@ func New(schema map[string]interface{}) (*Schema, int) {
 	// Make Schema
 	var i uint32
 	for itemName, itemParams := range schema {
+		// Names cannot have "*" or "."
+		if strings.Contains(itemName, ".") {
+			return nil, helpers.ErrorSchemaInvalidItemName
+		}
 		// Check item format
 		if params, ok := itemParams.([]interface{}); ok {
 			schemaItem, iErr := makeSchemaItem(params)
@@ -117,19 +132,55 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 		}
 		// Execute create for the type
 		switch t {
-		case "Bool":
+		case ItemTypeBool:
 			si := SchemaItem{iType: BoolItem{defaultValue: params[1].(bool)}}
 			return &si, 0
 
-		case "Number":
-			si := SchemaItem{iType: NumberItem{defaultValue: params[1].(float64), precision: uint8(params[2].(float64)), abs: params[3].(bool), min: params[4].(float64), max: params[5].(float64)}}
+		case ItemTypeInt8:
+			si := SchemaItem{iType: Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
-		case "String":
+		case ItemTypeInt16:
+			si := SchemaItem{iType: Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeInt32:
+			si := SchemaItem{iType: Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeInt64:
+			si := SchemaItem{iType: Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeUint8:
+			si := SchemaItem{iType: Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeUint16:
+			si := SchemaItem{iType: Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeUint32:
+			si := SchemaItem{iType: Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeUint64:
+			si := SchemaItem{iType: Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}}
+			return &si, 0
+
+		case ItemTypeFloat32:
+			si := SchemaItem{iType: Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}}
+			return &si, 0
+
+		case ItemTypeFloat64:
+			si := SchemaItem{iType: Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}}
+			return &si, 0
+
+		case ItemTypeString:
 			si := SchemaItem{iType: StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}}
 			return &si, 0
 
-		case "Array":
+		case ItemTypeArray:
 			schemaItem, iErr := makeSchemaItem(params[1].([]interface{}))
 			if iErr != 0 {
 				return nil, iErr
@@ -137,7 +188,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			si := SchemaItem{iType: ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
 			return &si, 0
 
-		case "Object":
+		case ItemTypeObject:
 			if sObj, ok := params[1].(map[string]interface{}); ok {
 				schema, schemaErr := New(sObj)
 				if schemaErr != 0 {
@@ -173,7 +224,16 @@ func (ts *Schema) ValidSchema() bool {
 func (si *SchemaItem) ValidSchemaItem() bool {
 	to := reflect.TypeOf(si.iType)
 	if to == itemTypeRefBool ||
-			to == itemTypeRefNumber ||
+			to == itemTypeRefInt8 ||
+			to == itemTypeRefInt16 ||
+			to == itemTypeRefInt32 ||
+			to == itemTypeRefInt64 ||
+			to == itemTypeRefUint8 ||
+			to == itemTypeRefUint16 ||
+			to == itemTypeRefUint32 ||
+			to == itemTypeRefUint64 ||
+			to == itemTypeRefFloat32 ||
+			to == itemTypeRefFloat64 ||
 			to == itemTypeRefString ||
 			to == itemTypeRefArray ||
 			to == itemTypeRefObject {
@@ -191,6 +251,112 @@ func (si *SchemaItem) ItemType() interface{} {
 func (si *SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   QUERY METHOD FILTER   //////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MethodFilter takes in an item from a query, and applies arithmetic/methods on the cooresponding table entry data.
+func MethodFilter(updateItem interface{}, dbEntryData interface{}, itemType interface{}) (interface{}, int) {
+	ref := reflect.TypeOf(itemType)
+	switch ref {
+		// Handle Numbers
+		case itemTypeRefInt8:
+			return applyArithmetic(updateItem, float64(dbEntryData.(int8)))
+
+		case itemTypeRefInt16:
+			return applyArithmetic(updateItem, float64(dbEntryData.(int16)))
+
+		case itemTypeRefInt32:
+			return applyArithmetic(updateItem, float64(dbEntryData.(int32)))
+
+		case itemTypeRefInt64:
+			return applyArithmetic(updateItem, float64(dbEntryData.(int64)))
+
+		case itemTypeRefUint8:
+			return applyArithmetic(updateItem, float64(dbEntryData.(uint8)))
+
+		case itemTypeRefUint16:
+			return applyArithmetic(updateItem, float64(dbEntryData.(uint16)))
+
+		case itemTypeRefUint32:
+			return applyArithmetic(updateItem, float64(dbEntryData.(uint32)))
+
+		case itemTypeRefUint64:
+			return applyArithmetic(updateItem, float64(dbEntryData.(uint64)))
+
+		case itemTypeRefFloat32:
+			return applyArithmetic(updateItem, float64(dbEntryData.(float32)))
+
+		case itemTypeRefFloat64:
+			return applyArithmetic(updateItem, dbEntryData.(float64))
+
+		// Handle Arrays
+		case itemTypeRefArray:
+			// TBD
+			return updateItem, 0
+
+		// Handle Objects
+		case itemTypeRefObject:
+			// TBD
+			return updateItem, 0
+
+		default:
+			return nil, helpers.ErrorSchemaInvalidItemType
+	}
+}
+
+func applyArithmetic(updateItem interface{}, dbEntryData float64) (interface{}, int) {
+	if ui, ok := updateItem.([]interface{}); ok {
+		// Check format & get operator & number for math
+		op, num, aErr := checkArithmeticFormat(ui)
+		if aErr != 0 {
+			return 0, aErr
+		}
+		// Apply arithmetic
+		switch op {
+			case OperatorAdd:
+				return dbEntryData + num, 0
+
+			case OperatorSub:
+				return dbEntryData - num, 0
+
+			case OperatorMul:
+				return dbEntryData * num, 0
+
+			case OperatorDiv:
+				return dbEntryData / num, 0
+
+			case OperatorMod:
+				return float64(int(dbEntryData) % int(num)), 0
+		}
+		return nil, helpers.ErrorInvalidArithmeticParameters
+	}
+	return updateItem, 0
+}
+
+func checkArithmeticFormat(updateItem []interface{}) (string, float64, int) {
+	// Check format
+	if len(updateItem) != 2 {
+		return "", 0, helpers.ErrorInvalidArithmeticParameters
+	}
+	// Get operator
+	var ok bool
+	var op string
+	if op, ok = updateItem[0].(string); !ok {
+		return "", 0, helpers.ErrorInvalidArithmeticParameters
+	}
+	// Get number
+	var num float64
+	if num, ok = updateItem[1].(float64); !ok {
+		return "", 0, helpers.ErrorInvalidArithmeticParameters
+	}
+	return op, num, 0
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   QUERY SCHEMA FILTER   //////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SchemaFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
 func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, int) {
@@ -212,8 +378,8 @@ func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, in
 }
 
 func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, int) {
-	kind := reflect.TypeOf(itemType)
-	switch kind {
+	ref := reflect.TypeOf(itemType)
+	switch ref {
 		// Handle Bools
 		case itemTypeRefBool:
 			if i, ok := insertItem.(bool); ok {
@@ -221,10 +387,157 @@ func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, 
 			}
 			return nil, helpers.ErrorInvalidItemValue
 
-		// Handle Numbers
-		case itemTypeRefNumber:
+		// Handle Number types
+		case itemTypeRefInt8:
 			if i, ok := insertItem.(float64); ok {
-				it := itemType.(NumberItem)
+				it := itemType.(Int8Item)
+				ic := int8(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefInt16:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Int16Item)
+				ic := int16(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefInt32:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Int32Item)
+				ic := int32(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefInt64:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Int64Item)
+				ic := int64(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefUint8:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Uint8Item)
+				ic := uint8(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefUint16:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Uint16Item)
+				ic := uint16(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefUint32:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Uint32Item)
+				ic := uint32(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefUint64:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Uint64Item)
+				ic := uint64(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefFloat32:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Float32Item)
+				ic := float32(i)
+				// Check min/max unless both are the same
+				if it.min < it.max {
+					if ic > it.max {
+						ic = it.max
+					} else if ic < it.min {
+						ic = it.min
+					}
+				}
+				if it.abs && i < 0 {
+					i = i*(-1)
+				}
+				return ic, 0
+			}
+			return nil, helpers.ErrorInvalidItemValue
+
+		case itemTypeRefFloat64:
+			if i, ok := insertItem.(float64); ok {
+				it := itemType.(Float64Item)
 				// Check min/max unless both are the same
 				if it.min < it.max {
 					if i > it.max {
@@ -233,7 +546,9 @@ func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, 
 						i = it.min
 					}
 				}
-
+				if it.abs && i < 0 {
+					i = i*(-1)
+				}
 				return i, 0
 			}
 			return nil, helpers.ErrorInvalidItemValue
@@ -294,3 +609,4 @@ func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, 
 			return nil, helpers.ErrorSchemaInvalidItemType
 	}
 }
+

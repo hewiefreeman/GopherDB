@@ -8,7 +8,6 @@ import (
 // Item data type names
 const (
 	ItemTypeBool   = "Bool"
-	ItemTypeNumber = "Number" // DEPRICATED
 	ItemTypeInt8 = "Int8"
 	ItemTypeInt16 = "Int16"
 	ItemTypeInt32 = "Int32"
@@ -24,11 +23,19 @@ const (
 	ItemTypeObject = "Object"
 )
 
+// Arithmetic operators
+const (
+	OperatorAdd = "+"
+	OperatorSub = "-"
+	OperatorMul = "*"
+	OperatorDiv = "/"
+	OperatorMod = "%"
+)
+
 // Item data type initializers for table creation queries
 var (
 	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind{
 		ItemTypeBool:   []reflect.Kind{reflect.Bool},
-		ItemTypeNumber: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Bool, reflect.Float64, reflect.Float64}, // DEPRICATED
 		ItemTypeInt8: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
 		ItemTypeInt16: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
 		ItemTypeInt32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
@@ -37,8 +44,8 @@ var (
 		ItemTypeUint16: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
 		ItemTypeUint32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
 		ItemTypeUint64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeString: []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeArray:  []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
 		ItemTypeObject: []reflect.Kind{reflect.Map, reflect.Bool}}
@@ -47,7 +54,6 @@ var (
 // Item data type reflections
 var (
 	itemTypeRefBool   = reflect.TypeOf(BoolItem{})
-	itemTypeRefNumber = reflect.TypeOf(NumberItem{}) // DEPRICATED
 	itemTypeRefInt8 = reflect.TypeOf(Int8Item{})
 	itemTypeRefInt16 = reflect.TypeOf(Int16Item{})
 	itemTypeRefInt32 = reflect.TypeOf(Int32Item{})
@@ -65,14 +71,6 @@ var (
 
 type BoolItem struct {
 	defaultValue bool
-}
-
-type NumberItem struct { // DEPRICATED
-	defaultValue float64
-	precision    uint8
-	abs          bool
-	min          float64
-	max          float64
 }
 
 type Int8Item struct {
@@ -132,9 +130,9 @@ type Uint64Item struct {
 }
 
 type Float32Item struct {
-	defaultValue float64
-	min          float64
-	max          float64
+	defaultValue float32
+	min          float32
+	max          float32
 	abs          bool
 	required     bool
 }
@@ -172,21 +170,11 @@ type ObjectItem struct {
 func defaultVal(t interface{}) (interface{}, int) {
 	kind := reflect.TypeOf(t)
 	switch kind {
+		// Bools
 		case itemTypeRefBool:
 			return t.(BoolItem).defaultValue, 0
 
-		case itemTypeRefNumber:  // DEPRICATED
-			it := t.(NumberItem)
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
-				}
-			}
-			return i, 0
-
+		// Number types
 		case itemTypeRefInt8:
 			it := t.(Int8Item)
 			if it.required {
@@ -247,6 +235,103 @@ func defaultVal(t interface{}) (interface{}, int) {
 			}
 			return i, 0
 
+		case itemTypeRefUint8:
+			it := t.(Uint8Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			return i, 0
+
+		case itemTypeRefUint16:
+			it := t.(Uint16Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			return i, 0
+
+		case itemTypeRefUint32:
+			it := t.(Uint32Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			return i, 0
+
+		case itemTypeRefUint64:
+			it := t.(Uint64Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			return i, 0
+
+		case itemTypeRefFloat32:
+			it := t.(Float32Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			if it.abs && i < 0 {
+				i = i*(-1)
+			}
+			return i, 0
+
+		case itemTypeRefFloat64:
+			it := t.(Float64Item)
+			if it.required {
+				return nil, helpers.ErrorMissingRequiredItem
+			}
+			i := it.defaultValue
+			if it.min < it.max {
+				if i > it.max {
+					i = it.max
+				} else if i < it.min {
+					i = it.min
+				}
+			}
+			if it.abs && i < 0 {
+				i = i*(-1)
+			}
+			return i, 0
+
+		// Strings
 		case itemTypeRefString:
 			si := t.(StringItem)
 			if si.unique {
@@ -256,9 +341,11 @@ func defaultVal(t interface{}) (interface{}, int) {
 			}
 			return si.defaultValue, 0
 
+		// Arrays
 		case itemTypeRefArray:
 			return []interface{}{}, 0
 
+		// Objects
 		case itemTypeRefObject:
 			return make(map[string]interface{}), 0
 

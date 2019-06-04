@@ -9,16 +9,18 @@ const (
 	ErrorSchemaRequired
 	ErrorUserTableNameRequired
 	ErrorSchemaItemsRequired
+	ErrorSchemaInvalidItemName
 	ErrorSchemaInvalidItemType
 	ErrorSchemaInvalidItemParameters
 	ErrorSchemaInvalidFormat
 	ErrorSchemaInvalid
 
-	// Insert Errors
-	ErrorInsertNameRequired
-	ErrorInsertPasswordLength
-	ErrorInsertPasswordEncryption
-	ErrorInsertInvalidFormat
+	// User Table Query Errors
+	ErrorNameRequired
+	ErrorPasswordLength
+	ErrorPasswordEncryption
+	ErrorQueryInvalidFormat
+	ErrorInvalidArithmeticParameters
 
 	// Unhashable errors
 	ErrorUnhashableQueryKey
@@ -31,6 +33,7 @@ const (
 	ErrorStringRequired
 	ErrorNumberTooLarge
 	ErrorNumberTooSmall
+
 
 	// Leaderboard errors
 	ErrorLeaderboardExists

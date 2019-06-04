@@ -43,12 +43,11 @@ type UserTable struct {
 }
 
 type UserTableEntry struct {
-	name string
-
 	persistFile  uint16 // 0 - Not persisted
 	persistIndex uint16 // 0 - Not persisted
 
 	mux      sync.Mutex
+	name     string
 	password []byte
 	data     []interface{}
 }
@@ -75,29 +74,28 @@ const (
 	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"UserTables\":[]}"
 )
 
-//	Example JSON query to make a new UserTable:
-//
-//		{"NewUserTable": [
-//			"users", //name
-//			{ // schema
-//				"email": ["String", "", 0, true, true],
-//				"friends": ["Array", ["Object", {
-//									"name": ["String", "", 0, true, true],
-//									"status": ["Number", 0, 0, false]
-//				}], 50],
-//				"vCode": ["String", "", 0, true, false],
-//				"verified": ["Bool", false]
-//			},
-//			0, // maxEntries
-//			0, // partitionMax
-//			0, // fileOn
-//			0  // lineOn
-//		]};
-
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   UserTable   ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+//
+//
+//	Example JSON query to make a new UserTable:
+//
+//		{"NewUserTable": [
+//			"users",
+//			{
+//				"email": ["String", "", 0, true, true],
+//				"friends": ["Array", ["Object", {
+//									"name": ["String", "", 0, true, true],
+//									"status": ["Uint8", 0, 0, 2, false]
+//				}, false], 50, false],
+//				"vCode": ["String", "", 0, true, false],
+//				"verified": ["Bool", false]
+//			},
+//			0, 0, 0, 0
+//		]};
+//
 func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
