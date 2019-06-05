@@ -103,7 +103,7 @@ var (
 
 func main() {
 	// JSON query and unmarshalling test
-	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false]}, 0, 0, 0, 0]}";
+	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"numArr\": [\"Array\", [\"Uint16\", 0, 0, 0, false], 0, false]}, 0, 0, 0, 0]}";
 	v := make(map[string]interface{})
 	err := json.Unmarshal([]byte(newTableJson), &v)
 	if err != nil {
@@ -150,7 +150,7 @@ func main() {
 	for v := range insertItems {
 		now := time.Now()
 		// add 1 to entry's mmr
-		updateErr := table.UpdateUserData(insertItems[v].name, insertItems[v].pass, map[string]interface{}{"mmr": []interface{}{"+", float64(2)}})
+		updateErr := table.UpdateUserData(insertItems[v].name, insertItems[v].pass, map[string]interface{}{"mmr.*add": []interface{}{2}})
 		if updateErr != 0 {
 			fmt.Println("Update Error:", updateErr)
 			return
@@ -207,22 +207,36 @@ func main() {
 		return
 	}
 
-	// Append 2 friends to friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name":"Harry"},map[string]interface{}{"name":"Potter"}}})
+	// Append 2 friends to index 1 of friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append[1]": []interface{}{map[string]interface{}{"name":"Harry"},map[string]interface{}{"name":"Potter"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error:", updateErr)
 		return
 	}
 
 	// Delete 2 friends from friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*delete": []interface{}{3, 2}})
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*delete": []interface{}{2, 1}})
 	if updateErr != 0 {
 		fmt.Println("Update Error:", updateErr)
 		return
 	}
 
-	// Append some friends at index 1 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append[1]": []interface{}{map[string]interface{}{"name":"Harry"},map[string]interface{}{"name":"Potter"}}})
+	// Chage friend value at index 1 of friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1": map[string]interface{}{"name":"Munster"}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Append 2 numbers to numArr
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"numArr.*append": []interface{}{3, 4}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Add 2 to index 0 of numArr
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"numArr.0.*add": []interface{}{2}})
 	if updateErr != 0 {
 		fmt.Println("Update Error:", updateErr)
 		return
