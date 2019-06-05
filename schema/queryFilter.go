@@ -3,6 +3,8 @@ package schema
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"strings"
+	"strconv"
+	//"fmt"
 )
 
 // Arithmetic operators
@@ -21,6 +23,9 @@ const (
 	MethodOperatorMul = "*mul"
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
+	MethodAppend      = "*append"
+	MethodPrepend     = "*prepend"
+	MethodDelete      = "*delete"
 )
 
 // Item type query filters - Initialized when the first Schema is made (see New())
@@ -153,13 +158,141 @@ func applyNumberMethod(numbs []interface{}, methods []string, dbEntryData float6
 	return dbEntryData, 0
 }
 
-func applyArrayMethod() {
-	//
+func applyArrayMethod(insertItem []interface{}, methods []string, dbEntryData []interface{}, itemType *SchemaItem) ([]interface{}, int) {
+	// Basic array methods
+	switch methods[0] {
+		case MethodAppend:
+			return append(dbEntryData, insertItem...), 0
+
+		case MethodPrepend:
+			return append(insertItem, dbEntryData...), 0
+
+		case MethodDelete:
+			// Item numbers to delete must be in order of greatest to least
+			var lastNum int = len(dbEntryData)
+			for _, numb := range insertItem {
+				if cNumb, ok := makeInt(numb); ok {
+					i := int(cNumb)
+					if i >= lastNum {
+						return nil, helpers.ErrorInvalidMethodParameters
+					} else if i >= 0 {
+						dbEntryData = append(dbEntryData[:i], dbEntryData[i+1:]...)
+					}
+					lastNum = i
+				} else {
+					return nil, helpers.ErrorInvalidMethodParameters
+				}
+			}
+			return dbEntryData, 0
+	}
+
+	// Check for append at index method
+	if len(methods[0]) >= 10 && methods[0][:8] == "*append[" && methods[0][len(methods[0])-1:len(methods[0])] == "]" {
+		// Convert the text inside brackets to int
+		i, iErr := strconv.Atoi(methods[0][8:len(methods[0])-1])
+		if iErr != nil {
+			return nil, helpers.ErrorInvalidMethod
+		}
+
+		if i < 0 {
+			i = 0
+		} else if i > len(dbEntryData)-1 {
+			i = len(dbEntryData)-1
+		}
+
+		entryStart := append([]interface{}{}, dbEntryData[:i]...)
+		entryStart = append(entryStart, insertItem...)
+		return append(entryStart, dbEntryData[i:]...), 0
+	}
+
+	// Try to convert methods[0] to int for index method
+	/*i, iErr := strconv.Atoi(methods[0])
+	if iErr != nil {
+		return 0, helpers.ErrorInvalidMethod
+	}*/
+
+	return nil, helpers.ErrorInvalidMethod
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //   ITEM TYPE FILTERS   ////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func makeFloat(insertItem interface{}) (float64, bool) {
+	switch t := insertItem.(type) {
+		case float64:
+			return t, true
+
+		case int:
+			return float64(t), true
+
+		case int8:
+			return float64(t), true
+
+		case int16:
+			return float64(t), true
+
+		case int32:
+			return float64(t), true
+
+		case int64:
+			return float64(t), true
+
+		case uint8:
+			return float64(t), true
+
+		case uint16:
+			return float64(t), true
+
+		case uint32:
+			return float64(t), true
+
+		case uint64:
+			return float64(t), true
+
+		case float32:
+			return float64(t), true
+	}
+	return 0, false
+}
+
+func makeInt(insertItem interface{}) (int, bool) {
+	switch t := insertItem.(type) {
+		case int:
+			return t, true
+
+		case int8:
+			return int(t), true
+
+		case int16:
+			return int(t), true
+
+		case int32:
+			return int(t), true
+
+		case int64:
+			return int(t), true
+
+		case uint8:
+			return int(t), true
+
+		case uint16:
+			return int(t), true
+
+		case uint32:
+			return int(t), true
+
+		case uint64:
+			return int(t), true
+
+		case float32:
+			return int(t), true
+
+		case float64:
+			return int(t), true
+	}
+	return 0, false
+}
 
 func boolFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	if i, ok := insertItem.(bool); ok {
@@ -170,7 +303,7 @@ func boolFilter(insertItem interface{}, itemMethods []string, dbEntryData interf
 
 func int8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic int8
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = int8(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -204,7 +337,7 @@ func int8Filter(insertItem interface{}, itemMethods []string, dbEntryData interf
 
 func int16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic int16
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = int16(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -238,7 +371,7 @@ func int16Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 
 func int32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic int32
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = int32(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -272,7 +405,7 @@ func int32Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 
 func int64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic int64
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = int64(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -306,7 +439,7 @@ func int64Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 
 func uint8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic uint8
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = uint8(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -340,7 +473,7 @@ func uint8Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 
 func uint16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic uint16
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = uint16(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -374,7 +507,7 @@ func uint16Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 
 func uint32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic uint32
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = uint32(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -408,7 +541,7 @@ func uint32Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 
 func uint64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic uint64
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = uint64(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -442,7 +575,7 @@ func uint64Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 
 func float32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic float32
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = float32(i)
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -479,7 +612,7 @@ func float32Filter(insertItem interface{}, itemMethods []string, dbEntryData int
 
 func float64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	var ic float64
-	if i, ok := insertItem.(float64); ok {
+	if i, ok := makeFloat(insertItem); ok {
 		ic = i
 	} else if i, ok := insertItem.([]interface{}); ok {
 		// Apply method or arithmetic if no methods provided
@@ -535,6 +668,13 @@ func stringFilter(insertItem interface{}, itemMethods []string, dbEntryData inte
 
 func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	if i, ok := insertItem.([]interface{}); ok {
+		if len(itemMethods) > 0 {
+			var mErr int
+			i, mErr = applyArrayMethod(i, itemMethods, dbEntryData.([]interface{}), itemType)
+			if mErr != 0 {
+				return nil, mErr
+			}
+		}
 		it := itemType.iType.(ArrayItem)
 		var iTypeErr int
 		// Check inner item type
@@ -553,9 +693,9 @@ func objectFilter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	if i, ok := insertItem.(map[string]interface{}); ok {
 		it := itemType.iType.(ObjectItem)
 		newObj := make(map[string]interface{})
+		var filterErr int
 		for itemName, schemaItem := range *(it.schema) {
 			innerItem := i[itemName]
-			var filterErr int
 			newObj[itemName], filterErr = QueryItemFilter(innerItem, nil, nil, schemaItem)
 			if filterErr != 0 {
 				return nil, filterErr

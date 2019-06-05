@@ -160,185 +160,173 @@ type ObjectItem struct {
 
 func defaultVal(si *SchemaItem) (interface{}, int) {
 	t := si.iType
-	kind := reflect.TypeOf(t)
-	switch kind {
+	switch kind := t.(type) {
 		// Bools
-		case itemTypeRefBool:
-			return t.(BoolItem).defaultValue, 0
+		case BoolItem:
+			return kind.defaultValue, 0
 
 		// Number types
-		case itemTypeRefInt8:
-			it := t.(Int8Item)
-			if it.required {
+		case Int8Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefInt16:
-			it := t.(Int16Item)
-			if it.required {
+		case Int16Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefInt32:
-			it := t.(Int32Item)
-			if it.required {
+		case Int32Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefInt64:
-			it := t.(Int64Item)
-			if it.required {
+		case Int64Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefUint8:
-			it := t.(Uint8Item)
-			if it.required {
+		case Uint8Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefUint16:
-			it := t.(Uint16Item)
-			if it.required {
+		case Uint16Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefUint32:
-			it := t.(Uint32Item)
-			if it.required {
+		case Uint32Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefUint64:
-			it := t.(Uint64Item)
-			if it.required {
+		case Uint64Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
 			return i, 0
 
-		case itemTypeRefFloat32:
-			it := t.(Float32Item)
-			if it.required {
+		case Float32Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
-			if it.abs && i < 0 {
+			if kind.abs && i < 0 {
 				i = i*(-1)
 			}
 			return i, 0
 
-		case itemTypeRefFloat64:
-			it := t.(Float64Item)
-			if it.required {
+		case Float64Item:
+			if kind.required {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			i := it.defaultValue
-			if it.min < it.max {
-				if i > it.max {
-					i = it.max
-				} else if i < it.min {
-					i = it.min
+			i := kind.defaultValue
+			if kind.min < kind.max {
+				if i > kind.max {
+					i = kind.max
+				} else if i < kind.min {
+					i = kind.min
 				}
 			}
-			if it.abs && i < 0 {
+			if kind.abs && i < 0 {
 				i = i*(-1)
 			}
 			return i, 0
 
 		// Strings
-		case itemTypeRefString:
-			si := t.(StringItem)
-			if si.unique {
+		case StringItem:
+			if kind.unique {
 				return nil, helpers.ErrorMissingRequiredItem
-			} else if si.required && len(si.defaultValue) == 0 {
+			} else if kind.required && len(kind.defaultValue) == 0 {
 				return nil, helpers.ErrorMissingRequiredItem
 			}
-			return si.defaultValue, 0
+			return kind.defaultValue, 0
 
 		// Arrays
-		case itemTypeRefArray:
+		case ArrayItem:
 			return []interface{}{}, 0
 
 		// Objects
-		case itemTypeRefObject:
+		case ObjectItem:
 			return make(map[string]interface{}), 0
 
 		default:

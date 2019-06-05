@@ -24,7 +24,7 @@ var (
 		ii{name:"stoned",          pass: "uyh4rhrthg"},
 		ii{name:"baked",           pass: "rgse5g5r4"},
 		ii{name:"seared",          pass: "sret5yhtrs"},
-		ii{name:"cripened",        pass: "r6ujh6thys"},
+		ii{name:"crispened",        pass: "r6ujh6thys"},
 		ii{name:"dead",            pass: "rtgdfg34"},
 		ii{name:"alive",           pass: "2w3rfwefaw"},
 		ii{name:"killed",          pass: "gvfbhghrt6hf"},
@@ -149,6 +149,7 @@ func main() {
 	averageTime = 0
 	for v := range insertItems {
 		now := time.Now()
+		// add 1 to entry's mmr
 		updateErr := table.UpdateUserData(insertItems[v].name, insertItems[v].pass, map[string]interface{}{"mmr": []interface{}{"+", float64(2)}})
 		if updateErr != 0 {
 			fmt.Println("Update Error:", updateErr)
@@ -185,7 +186,43 @@ func main() {
 	}
 	fmt.Println("Before:", ud)
 
-	updateErr := table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"mmr.*mul.*div.*add": []interface{}{float64(1.5), float64(2), float64(3)}})
+	// Multiply by 1.5, divide by 2, add 4, then subtract 1 from entry's mmr (using methods)
+	updateErr := table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"mmr.*mul.*div.*add.*sub": []interface{}{float64(1.5), float64(2), float64(4), float64(1)}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Append a friend to friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name":"Murcury"}}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Prepend a friend to friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*prepend": []interface{}{map[string]interface{}{"name":"Jason"}}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Append 2 friends to friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name":"Harry"},map[string]interface{}{"name":"Potter"}}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Delete 2 friends from friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*delete": []interface{}{3, 2}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	// Append some friends at index 1 of friends
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append[1]": []interface{}{map[string]interface{}{"name":"Harry"},map[string]interface{}{"name":"Potter"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error:", updateErr)
 		return

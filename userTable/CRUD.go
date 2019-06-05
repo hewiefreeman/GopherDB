@@ -164,7 +164,6 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 	// Get entry data slice
 	e.mux.Lock()
 	data := e.data
-	e.mux.Unlock()
 
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
@@ -174,18 +173,19 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		// Check if valid schema item
 		schemaItem := (*(*t).schema)[updateName]
 		if schemaItem == nil {
+			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
 		// Add updateItem to entry data slice
 		var err int
 		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, itemMethods, data[schemaItem.DataIndex()], schemaItem)
 		if err != 0 {
+			e.mux.Unlock()
 			return err
 		}
 	}
 
 	// Update entry data with new data
-	e.mux.Lock()
 	e.data = data
 	e.mux.Unlock()
 
