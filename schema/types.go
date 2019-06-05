@@ -23,15 +23,6 @@ const (
 	ItemTypeObject = "Object"
 )
 
-// Arithmetic operators
-const (
-	OperatorAdd = "+"
-	OperatorSub = "-"
-	OperatorMul = "*"
-	OperatorDiv = "/"
-	OperatorMod = "%"
-)
-
 // Item data type initializers for table creation queries
 var (
 	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind{

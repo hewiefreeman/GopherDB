@@ -3,7 +3,6 @@ package userTable
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"github.com/hewiefreeman/GopherGameDB/schema"
-	"strings"
 	//"fmt"
 )
 
@@ -25,7 +24,7 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 		return helpers.ErrorNameRequired
 	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
-	} else if maxEntries > 0 && t.Size() == maxEntries {
+	} else if maxEntries > 0 && t.Size() == int(maxEntries) {
 		return helpers.ErrorTableFull
 	}
 
@@ -41,7 +40,7 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 	for itemName, schemaItem := range *(t.schema) {
 		insertItem := insertObj[itemName]
 		var filterErr int
-		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, schemaItem)
+		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, nil, schemaItem)
 		if filterErr != 0 {
 			return filterErr
 		}
@@ -164,29 +163,29 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 
 	// Get entry data slice
 	e.mux.Lock()
+	data := e.data
+	e.mux.Unlock()
 
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
-		if strings.Contains(updateName, ".") {
-
-		}
+		var itemMethods []string
+		updateName, itemMethods = schema.GetQueryItemMethods(updateName)
 
 		// Check if valid schema item
 		schemaItem := (*(*t).schema)[updateName]
 		if schemaItem == nil {
-			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
 		// Add updateItem to entry data slice
 		var err int
-		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, data[schemaItem.DataIndex()], schemaItem)
+		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, itemMethods, data[schemaItem.DataIndex()], schemaItem)
 		if err != 0 {
-			e.mux.Unlock()
 			return err
 		}
 	}
 
 	// Update entry data with new data
+	e.mux.Lock()
 	e.data = data
 	e.mux.Unlock()
 

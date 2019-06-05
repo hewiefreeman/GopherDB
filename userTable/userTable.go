@@ -164,6 +164,15 @@ func Delete(name string) int {
 	return 0
 }
 
+// Get retrieves a UserTable by name
+func Get(name string) *UserTable {
+	tablesMux.Lock()
+	t := tables[name]
+	tablesMux.Unlock()
+
+	return t
+}
+
 // CheckPassword compares the UserTableEntry's encrypted password with the given string password.
 func (t *UserTableEntry) CheckPassword(pass string) bool {
 	t.mux.Lock()
@@ -179,7 +188,7 @@ func (t *UserTable) Size() int {
 	return s
 }
 
-func (t *UserTableEntry) SetEncryptionCost(cost int) {
+func (t *UserTable) SetEncryptionCost(cost int) {
 	if cost > encryptCostMax {
 		cost = encryptCostMax
 	} else if cost < encryptCostMin {
@@ -190,7 +199,7 @@ func (t *UserTableEntry) SetEncryptionCost(cost int) {
 	t.sMux.Unlock()
 }
 
-func (t *UserTableEntry) SetMaxEntries(max int) {
+func (t *UserTable) SetMaxEntries(max uint64) {
 	if max < 0 {
 		max = 0
 	}
@@ -199,7 +208,7 @@ func (t *UserTableEntry) SetMaxEntries(max int) {
 	t.sMux.Unlock()
 }
 
-func (t *UserTableEntry) SetMinPasswordLength(min int) {
+func (t *UserTable) SetMinPasswordLength(min uint8) {
 	if min < 1 {
 		min = 1
 	}

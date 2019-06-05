@@ -22,7 +22,10 @@ const (
 
 	// Generic Table Query Errors
 	ErrorQueryInvalidFormat
-	ErrorInvalidArithmeticParameters
+	ErrorInvalidArithmeticOperator
+	ErrorInvalidArithmeticParameter
+	ErrorInvalidMethod
+	ErrorInvalidMethodParameters
 	ErrorTableFull
 
 	// Schema errors

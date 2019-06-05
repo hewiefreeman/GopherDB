@@ -165,7 +165,7 @@ func main() {
 	averageTime = 0
 	for v := range insertItems {
 		now := time.Now()
-		_, ueErr := table.GetUserData(insertItems[v].name, insertItems[v].pass,)
+		_, ueErr := table.GetUserData(insertItems[v].name, insertItems[v].pass)
 		if ueErr != 0 {
 			fmt.Println("User Data Error:", ueErr)
 			return
@@ -177,4 +177,24 @@ func main() {
 		}
 	}
 	fmt.Println("Average select time (ms):", averageTime*1000)
+
+	ud, ueErr := table.GetUserData("wtlf", "whatthe")
+	if ueErr != 0 {
+		fmt.Println("User Data Error:", ueErr)
+		return
+	}
+	fmt.Println("Before:", ud)
+
+	updateErr := table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"mmr.*mul.*div.*add": []interface{}{float64(1.5), float64(2), float64(3)}})
+	if updateErr != 0 {
+		fmt.Println("Update Error:", updateErr)
+		return
+	}
+
+	ud, ueErr = table.GetUserData("wtlf", "whatthe")
+	if ueErr != 0 {
+		fmt.Println("User Data Error:", ueErr)
+		return
+	}
+	fmt.Println("After:", ud)
 }
