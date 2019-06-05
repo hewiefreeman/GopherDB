@@ -1,4 +1,4 @@
-package leaderboards
+package leaderboard
 
 import (
 	"sync"

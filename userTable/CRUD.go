@@ -3,6 +3,7 @@ package userTable
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"github.com/hewiefreeman/GopherGameDB/schema"
+	"strings"
 	//"fmt"
 )
 
@@ -13,11 +14,19 @@ import (
 
 // NewUser creates a new UserTableEntry in the UserTable
 func (t *UserTable) NewUser(name string, password string, insertObj map[string]interface{}) int {
+	t.sMux.Lock()
+	eCost := t.encryptCost
+	minPass := t.minPassword
+	maxEntries := t.maxEntries
+	t.sMux.Unlock()
+
 	// Name and password are required
 	if len(name) == 0 {
 		return helpers.ErrorNameRequired
-	} else if len(password) < int(t.minPassword) {
+	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
+	} else if maxEntries > 0 && t.Size() == maxEntries {
+		return helpers.ErrorTableFull
 	}
 
 	// Create entry
@@ -32,14 +41,14 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 	for itemName, schemaItem := range *(t.schema) {
 		insertItem := insertObj[itemName]
 		var filterErr int
-		ute.data[schemaItem.DataIndex()], filterErr = schema.SchemaFilter(insertItem, schemaItem.ItemType())
+		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, schemaItem)
 		if filterErr != 0 {
 			return filterErr
 		}
 	}
 
 	// Encrypt password and store in entry
-	ePass, ePassErr := helpers.EncryptString(password, t.encryptCost)
+	ePass, ePassErr := helpers.EncryptString(password, eCost)
 	if ePassErr != nil {
 		return helpers.ErrorPasswordEncryption
 	}
@@ -64,14 +73,16 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 
 // GetUserData
 func (t *UserTable) GetUserData(userName string, password string) (map[string]interface{}, int) {
+	t.sMux.Lock()
+	minPass := t.minPassword
+	t.sMux.Unlock()
+
 	// Name and password are required
 	if len(userName) == 0 {
 		return nil, helpers.ErrorNameRequired
-	} else if len(password) < int(t.minPassword) {
+	} else if len(password) < int(minPass) {
 		return nil, helpers.ErrorPasswordLength
 	}
-
-	m := make(map[string]interface{})
 
 	// Get entry
 	t.eMux.Lock()
@@ -86,6 +97,7 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 	}
 
 	// Make entry map
+	m := make(map[string]interface{})
 	e.mux.Lock()
 	for k, v := range *(t.schema) {
 		m[k] = e.data[v.DataIndex()]
@@ -100,30 +112,49 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 //  Changing a string:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"email": "differentemail@yahoo.com"}]}}
 //
-//  Increasing a float (or integer) type:
+//  Arithmetic on a number type:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"mmr": ["+", 0.5]}]}} // can also be "-", "*", "/", "%"
 //
-//  Adding an item to an Array:
-//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends": ["+", 0.5]}]}} // can also be "-", "*", "/", "%"
+//  Updating an item inside an Array:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.0": {"name": "Joe", "status": 1}}]}}
+//
+//  Append item(s) to an Array or Object:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*append": [{"name": "Joe", "status": 1}]}]}}
+//
+//  Prepend item(s) to an Array:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*prepend": [{"name": "Joe", "status": 1}]}]}}
+//
+//  Append item(s) to certain position in an Array:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*append[3]": [{"name": "Joe", "status": 1}]}]}}
+//
+//  Delete item(s) in an Array:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*delete": [0]}]}}
+//
+//  Changing an item in an Object (that's in an Array):
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.0.status": 2}]}}
 //
 
 // UpdateUserData
 func (t *UserTable) UpdateUserData(userName string, password string, updateObj map[string]interface{}) int {
+	t.sMux.Lock()
+	minPass := t.minPassword
+	t.sMux.Unlock()
+
 	// Name, password, and updateObj are required
 	if len(userName) == 0 {
 		return helpers.ErrorNameRequired
-	} else if len(password) < int(t.minPassword) {
+	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
 	} else if len(updateObj) == 0 {
 		return helpers.ErrorQueryInvalidFormat
 	}
 
-	// Get entry and it's data from entry map
+	// Get entry
 	t.eMux.Lock()
 	e := t.entries[userName]
-	data := e.data
 	t.eMux.Unlock()
 
+	// Check for valid entry and password
 	if e == nil {
 		return helpers.ErrorInvalidUserName
 	}
@@ -131,27 +162,31 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		return helpers.ErrorInvalidPassword
 	}
 
+	// Get entry data slice
+	e.mux.Lock()
+
+	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
-		schemaItem := (*(*t).schema)[updateName]
-		if schemaItem == nil {
-			return helpers.ErrorSchemaInvalid
-		}
-		var err int
-		// Apply number arithmetic and Array/Object methods to updateItem
-		updateItem, err = schema.MethodFilter(updateItem, data[schemaItem.DataIndex()], schemaItem.ItemType())
-		if err != 0 {
-			return err
+		if strings.Contains(updateName, ".") {
+
 		}
 
-		//  Add updateObj values to new entry data
-		data[schemaItem.DataIndex()], err = schema.SchemaFilter(updateItem, schemaItem.ItemType())
+		// Check if valid schema item
+		schemaItem := (*(*t).schema)[updateName]
+		if schemaItem == nil {
+			e.mux.Unlock()
+			return helpers.ErrorSchemaInvalid
+		}
+		// Add updateItem to entry data slice
+		var err int
+		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, data[schemaItem.DataIndex()], schemaItem)
 		if err != 0 {
+			e.mux.Unlock()
 			return err
 		}
 	}
 
 	// Update entry data with new data
-	e.mux.Lock()
 	e.data = data
 	e.mux.Unlock()
 
@@ -159,27 +194,30 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 }
 
 func (t *UserTable) DeleteUser(userName string, password string) int {
+	t.sMux.Lock()
+	minPass := t.minPassword
+	t.sMux.Unlock()
+
 	// Name and password are required
 	if len(userName) == 0 {
 		return helpers.ErrorNameRequired
-	} else if len(password) < int(t.minPassword) {
+	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
 	}
 
 	t.eMux.Lock()
 	ue := t.entries[userName]
-	t.eMux.Unlock()
 
 	//
 	if ue == nil {
+		t.eMux.Unlock()
 		return helpers.ErrorInvalidUserName
-	}
-	if !ue.CheckPassword(password) {
+	} else if !ue.CheckPassword(password) {
+		t.eMux.Unlock()
 		return helpers.ErrorInvalidPassword
 	}
 
 	// Delete entry
-	t.eMux.Lock()
 	delete(t.entries, userName)
 	t.eMux.Unlock()
 

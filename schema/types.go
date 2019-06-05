@@ -167,7 +167,8 @@ type ObjectItem struct {
 //   GET A DEFAULT VALUE   //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func defaultVal(t interface{}) (interface{}, int) {
+func defaultVal(si *SchemaItem) (interface{}, int) {
+	t := si.iType
 	kind := reflect.TypeOf(t)
 	switch kind {
 		// Bools

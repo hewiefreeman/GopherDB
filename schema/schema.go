@@ -13,8 +13,15 @@ type Schema map[string]*SchemaItem
 // SchemaItem represents one of the items in a Schema. SchemaItem also holds info about the data type and it's settings.
 type SchemaItem struct {
 	dataIndex uint32
+	typeName  string
 	iType     interface{}
 }
+
+// Item type query filters
+
+var (
+	queryFilters map[string]func(interface{}, interface{}, *SchemaItem)(interface{}, int)
+)
 
 // NOTES:
 //
@@ -74,16 +81,33 @@ type SchemaItem struct {
 
 // New creates a new schema from a JSON schema object
 func New(schema map[string]interface{}) (*Schema, int) {
-	if len(schema) == 0 {
-		return nil, helpers.ErrorSchemaItemsRequired
+	// INIT queryFilters
+	if queryFilters == nil {
+		queryFilters = map[string]func(interface{}, interface{}, *SchemaItem)(interface{}, int){
+			"Bool": boolFilter,
+			"Int8": int8Filter,
+			"Int16": int16Filter,
+			"Int32": int32Filter,
+			"Int64": int64Filter,
+			"Uint8": uint8Filter,
+			"Uint16": uint16Filter,
+			"Uint32": uint32Filter,
+			"Uint64": uint64Filter,
+			"Float32": float32Filter,
+			"Float64": float32Filter,
+			"String": stringFilter,
+			"Array": arrayFilter,
+			"Object": objectFilter,
+		}
 	}
+
 	s := make(Schema)
 
 	// Make Schema
 	var i uint32
 	for itemName, itemParams := range schema {
-		// Names cannot have "*" or "."
-		if strings.Contains(itemName, ".") {
+		// Names cannot have "." or "*"
+		if strings.Contains(itemName, ".") || strings.Contains(itemName, "*") {
 			return nil, helpers.ErrorSchemaInvalidItemName
 		}
 		// Check item format
@@ -133,51 +157,51 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 		// Execute create for the type
 		switch t {
 		case ItemTypeBool:
-			si := SchemaItem{iType: BoolItem{defaultValue: params[1].(bool)}}
+			si := SchemaItem{typeName: t, iType: BoolItem{defaultValue: params[1].(bool)}}
 			return &si, 0
 
 		case ItemTypeInt8:
-			si := SchemaItem{iType: Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeInt16:
-			si := SchemaItem{iType: Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeInt32:
-			si := SchemaItem{iType: Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeInt64:
-			si := SchemaItem{iType: Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeUint8:
-			si := SchemaItem{iType: Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeUint16:
-			si := SchemaItem{iType: Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeUint32:
-			si := SchemaItem{iType: Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeUint64:
-			si := SchemaItem{iType: Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeFloat32:
-			si := SchemaItem{iType: Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}}
+			si := SchemaItem{typeName: t, iType: Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}}
 			return &si, 0
 
 		case ItemTypeFloat64:
-			si := SchemaItem{iType: Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}}
+			si := SchemaItem{typeName: t, iType: Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}}
 			return &si, 0
 
 		case ItemTypeString:
-			si := SchemaItem{iType: StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}}
+			si := SchemaItem{typeName: t, iType: StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}}
 			return &si, 0
 
 		case ItemTypeArray:
@@ -185,7 +209,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			if iErr != 0 {
 				return nil, iErr
 			}
-			si := SchemaItem{iType: ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
+			si := SchemaItem{typeName: t, iType: ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
 			return &si, 0
 
 		case ItemTypeObject:
@@ -194,7 +218,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 				if schemaErr != 0 {
 					return nil, schemaErr
 				}
-				si := SchemaItem{iType: ObjectItem{schema: schema}}
+				si := SchemaItem{typeName: t, iType: ObjectItem{schema: schema}}
 				return &si, 0
 			}
 			return nil, helpers.ErrorSchemaInvalidItemParameters
@@ -242,97 +266,39 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 	return false
 }
 
-// ItemType gets the SchemaItem data type
-func (si *SchemaItem) ItemType() interface{} {
-	return si.iType
-}
-
 // DataIndex gets the SchemaItem data index (table specific).
 func (si *SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//   QUERY METHOD FILTER   //////////////////////////////////////////////////////////////////////////////////////
+//   QUERY ARITHMETIC   /////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MethodFilter takes in an item from a query, and applies arithmetic/methods on the cooresponding table entry data.
-func MethodFilter(updateItem interface{}, dbEntryData interface{}, itemType interface{}) (interface{}, int) {
-	ref := reflect.TypeOf(itemType)
-	switch ref {
-		// Handle Numbers
-		case itemTypeRefInt8:
-			return applyArithmetic(updateItem, float64(dbEntryData.(int8)))
-
-		case itemTypeRefInt16:
-			return applyArithmetic(updateItem, float64(dbEntryData.(int16)))
-
-		case itemTypeRefInt32:
-			return applyArithmetic(updateItem, float64(dbEntryData.(int32)))
-
-		case itemTypeRefInt64:
-			return applyArithmetic(updateItem, float64(dbEntryData.(int64)))
-
-		case itemTypeRefUint8:
-			return applyArithmetic(updateItem, float64(dbEntryData.(uint8)))
-
-		case itemTypeRefUint16:
-			return applyArithmetic(updateItem, float64(dbEntryData.(uint16)))
-
-		case itemTypeRefUint32:
-			return applyArithmetic(updateItem, float64(dbEntryData.(uint32)))
-
-		case itemTypeRefUint64:
-			return applyArithmetic(updateItem, float64(dbEntryData.(uint64)))
-
-		case itemTypeRefFloat32:
-			return applyArithmetic(updateItem, float64(dbEntryData.(float32)))
-
-		case itemTypeRefFloat64:
-			return applyArithmetic(updateItem, dbEntryData.(float64))
-
-		// Handle Arrays
-		case itemTypeRefArray:
-			// TBD
-			return updateItem, 0
-
-		// Handle Objects
-		case itemTypeRefObject:
-			// TBD
-			return updateItem, 0
-
-		default:
-			return nil, helpers.ErrorSchemaInvalidItemType
+func applyArithmetic(updateItem []interface{}, dbEntryData float64) (float64, int) {
+	// Check format & get operator & number for math
+	op, num, aErr := checkArithmeticFormat(updateItem)
+	if aErr != 0 {
+		return 0, aErr
 	}
-}
+	// Apply arithmetic
+	switch op {
+		case OperatorAdd:
+			return dbEntryData + num, 0
 
-func applyArithmetic(updateItem interface{}, dbEntryData float64) (interface{}, int) {
-	if ui, ok := updateItem.([]interface{}); ok {
-		// Check format & get operator & number for math
-		op, num, aErr := checkArithmeticFormat(ui)
-		if aErr != 0 {
-			return 0, aErr
-		}
-		// Apply arithmetic
-		switch op {
-			case OperatorAdd:
-				return dbEntryData + num, 0
+		case OperatorSub:
+			return dbEntryData - num, 0
 
-			case OperatorSub:
-				return dbEntryData - num, 0
+		case OperatorMul:
+			return dbEntryData * num, 0
 
-			case OperatorMul:
-				return dbEntryData * num, 0
+		case OperatorDiv:
+			return dbEntryData / num, 0
 
-			case OperatorDiv:
-				return dbEntryData / num, 0
-
-			case OperatorMod:
-				return float64(int(dbEntryData) % int(num)), 0
-		}
-		return nil, helpers.ErrorInvalidArithmeticParameters
+		case OperatorMod:
+			return float64(int(dbEntryData) % int(num)), 0
 	}
-	return updateItem, 0
+	return 0, helpers.ErrorInvalidArithmeticParameters
 }
 
 func checkArithmeticFormat(updateItem []interface{}) (string, float64, int) {
@@ -355,11 +321,11 @@ func checkArithmeticFormat(updateItem []interface{}) (string, float64, int) {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//   QUERY SCHEMA FILTER   //////////////////////////////////////////////////////////////////////////////////////
+//   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SchemaFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
-func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, int) {
+// QueryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
+func QueryItemFilter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	if insertItem == nil {
 		// Get default value
 		defaultVal, defaultErr := defaultVal(itemType)
@@ -369,7 +335,7 @@ func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, in
 		return defaultVal, 0
 	} else {
 		var iTypeErr int
-		insertItem, iTypeErr = filterItemType(insertItem, itemType)
+		insertItem, iTypeErr = filterItemType(insertItem, dbEntryData, itemType)
 		if iTypeErr != 0 {
 			return nil, iTypeErr
 		}
@@ -377,236 +343,321 @@ func SchemaFilter(insertItem interface{}, itemType interface{}) (interface{}, in
 	}
 }
 
-func filterItemType(insertItem interface{}, itemType interface{}) (interface{}, int) {
-	ref := reflect.TypeOf(itemType)
-	switch ref {
-		// Handle Bools
-		case itemTypeRefBool:
-			if i, ok := insertItem.(bool); ok {
-				return i, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		// Handle Number types
-		case itemTypeRefInt8:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Int8Item)
-				ic := int8(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefInt16:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Int16Item)
-				ic := int16(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefInt32:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Int32Item)
-				ic := int32(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefInt64:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Int64Item)
-				ic := int64(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefUint8:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Uint8Item)
-				ic := uint8(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefUint16:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Uint16Item)
-				ic := uint16(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefUint32:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Uint32Item)
-				ic := uint32(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefUint64:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Uint64Item)
-				ic := uint64(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefFloat32:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Float32Item)
-				ic := float32(i)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if ic > it.max {
-						ic = it.max
-					} else if ic < it.min {
-						ic = it.min
-					}
-				}
-				if it.abs && i < 0 {
-					i = i*(-1)
-				}
-				return ic, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		case itemTypeRefFloat64:
-			if i, ok := insertItem.(float64); ok {
-				it := itemType.(Float64Item)
-				// Check min/max unless both are the same
-				if it.min < it.max {
-					if i > it.max {
-						i = it.max
-					} else if i < it.min {
-						i = it.min
-					}
-				}
-				if it.abs && i < 0 {
-					i = i*(-1)
-				}
-				return i, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		// Handle Strings
-		case itemTypeRefString:
-			if i, ok := insertItem.(string); ok {
-				it := itemType.(StringItem)
-				l := uint32(len(i))
-				// Check length and if required
-				if it.maxChars > 0 && l > it.maxChars {
-					return nil, helpers.ErrorStringTooLarge
-				} else if it.required && l == 0 {
-					return nil, helpers.ErrorStringRequired
-				}
-				// Check if unique
-				if it.unique {
-					// unique checks !!!!!!
-				}
-				return i, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		// Handle Arrays
-		case itemTypeRefArray:
-			if i, ok := insertItem.([]interface{}); ok {
-				it := itemType.(ArrayItem)
-				var iTypeErr int
-				// Check inner item type
-				for k := 0; k < len(i); k++ {
-					i[k], iTypeErr = filterItemType(i[k], it.dataType.(*SchemaItem).iType)
-					if iTypeErr != 0 {
-						return nil, iTypeErr
-					}
-				}
-				return i, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		// Handle Objects
-		case itemTypeRefObject:
-			if i, ok := insertItem.(map[string]interface{}); ok {
-				it := itemType.(ObjectItem)
-				newObj := make(map[string]interface{})
-				for itemName, schemaItem := range *(it.schema) {
-					innerItem := i[itemName]
-					var filterErr int
-					newObj[itemName], filterErr = SchemaFilter(innerItem, schemaItem.iType)
-					if filterErr != 0 {
-						return nil, filterErr
-					}
-				}
-				return newObj, 0
-			}
-			return nil, helpers.ErrorInvalidItemValue
-
-		default:
-			return nil, helpers.ErrorSchemaInvalidItemType
-	}
+func filterItemType(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	return queryFilters[itemType.typeName](insertItem, dbEntryData, itemType)
 }
 
+func boolFilter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	if i, ok := insertItem.(bool); ok {
+		return i, 0
+	}
+	return nil, helpers.ErrorInvalidItemValue
+}
+
+func int8Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic int8
+	if i, ok := insertItem.(float64); ok {
+		ic = int8(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(int8)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = int8(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Int8Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func int16Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic int16
+	if i, ok := insertItem.(float64); ok {
+		ic = int16(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(int16)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = int16(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Int16Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func int32Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic int32
+	if i, ok := insertItem.(float64); ok {
+		ic = int32(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(int32)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = int32(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Int32Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func int64Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic int64
+	if i, ok := insertItem.(float64); ok {
+		ic = int64(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(int64)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = int64(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Int64Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func uint8Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic uint8
+	if i, ok := insertItem.(float64); ok {
+		ic = uint8(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(uint8)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = uint8(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Uint8Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func uint16Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic uint16
+	if i, ok := insertItem.(float64); ok {
+		ic = uint16(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(uint16)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = uint16(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Uint16Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func uint32Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic uint32
+	if i, ok := insertItem.(float64); ok {
+		ic = uint32(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(uint32)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = uint32(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Uint32Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func uint64Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic uint64
+	if i, ok := insertItem.(float64); ok {
+		ic = uint64(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(uint64)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = uint64(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Uint64Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	return ic, 0
+}
+
+func float32Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic float32
+	if i, ok := insertItem.(float64); ok {
+		ic = float32(i)
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, float64(dbEntryData.(float32)))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = float32(arithRes)
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Float32Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	if it.abs && ic < 0 {
+		ic = ic*(-1)
+	}
+	return ic, 0
+}
+
+func float64Filter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic float64
+	if i, ok := insertItem.(float64); ok {
+		ic = i
+	} else if i, ok := insertItem.([]interface{}); ok {
+		arithRes, arithErr := applyArithmetic(i, dbEntryData.(float64))
+		if arithErr != 0 {
+			return nil, arithErr
+		}
+		ic = arithRes
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
+	}
+	it := itemType.iType.(Float64Item)
+	// Check min/max unless both are the same
+	if it.min < it.max {
+		if ic > it.max {
+			ic = it.max
+		} else if ic < it.min {
+			ic = it.min
+		}
+	}
+	if it.abs && ic < 0 {
+		ic = ic*(-1)
+	}
+	return ic, 0
+}
+
+func stringFilter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	if i, ok := insertItem.(string); ok {
+		it := itemType.iType.(StringItem)
+		l := uint32(len(i))
+		// Check length and if required
+		if it.maxChars > 0 && l > it.maxChars {
+			return nil, helpers.ErrorStringTooLarge
+		} else if it.required && l == 0 {
+			return nil, helpers.ErrorStringRequired
+		}
+		// Check if unique
+		if it.unique {
+			// unique checks !!!!!!
+		}
+		return i, 0
+	}
+	return nil, helpers.ErrorInvalidItemValue
+}
+
+func arrayFilter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	if i, ok := insertItem.([]interface{}); ok {
+		it := itemType.iType.(ArrayItem)
+		var iTypeErr int
+		// Check inner item type
+		for k := 0; k < len(i); k++ {
+			i[k], iTypeErr = filterItemTypeWithMap(i[k], nil, it.dataType.(*SchemaItem))
+			if iTypeErr != 0 {
+				return nil, iTypeErr
+			}
+		}
+		return i, 0
+	}
+	return nil, helpers.ErrorInvalidItemValue
+}
+
+func objectFilter(insertItem interface{}, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	if i, ok := insertItem.(map[string]interface{}); ok {
+		it := itemType.iType.(ObjectItem)
+		newObj := make(map[string]interface{})
+		for itemName, schemaItem := range *(it.schema) {
+			innerItem := i[itemName]
+			var filterErr int
+			newObj[itemName], filterErr = QueryItemFilter(innerItem, nil, schemaItem)
+			if filterErr != 0 {
+				return nil, filterErr
+			}
+		}
+		return newObj, 0
+	}
+	return nil, helpers.ErrorInvalidItemValue
+}

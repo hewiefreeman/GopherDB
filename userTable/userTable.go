@@ -25,7 +25,7 @@ import (
 
 var (
 	tablesMux      sync.Mutex
-	logPersistTime int16                 = 30
+	logPersistTime int16                 = 60
 	tables         map[string]*UserTable = make(map[string]*UserTable)
 )
 
@@ -33,18 +33,20 @@ type UserTable struct {
 	// settings and schema
 	logFolder     string
 	persistFolder string
+	schema        *schema.Schema
 	partitionMax  uint16
+	sMux          sync.Mutex // locks all table settings below
 	maxEntries    uint64
 	minPassword   uint8
 	encryptCost   int
-	schema        *schema.Schema
+
 
 	// entries
-	eMux    sync.Mutex
+	eMux    sync.Mutex // entries map lock
 	entries map[string]*UserTableEntry
 
 	// persistance
-	pMux   sync.Mutex
+	pMux   sync.Mutex // fileOn/lineOn lock
 	fileOn uint16
 	lineOn uint16
 }
@@ -75,9 +77,11 @@ const (
 
 // Defaults
 const (
-	defaultPartitionMax = 1500
-	defaultMinPassword = 6
-	defaultEncryptCost = 8
+	defaultPartitionMax = 2500
+	defaultMinPassword  = 6
+	defaultEncryptCost  = 8
+	encryptCostMax      = 31
+	encryptCostMin      = 4
 	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"balancers\":[],\"UserTables\":[]}"
 )
 
@@ -85,8 +89,6 @@ const (
 //   UserTable   ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-//
-//
 //	Example JSON query to make a new UserTable:
 //
 //		{"NewUserTable": [
@@ -103,6 +105,8 @@ const (
 //			0, 0, 0, 0
 //		]};
 //
+
+// New creates a new UserTable with the provided name, schema, and other parameters.
 func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
@@ -143,6 +147,7 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 	return tr, 0
 }
 
+// Delete deletes a UserTable with the given name.
 func Delete(name string) int {
 	if len(name) == 0 {
 		return helpers.ErrorUserTableNameRequired
@@ -159,16 +164,13 @@ func Delete(name string) int {
 	return 0
 }
 
-func Get(n string) *UserTable {
-	tablesMux.Lock()
-	t := tables[n]
-	tablesMux.Unlock()
-	return t
+// CheckPassword compares the UserTableEntry's encrypted password with the given string password.
+func (t *UserTableEntry) CheckPassword(pass string) bool {
+	t.mux.Lock()
+	p := t.password
+	t.mux.Unlock()
+	return helpers.StringMatchesEncryption(pass, p)
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//   UserTable Misc. Methods   //////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////
 
 func (t *UserTable) Size() int {
 	t.eMux.Lock()
@@ -177,32 +179,31 @@ func (t *UserTable) Size() int {
 	return s
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//   UserTableEntry Methods   ///////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-func (t *UserTableEntry) Name() string {
-	return t.name
+func (t *UserTableEntry) SetEncryptionCost(cost int) {
+	if cost > encryptCostMax {
+		cost = encryptCostMax
+	} else if cost < encryptCostMin {
+		cost = encryptCostMin
+	}
+	t.sMux.Lock()
+	t.encryptCost = cost
+	t.sMux.Unlock()
 }
 
-func (t *UserTableEntry) CheckPassword(pass string) bool {
-	t.mux.Lock()
-	p := t.password
-	t.mux.Unlock()
-	return helpers.StringMatchesEncryption(pass, p)
+func (t *UserTableEntry) SetMaxEntries(max int) {
+	if max < 0 {
+		max = 0
+	}
+	t.sMux.Lock()
+	t.maxEntries = max
+	t.sMux.Unlock()
 }
 
-func (t *UserTableEntry) PersistFile() uint16 {
-	return t.persistFile
-}
-
-func (t *UserTableEntry) PersistIndex() uint16 {
-	return t.persistIndex
-}
-
-func (t *UserTableEntry) Data() []interface{} {
-	t.mux.Lock()
-	d := t.data
-	t.mux.Unlock()
-	return d
+func (t *UserTableEntry) SetMinPasswordLength(min int) {
+	if min < 1 {
+		min = 1
+	}
+	t.sMux.Lock()
+	t.minPassword = min
+	t.sMux.Unlock()
 }
