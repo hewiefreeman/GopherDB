@@ -14,6 +14,8 @@ const (
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
 	MethodAppend      = "*append"
+	MethodAppendAt    = "*append["
+	MethodAppendAtFin = "]"
 	MethodPrepend     = "*prepend"
 	MethodDelete      = "*delete"
 )
@@ -132,7 +134,7 @@ func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []i
 		}
 
 		// Check for append at index method
-		if len(methods[0]) >= 10 && methods[0][:8] == "*append[" && methods[0][len(methods[0])-1:len(methods[0])] == "]" {
+		if len(methods[0]) >= 10 && methods[0][:8] == MethodAppendAt && methods[0][len(methods[0])-1:len(methods[0])] == MethodAppendAtFin {
 			// Convert the text inside brackets to int
 			i, iErr := strconv.Atoi(methods[0][8:len(methods[0])-1])
 			if iErr != nil {
@@ -180,8 +182,48 @@ func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []i
 	return nil, helpers.ErrorInvalidMethod
 }
 
-func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, schemaItem *SchemaItem) (interface{}, int) {
-	si := (*(schemaItem.iType.(ObjectItem).schema))[methods[0]]
+func applyMapMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem) (interface{}, int) {
+	// Delete - eg: ["Mary", "Joe", "Vokome"]
+	if item, ok := insertItem.([]interface{}); ok && methods[0] == MethodDelete {
+		// Delete method
+		for _, n := range item {
+			if itemName, ok := n.(string); ok {
+				delete(dbEntryData, itemName)
+			} else {
+				return nil, helpers.ErrorInvalidMethodParameters
+			}
+		}
+		return dbEntryData, 0
+	} else if item, ok := insertItem.(map[string]interface{}); ok && methods[0] == MethodAppend {
+		// Append method - eg: {"x": 27, "y": 43}
+		for itemName, i := range item {
+			dbEntryData[itemName] = i
+		}
+		return dbEntryData, 0
+	}
+
+	// Checking for item with the name method[0] (Items with * not accepted)
+	if !strings.Contains(methods[0], "*") {
+		if len(methods) == 1 {
+			// Add item to map
+			dbEntryData[methods[0]] = insertItem
+			return dbEntryData, 0
+		} else {
+			// More methods to run on item
+			var iTypeErr int
+			dbEntryData[methods[0]], iTypeErr = QueryItemFilter(insertItem, methods[1:], dbEntryData[methods[0]], itemType.iType.(MapItem).dataType.(*SchemaItem))
+			if iTypeErr != 0 {
+				return nil, iTypeErr
+			}
+			return dbEntryData, 0
+		}
+	}
+
+	return nil, helpers.ErrorInvalidMethod
+}
+
+func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem) (interface{}, int) {
+	si := (*(itemType.iType.(ObjectItem).schema))[methods[0]]
 	if si == nil {
 		return nil, helpers.ErrorInvalidMethod
 	}
@@ -521,7 +563,25 @@ func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData inter
 }
 
 func mapFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
-
+	if len(itemMethods) >= 1 {
+		var mErr int
+		insertItem, mErr = applyMapMethods(insertItem, itemMethods, dbEntryData.(map[string]interface{}), itemType)
+		if mErr != 0 {
+			return nil, mErr
+		}
+	}
+	if i, ok := insertItem.(map[string]interface{}); ok {
+		it := itemType.iType.(MapItem)
+		var iTypeErr int
+		// Check inner item type
+		for itemName, _ := range i {
+			i[itemName], iTypeErr = QueryItemFilter(i[itemName], nil, nil, it.dataType.(*SchemaItem))
+			if iTypeErr != 0 {
+				return nil, iTypeErr
+			}
+		}
+		return i, 0
+	}
 	return nil, helpers.ErrorInvalidItemValue
 }
 

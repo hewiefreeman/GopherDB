@@ -103,7 +103,7 @@ var (
 
 func main() {
 	// JSON query and unmarshalling test
-	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"numArr\": [\"Array\", [\"Uint16\", 100, 0, 0, false], 0, false]}, 0, 0, 0, 0]}";
+	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"testMap\": [\"Map\", [\"Map\", [\"Uint16\", 100, 0, 0, false], 0, false], 0, false]}, 0, 0, 0, 0]}";
 	v := make(map[string]interface{})
 	err := json.Unmarshal([]byte(newTableJson), &v)
 	if err != nil {
@@ -235,17 +235,45 @@ func main() {
 		return
 	}
 
-	// Append 2 numbers to numArr
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"numArr.*append": []interface{}{nil, 2}})
+	// Add something to testMap
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.*append": map[string]interface{}{"items": map[string]interface{}{}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 8:", updateErr)
 		return
 	}
 
-	// Add 2 to index 0 of numArr
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"numArr.0.*add": []interface{}{2}})
+	// Add something to items in testMap
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.arrows": 12})
+	if updateErr != 0 {
+		fmt.Println("Update Error 8:", updateErr)
+		return
+	}
+
+	// Add something to items in testMap
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.beanz": 87})
 	if updateErr != 0 {
 		fmt.Println("Update Error 9:", updateErr)
+		return
+	}
+
+	// Apply arithmetic to beanz in items in testMap
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.beanz.*add.*mul": []interface{}{3, 2}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 10:", updateErr)
+		return
+	}
+
+	// Delete arrows in items in testMap
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.*delete": []interface{}{"arrows"}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 11:", updateErr)
+		return
+	}
+
+	// Append rupees and silk to items
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"rupees": 99, "silk": 1}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 12:", updateErr)
 		return
 	}
 
