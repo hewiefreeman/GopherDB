@@ -91,6 +91,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 			"Float64": float32Filter,
 			"String": stringFilter,
 			"Array": arrayFilter,
+			"Map": mapFilter,
 			"Object": objectFilter,
 		}
 	}
@@ -206,6 +207,14 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			si := SchemaItem{typeName: t, iType: ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
 			return &si, 0
 
+		case ItemTypeMap:
+			schemaItem, iErr := makeSchemaItem(params[1].([]interface{}))
+			if iErr != 0 {
+				return nil, iErr
+			}
+			si := SchemaItem{typeName: t, iType: MapItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
+			return &si, 0
+
 		case ItemTypeObject:
 			if sObj, ok := params[1].(map[string]interface{}); ok {
 				schema, schemaErr := New(sObj)
@@ -254,6 +263,7 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 			to == itemTypeRefFloat64 ||
 			to == itemTypeRefString ||
 			to == itemTypeRefArray ||
+			to == itemTypeRefMap ||
 			to == itemTypeRefObject {
 		return true
 	}

@@ -30,6 +30,9 @@ var (
 // QueryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
 func QueryItemFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
 	if insertItem == nil {
+		if len(itemMethods) > 0 {
+			return nil, helpers.ErrorInvalidMethodParameters
+		}
 		// Get default value
 		defaultVal, defaultErr := defaultVal(itemType)
 		if defaultErr != 0 {
@@ -161,13 +164,13 @@ func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []i
 	}
 	// Check for more methods
 	if len(methods) == 1 {
-		// No other methods, so just change value of item at index i
+		// No other methods, change value of item
 		dbEntryData[i] = insertItem
 		return dbEntryData, 0
 	} else {
-		// More methods to run on item at index
+		// More methods to run on item
 		var iTypeErr int
-		dbEntryData[i], iTypeErr = filterItemType(insertItem, methods[1:], dbEntryData[i], itemType.iType.(ArrayItem).dataType.(*SchemaItem))
+		dbEntryData[i], iTypeErr = QueryItemFilter(insertItem, methods[1:], dbEntryData[i], itemType.iType.(ArrayItem).dataType.(*SchemaItem))
 		if iTypeErr != 0 {
 			return nil, iTypeErr
 		}
@@ -175,6 +178,27 @@ func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []i
 	}
 
 	return nil, helpers.ErrorInvalidMethod
+}
+
+func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, schemaItem *SchemaItem) (interface{}, int) {
+	si := (*(schemaItem.iType.(ObjectItem).schema))[methods[0]]
+	if si == nil {
+		return nil, helpers.ErrorInvalidMethod
+	}
+
+	if len(methods) == 1 {
+		// No other methods, change value of item
+		dbEntryData[methods[0]] = insertItem
+		return dbEntryData, 0
+	} else {
+		// More methods to run on item
+		var iTypeErr int
+		dbEntryData[methods[0]], iTypeErr = QueryItemFilter(insertItem, methods[1:], dbEntryData[methods[0]], si)
+		if iTypeErr != 0 {
+			return nil, iTypeErr
+		}
+		return dbEntryData, 0
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -486,7 +510,7 @@ func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData inter
 		var iTypeErr int
 		// Check inner item type
 		for k := 0; k < len(i); k++ {
-			i[k], iTypeErr = filterItemType(i[k], nil, nil, it.dataType.(*SchemaItem))
+			i[k], iTypeErr = QueryItemFilter(i[k], nil, nil, it.dataType.(*SchemaItem))
 			if iTypeErr != 0 {
 				return nil, iTypeErr
 			}
@@ -496,7 +520,19 @@ func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return nil, helpers.ErrorInvalidItemValue
 }
 
+func mapFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+
+	return nil, helpers.ErrorInvalidItemValue
+}
+
 func objectFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	if len(itemMethods) >= 1 {
+		var mErr int
+		insertItem, mErr = applyObjectMethods(insertItem, itemMethods, dbEntryData.(map[string]interface{}), itemType)
+		if mErr != 0 {
+			return nil, mErr
+		}
+	}
 	if i, ok := insertItem.(map[string]interface{}); ok {
 		it := itemType.iType.(ObjectItem)
 		newObj := make(map[string]interface{})

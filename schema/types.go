@@ -20,6 +20,7 @@ const (
 	ItemTypeFloat64 = "Float64"
 	ItemTypeString = "String"
 	ItemTypeArray  = "Array"
+	ItemTypeMap    = "Map"
 	ItemTypeObject = "Object"
 )
 
@@ -39,6 +40,7 @@ var (
 		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeString: []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeArray:  []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
+		ItemTypeMap:  []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
 		ItemTypeObject: []reflect.Kind{reflect.Map, reflect.Bool}}
 )
 
@@ -57,6 +59,7 @@ var (
 	itemTypeRefFloat64 = reflect.TypeOf(Float64Item{})
 	itemTypeRefString = reflect.TypeOf(StringItem{})
 	itemTypeRefArray  = reflect.TypeOf(ArrayItem{})
+	itemTypeRefMap  = reflect.TypeOf(MapItem{})
 	itemTypeRefObject = reflect.TypeOf(ObjectItem{})
 )
 
@@ -144,6 +147,12 @@ type StringItem struct {
 }
 
 type ArrayItem struct {
+	dataType interface{}
+	maxItems uint32
+	required bool
+}
+
+type MapItem struct {
 	dataType interface{}
 	maxItems uint32
 	required bool
@@ -324,6 +333,10 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		// Arrays
 		case ArrayItem:
 			return []interface{}{}, 0
+
+		// Maps
+		case MapItem:
+			return make(map[string]interface{}), 0
 
 		// Objects
 		case ObjectItem:

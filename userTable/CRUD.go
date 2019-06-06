@@ -112,12 +112,12 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"email": "differentemail@yahoo.com"}]}}
 //
 //  Arithmetic on a number type:
-//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"mmr": ["+", 0.5]}]}} // can also be "-", "*", "/", "%"
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"mmr.*add": [0.5]}]}} // can also be "*sub", "*mul", "*div", or "*mod"
 //
 //  Updating an item inside an Array:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.0": {"name": "Joe", "status": 1}}]}}
 //
-//  Append item(s) to an Array or Object:
+//  Append item(s) to an Array or Map:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*append": [{"name": "Joe", "status": 1}]}]}}
 //
 //  Prepend item(s) to an Array:
