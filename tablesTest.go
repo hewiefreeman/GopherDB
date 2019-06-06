@@ -222,7 +222,7 @@ func main() {
 	}
 
 	// Chage name of friend at index 1 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1.name": ""})
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1.name": "Magicarp"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 6:", updateErr)
 		return
