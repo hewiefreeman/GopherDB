@@ -8,12 +8,6 @@ import (
 
 ////////////////// TODOs
 //////////////////
-//////////////////     - Map type
-//////////////////
-//////////////////     - Query methods
-//////////////////         - Map type
-//////////////////         - String type (?)
-//////////////////
 //////////////////     - Unique value checks
 //////////////////         - local
 //////////////////         - distributed
@@ -23,6 +17,7 @@ import (
 //////////////////         - Updating/Restoring with log files
 //////////////////         - Persisting data to storage
 //////////////////         - Updating storage data
+//////////////////
 
 var (
 	tablesMux      sync.Mutex
@@ -40,7 +35,6 @@ type UserTable struct {
 	maxEntries    uint64
 	minPassword   uint8
 	encryptCost   int
-
 
 	// entries
 	eMux    sync.Mutex // entries map lock

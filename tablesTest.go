@@ -194,7 +194,7 @@ func main() {
 	}
 
 	// Append a friend to friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name":"Murcury"}}})
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name":"Mag"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 2:", updateErr)
 		return
@@ -222,7 +222,7 @@ func main() {
 	}
 
 	// Chage name of friend at index 1 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1.name": "Magicarp"})
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1.name.*append": []interface{}{"icarp"}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 6:", updateErr)
 		return

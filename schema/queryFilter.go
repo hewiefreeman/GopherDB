@@ -42,6 +42,7 @@ func QueryItemFilter(insertItem interface{}, itemMethods []string, dbEntryData i
 		}
 		return defaultVal, 0
 	} else {
+		// Run type filter
 		var iTypeErr int
 		insertItem, iTypeErr = filterItemType(insertItem, itemMethods, dbEntryData, itemType)
 		if iTypeErr != 0 {
@@ -99,6 +100,51 @@ func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData float
 			}
 		} else {
 			return 0, helpers.ErrorInvalidMethodParameters
+		}
+	}
+	return dbEntryData, 0
+}
+
+func applyStringMethods(strs []interface{}, methods []string, dbEntryData string) (string, int) {
+	// Must have same amount of strings in array as methods to use on them
+	if len(strs) != len(methods) {
+		return "", helpers.ErrorInvalidMethodParameters
+	}
+	for i, str := range strs {
+		// Check string type
+		if cStr, ok := str.(string); ok {
+			op := methods[i]
+			switch op {
+				case MethodOperatorAdd, MethodAppend:
+					dbEntryData = dbEntryData + cStr
+					continue
+
+				case MethodPrepend:
+					dbEntryData = cStr + dbEntryData
+					continue
+			}
+			// Check for append at index method
+			if len(methods[i]) >= 10 && methods[i][:8] == MethodAppendAt && methods[i][len(methods[i])-1:len(methods[i])] == MethodAppendAtFin {
+				// Convert the text inside brackets to int
+				j, jErr := strconv.Atoi(methods[i][8:len(methods[i])-1])
+				if jErr != nil {
+					return "", helpers.ErrorInvalidMethod
+				}
+				// Prevent out of range error
+				if j < 0 {
+					j = 0
+				} else if j > len(dbEntryData)-1 {
+					j = len(dbEntryData)-1
+				}
+				// Merge slices (could possibly be done better?) !!!
+				entryStart := dbEntryData[:j]
+				entryStart = entryStart + cStr
+				dbEntryData = entryStart + dbEntryData[j:]
+				continue
+			}
+			return "", helpers.ErrorInvalidMethod
+		} else {
+			return "", helpers.ErrorInvalidMethodParameters
 		}
 	}
 	return dbEntryData, 0
@@ -521,22 +567,32 @@ func float64Filter(insertItem interface{}, itemMethods []string, dbEntryData int
 }
 
 func stringFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
+	var ic string
 	if i, ok := insertItem.(string); ok {
-		it := itemType.iType.(StringItem)
-		l := uint32(len(i))
-		// Check length and if required
-		if it.maxChars > 0 && l > it.maxChars {
-			return nil, helpers.ErrorStringTooLarge
-		} else if it.required && l == 0 {
-			return nil, helpers.ErrorStringRequired
+		ic = i
+	} else if i, ok := insertItem.([]interface{}); ok && len(itemMethods) > 0  {
+		// Apply string methods
+		mRes, mErr := applyStringMethods(i, itemMethods, dbEntryData.(string))
+		if mErr != 0 {
+			return nil, mErr
 		}
-		// Check if unique
-		if it.unique {
-			// unique checks !!!!!!
-		}
-		return i, 0
+		ic = mRes
+	} else {
+		return nil, helpers.ErrorInvalidItemValue
 	}
-	return nil, helpers.ErrorInvalidItemValue
+	it := itemType.iType.(StringItem)
+	l := uint32(len(ic))
+	// Check length and if required
+	if it.maxChars > 0 && l > it.maxChars {
+		return nil, helpers.ErrorStringTooLarge
+	} else if it.required && l == 0 {
+		return nil, helpers.ErrorStringRequired
+	}
+	// Check if unique
+	if it.unique {
+		// unique checks !!!!!!
+	}
+	return ic, 0
 }
 
 func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem) (interface{}, int) {
