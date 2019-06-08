@@ -4,6 +4,7 @@ import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"strconv"
 	"strings"
+	"time"
 	"sync"
 )
 
@@ -23,7 +24,7 @@ const (
 
 // Item type query filters - Initialized when the first Schema is made (see New())
 var (
-	queryFilters map[string]func(interface{}, []string, interface{}, *SchemaItem, *sync.Mutex, *interface{}) (interface{}, int)
+	queryFilters map[string]func(interface{}, []string, interface{}, *SchemaItem, *sync.Mutex, interface{}) (interface{}, int)
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,7 +32,7 @@ var (
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // QueryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
-func QueryItemFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func QueryItemFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if insertItem == nil {
 		if len(itemMethods) > 0 {
 			return nil, helpers.ErrorInvalidMethodParameters
@@ -53,8 +54,18 @@ func QueryItemFilter(insertItem interface{}, itemMethods []string, dbEntryData i
 	}
 }
 
-func filterItemType(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
-	return queryFilters[itemType.typeName](insertItem, itemMethods, dbEntryData, itemType)
+func Format(tableItem interface{}, itemType *SchemaItem) interface{} {
+	if itemType.typeName == ItemTypeTime {
+		// Format Time types
+		t := tableItem.(time.Time)
+		it := itemType.iType.(TimeItem)
+		return t.Format(it.format)
+	}
+	return tableItem
+}
+
+func filterItemType(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
+	return queryFilters[itemType.typeName](insertItem, itemMethods, dbEntryData, itemType, tableMux, table)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -151,7 +162,7 @@ func applyStringMethods(strs []interface{}, methods []string, dbEntryData string
 	return dbEntryData, 0
 }
 
-func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if item, ok := insertItem.([]interface{}); ok {
 		// Basic array methods
 		switch methods[0] {
@@ -229,7 +240,7 @@ func applyArrayMethods(insertItem interface{}, methods []string, dbEntryData []i
 	return nil, helpers.ErrorInvalidMethod
 }
 
-func applyMapMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func applyMapMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	// Delete - eg: ["Mary", "Joe", "Vokome"]
 	if item, ok := insertItem.([]interface{}); ok && methods[0] == MethodDelete {
 		// Delete method
@@ -269,7 +280,7 @@ func applyMapMethods(insertItem interface{}, methods []string, dbEntryData map[s
 	return nil, helpers.ErrorInvalidMethod
 }
 
-func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData map[string]interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	si := (*(itemType.iType.(ObjectItem).schema))[methods[0]]
 	if si == nil {
 		return nil, helpers.ErrorInvalidMethod
@@ -294,14 +305,14 @@ func applyObjectMethods(insertItem interface{}, methods []string, dbEntryData ma
 //   ITEM TYPE FILTERS   ////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func boolFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func boolFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if i, ok := insertItem.(bool); ok {
 		return i, 0
 	}
 	return nil, helpers.ErrorInvalidItemValue
 }
 
-func int8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func int8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic int8
 	if i, ok := makeFloat(insertItem); ok {
 		ic = int8(i)
@@ -327,7 +338,7 @@ func int8Filter(insertItem interface{}, itemMethods []string, dbEntryData interf
 	return ic, 0
 }
 
-func int16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func int16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic int16
 	if i, ok := makeFloat(insertItem); ok {
 		ic = int16(i)
@@ -353,7 +364,7 @@ func int16Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return ic, 0
 }
 
-func int32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func int32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic int32
 	if i, ok := makeFloat(insertItem); ok {
 		ic = int32(i)
@@ -379,7 +390,7 @@ func int32Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return ic, 0
 }
 
-func int64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func int64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic int64
 	if i, ok := makeFloat(insertItem); ok {
 		ic = int64(i)
@@ -405,7 +416,7 @@ func int64Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return ic, 0
 }
 
-func uint8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func uint8Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic uint8
 	if i, ok := makeFloat(insertItem); ok {
 		ic = uint8(i)
@@ -431,7 +442,7 @@ func uint8Filter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return ic, 0
 }
 
-func uint16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func uint16Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic uint16
 	if i, ok := makeFloat(insertItem); ok {
 		ic = uint16(i)
@@ -457,7 +468,7 @@ func uint16Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	return ic, 0
 }
 
-func uint32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func uint32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic uint32
 	if i, ok := makeFloat(insertItem); ok {
 		ic = uint32(i)
@@ -483,7 +494,7 @@ func uint32Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	return ic, 0
 }
 
-func uint64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func uint64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic uint64
 	if i, ok := makeFloat(insertItem); ok {
 		ic = uint64(i)
@@ -509,7 +520,7 @@ func uint64Filter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	return ic, 0
 }
 
-func float32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func float32Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic float32
 	if i, ok := makeFloat(insertItem); ok {
 		ic = float32(i)
@@ -538,7 +549,7 @@ func float32Filter(insertItem interface{}, itemMethods []string, dbEntryData int
 	return ic, 0
 }
 
-func float64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func float64Filter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic float64
 	if i, ok := makeFloat(insertItem); ok {
 		ic = i
@@ -567,7 +578,7 @@ func float64Filter(insertItem interface{}, itemMethods []string, dbEntryData int
 	return ic, 0
 }
 
-func stringFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func stringFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	var ic string
 	if i, ok := insertItem.(string); ok {
 		ic = i
@@ -596,7 +607,7 @@ func stringFilter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	return ic, 0
 }
 
-func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if len(itemMethods) >= 1 {
 		var mErr int
 		insertItem, mErr = applyArrayMethods(insertItem, itemMethods, dbEntryData.([]interface{}), itemType, tableMux, table)
@@ -622,7 +633,7 @@ func arrayFilter(insertItem interface{}, itemMethods []string, dbEntryData inter
 	return nil, helpers.ErrorInvalidItemValue
 }
 
-func mapFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func mapFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if len(itemMethods) >= 1 {
 		var mErr int
 		insertItem, mErr = applyMapMethods(insertItem, itemMethods, dbEntryData.(map[string]interface{}), itemType, tableMux, table)
@@ -648,7 +659,7 @@ func mapFilter(insertItem interface{}, itemMethods []string, dbEntryData interfa
 	return nil, helpers.ErrorInvalidItemValue
 }
 
-func objectFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func objectFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if len(itemMethods) >= 1 {
 		var mErr int
 		insertItem, mErr = applyObjectMethods(insertItem, itemMethods, dbEntryData.(map[string]interface{}), itemType, tableMux, table)
@@ -672,14 +683,18 @@ func objectFilter(insertItem interface{}, itemMethods []string, dbEntryData inte
 	return nil, helpers.ErrorInvalidItemValue
 }
 
-func timeFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table *interface{}) (interface{}, int) {
+func timeFilter(insertItem interface{}, itemMethods []string, dbEntryData interface{}, itemType *SchemaItem, tableMux *sync.Mutex, table interface{}) (interface{}, int) {
 	if i, ok := insertItem.(string); ok {
+		if i == "*now" {
+			// Set to current database time
+			return time.Now(), 0
+		}
 		it := itemType.iType.(TimeItem)
 		t, tErr := time.Parse(it.format, i)
-		if iErr != nil {
-			return nil, ErrorInvalidTimeFormat
+		if tErr != nil {
+			return nil, helpers.ErrorInvalidTimeFormat
 		}
-		return i, 0
+		return t, 0
 	}
 	return nil, helpers.ErrorInvalidItemValue
 }

@@ -65,7 +65,7 @@ var (
 		ItemTypeArray:   []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
 		ItemTypeMap:     []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
 		ItemTypeObject:  []reflect.Kind{reflect.Map, reflect.Bool},
-		ItemTypeTime:    []reflect.Kind{reflect.string, reflect.Bool},
+		ItemTypeTime:    []reflect.Kind{reflect.String, reflect.Bool},
 	}
 )
 

@@ -103,7 +103,7 @@ var (
 
 func main() {
 	// JSON query and unmarshalling test
-	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"testMap\": [\"Map\", [\"Map\", [\"Uint16\", 100, 0, 0, false], 0, false], 0, false]}, 0, 0, 0, 0]}"
+	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"testMap\": [\"Map\", [\"Map\", [\"Uint16\", 100, 0, 0, false], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
 	v := make(map[string]interface{})
 	err := json.Unmarshal([]byte(newTableJson), &v)
 	if err != nil {
@@ -272,6 +272,13 @@ func main() {
 
 	// Append rupees and silk to items
 	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"rupees": 99, "silk": 1}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 12:", updateErr)
+		return
+	}
+
+	// Set timeStamp manually
+	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"timeStamp": "4:29PM"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 12:", updateErr)
 		return

@@ -4,6 +4,7 @@ import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"reflect"
 	"strings"
+	"sync"
 	//"fmt"
 )
 
@@ -62,7 +63,7 @@ type SchemaItem struct {
 //             > required: when true, the value must be specified when inserting (does not check on updates)
 //
 //		- ["Time", format, required] : store as time.Time (default value is current database time)
-//			> format: the format of time/date the database will accept as input (eg: "Unix", "RFC3339")
+//			> format: the format of time/date the database will accept as input (eg: "Unix", "RFC3339", "Stamp" - see constants in types.go)
 //			> required: when true, the value must be specified when inserting (does not check on updates)
 //
 //	Example JSON for a new schema:
@@ -87,7 +88,7 @@ type SchemaItem struct {
 func New(schema map[string]interface{}) (*Schema, int) {
 	// INIT queryFilters
 	if queryFilters == nil {
-		queryFilters = map[string]func(interface{}, []string, interface{}, *SchemaItem) (interface{}, int){
+		queryFilters = map[string]func(interface{}, []string, interface{}, *SchemaItem, *sync.Mutex, interface{}) (interface{}, int){
 			ItemTypeBool:    boolFilter,
 			ItemTypeInt8:    int8Filter,
 			ItemTypeInt16:   int16Filter,

@@ -3,7 +3,6 @@ package userTable
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"github.com/hewiefreeman/GopherGameDB/schema"
-	//"fmt"
 )
 
 // Example JSON for new user query:
@@ -99,7 +98,7 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 	m := make(map[string]interface{})
 	e.mux.Lock()
 	for k, v := range *(t.schema) {
-		m[k] = e.data[v.DataIndex()]
+		m[k] = schema.Format(e.data[v.DataIndex()], v)
 	}
 	e.mux.Unlock()
 
@@ -126,11 +125,17 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 //  Append item(s) to certain position in an Array:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*append[3]": [{"name": "Joe", "status": 1}]}]}}
 //
-//  Delete item(s) in an Array:
+//  Delete item(s) in an Array or Map:
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.*delete": [0]}]}}
 //
-//  Changing an item in an Object (that's in an Array):
+//  Changing an item in an Object (at an Array index or Map item):
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"friends.0.status": 2}]}}
+//
+//  Set Time item to current database time:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"timeStamp": "*now"}]}}
+//
+//  Set Time item manually:
+//     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"timeStamp": "5:23AM"}]}}
 //
 
 // UpdateUserData
@@ -178,7 +183,7 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		}
 		// Add updateItem to entry data slice
 		var err int
-		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, itemMethods, data[schemaItem.DataIndex()], schemaItem)
+		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, itemMethods, data[schemaItem.DataIndex()], schemaItem, &t.eMux, &t.entries)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
