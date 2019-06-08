@@ -1,9 +1,11 @@
 # GopherGameDB
-Gopher Game DB is an in-memory distributed authentication, leaderboard, and generic database written in Go.
+Gopher Game DB is an in-memory distributed authentication, leaderboard, and generic database written in Go. GGBB's goal is not to be the best all-around database, but instead by highly performant at what it's best at doing:
 
-## Main Features
+### Main Features
   - Stable, reliable schema validation
   - Highly effective, flexible queries
   - Wide selection of data types
+  - User Authentication Tables
+  - Leaderboards
   - Easy-to-use
   
