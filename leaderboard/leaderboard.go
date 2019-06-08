@@ -1,14 +1,14 @@
 package leaderboard
 
 import (
-	"sync"
-	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"fmt"
+	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"sync"
 )
 
 var (
 	leaderboardsMux sync.Mutex
-	leaderboards map[string]*Leaderboard = make(map[string]*Leaderboard)
+	leaderboards    map[string]*Leaderboard = make(map[string]*Leaderboard)
 )
 
 type Leaderboard struct {
@@ -81,7 +81,7 @@ func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
 	} else if (page+1)*limit > len(l.entries) {
 		p = l.entries[page*limit:]
 	} else {
-		p = l.entries[page*limit:(page+1)*limit]
+		p = l.entries[page*limit : (page+1)*limit]
 	}
 	l.mux.Unlock()
 	// Convert to non-pointer list
@@ -131,15 +131,15 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 					if i == l.maxEntries-1 {
 						newPos = -2
 					} else if i == entriesLen-1 {
-						newPos = i+1
+						newPos = i + 1
 					} else {
-						for j := i+1; j < entriesLen; j++ {
+						for j := i + 1; j < entriesLen; j++ {
 							if target > l.entries[j].target {
 								newPos = j
 								break
 							} else if j == entriesLen-1 {
 								if entriesLen < l.maxEntries {
-									newPos = j+1
+									newPos = j + 1
 								} else {
 									newPos = -2
 								}

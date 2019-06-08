@@ -12,6 +12,7 @@ const (
 	ErrorSchemaInvalidItemType
 	ErrorSchemaInvalidItemParameters
 	ErrorSchemaInvalidFormat
+	ErrorSchemaInvalidTimeFormat
 	ErrorSchemaInvalid
 
 	// User Table Query Errors
@@ -35,6 +36,9 @@ const (
 	ErrorStringRequired
 	ErrorNumberTooLarge
 	ErrorNumberTooSmall
+	ErrorArrayItemsRequired
+	ErrorMapItemsRequired
+	ErrorInvalidTimeFormat
 
 	// Leaderboard errors
 	ErrorLeaderboardExists
@@ -43,8 +47,7 @@ const (
 	// Unique value errors
 	ErrorUniqueValueInUse
 	ErrorEntryNameInUse
-	ErrorInvalidUserName
-	ErrorInvalidPassword
+	ErrorInvalidNameOrPassword
 
 	// Unexpected error
 	ErrorUnexpected

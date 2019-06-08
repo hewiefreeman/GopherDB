@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/leaderboards"
 	"fmt"
+	"github.com/hewiefreeman/GopherGameDB/leaderboards"
 	"time"
 )
 

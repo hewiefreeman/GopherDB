@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"bufio"
+	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"fmt"
 	"time"
 )
 
@@ -15,7 +15,7 @@ var (
 )
 
 func main() {
-	json, jsonErr := json.Marshal(map[string]interface{}{"n":"someName","pw":"somePassword","email":"someEmailAddr@gmail.com","vCode":"3RG71X","verified":false,"friends":[]interface{}{map[string]interface{}{"n":"some\nFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2},map[string]interface{}{"n":"someFriend","s":2}}})
+	json, jsonErr := json.Marshal(map[string]interface{}{"n": "someName", "pw": "somePassword", "email": "someEmailAddr@gmail.com", "vCode": "3RG71X", "verified": false, "friends": []interface{}{map[string]interface{}{"n": "some\nFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}, map[string]interface{}{"n": "someFriend", "s": 2}}})
 	if jsonErr != nil {
 		fmt.Println(jsonErr)
 		return
@@ -31,42 +31,56 @@ func main() {
 	fmt.Println("Took:", time.Since(now).Seconds()*1000, "ms")
 }
 
-func GetFileLines(filePath string) ([][]byte, error) {
+func GetFileLines(filePath string) ([][]byte, int, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
 	return LinesFromReader(f)
 }
 
-func LinesFromReader(r io.Reader) ([][]byte, error) {
+func LinesFromReader(r io.Reader) ([][]byte, int, error) {
 	var lines [][]byte
+	var size int
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		lines = append(lines, scanner.Bytes())
+		size += len(scanner.Bytes())
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return lines, nil
+	return lines, size, nil
 }
 
 func InsertJSONToFile(file string, json []byte, index int) error {
-	lines, err := GetFileLines(file)
+	lines, size, err := GetFileLines(file)
 	if err != nil {
 		return err
 	}
 
-	fileContent := []byte{}
-	for i, line := range lines {
-		if i == index {
-			fileContent = append(fileContent, json...)
-			fileContent = append(fileContent, 10)
+	fileContent := make([]byte, size+len(lines)+len(json))
+	i := 0
+	for lineOn, line := range lines {
+		if lineOn == index {
+			for _, byteOn := range json {
+				fileContent[i] = byteOn
+				i++
+			}
+			fileContent[i] = byte(10)
+			i++
 		}
-		fileContent = append(fileContent, line...)
-		fileContent = append(fileContent, 10)
+		for _, byteOn := range line {
+			fileContent[i] = byteOn
+			i++
+		}
+		if i < len(fileContent)-1 {
+			fileContent[i] = byte(10)
+			i++
+		}
+
 	}
 
 	return ioutil.WriteFile(file, fileContent, 0644)

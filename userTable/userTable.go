@@ -8,9 +8,18 @@ import (
 
 ////////////////// TODOs
 //////////////////
+//////////////////     - Time type
+//////////////////         - test
+//////////////////
 //////////////////     - Unique value checks
 //////////////////         - local
 //////////////////         - distributed
+//////////////////
+//////////////////     - Password reset for UserTable
+//////////////////
+//////////////////     - Alternative login name item for UserTable
+//////////////////
+//////////////////     - Rate limit
 //////////////////
 //////////////////     - Logging & persisting
 //////////////////         - Logging
@@ -38,7 +47,7 @@ type UserTable struct {
 
 	// entries
 	eMux    sync.Mutex // entries map lock
-	entries map[string]*UserTableEntry
+	entries map[string]*UserTableEntry // UserTable uses a Map for storage since it's only look-up is with user name and password
 
 	// persistance
 	pMux   sync.Mutex // fileOn/lineOn lock

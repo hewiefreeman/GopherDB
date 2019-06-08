@@ -28,7 +28,7 @@ type SchemaItem struct {
 //			> defaultValue: default value of the integer
 //			> min: minimum value
 //			> max: maximum value
-//			> required: when true, the value must be specified when inserting (does not check on update)
+//			> required: when true, the value must be specified when inserting (does not check on updates)
 //
 //		    *FLOAT_TYPE*: "Float32" | "Float64"
 //		- ["*FLOAT_TYPE*", defaultValue, min, max, absolute, required] : store as float32 | float64
@@ -36,12 +36,12 @@ type SchemaItem struct {
 //			> min: minimum value
 //			> max: maximum value
 //			> absolute: when true, the vale will always be a positive or 0 value (specifying a negative number will store it as positive)
-//			> required: when true, the value must be specified when inserting (does not check on update)
+//			> required: when true, the value must be specified when inserting (does not check on updates)
 //
 //		- ["String", defaultValue, maxChars, required, unique] : store as string
 //			> defaultValue: default value the of String
 //			> maxChars: maximum characters the String can be
-//			> required: when true, the value cannot be set to a blank string
+//			> required: when true, the value cannot be set to a blank string. When inserting, the value must be specified unless there is a valid default value
 //			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
 //				Note: a unique String (or a unique String Object item) inside an Array checks the containing Array, and not other database entries
 //
@@ -50,20 +50,30 @@ type SchemaItem struct {
 //			> maxItems: the maximum amount of items in the Array
 //             > required: when true, there must always be items in the Array
 //
+//		- ["Map", dataType, maxItems, required] : store as map[string]interface{}
+//			> dataType: the data type of the Map's items
+//			> maxItems: the maximum amount of items in the Map
+//             > required: when true, there must always be items in the Map
+//
 //		- ["Object", schema, required] : store as map[string]interface{}
 //			> schema: the schema that the Object must adhere to
 //				Note: same as making the schema for a UserTable
 //				Note: if an Object's parent is the database, any unique Strings in the Object with be checked against the rest of the database. Use an Array of Object to make locally (to a User entry) unique Object lists
-//             > required: when true, there must always be items in the Object
+//             > required: when true, the value must be specified when inserting (does not check on updates)
+//
+//		- ["Time", format, required] : store as time.Time (default value is current database time)
+//			> format: the format of time/date the database will accept as input (eg: "Unix", "RFC3339")
+//			> required: when true, the value must be specified when inserting (does not check on updates)
 //
 //	Example JSON for a new schema:
 //
 //		{
 //			"email": ["String", "", 0, true, true],
 //			"friends": ["Array", ["Object", {
-//								"name": ["String", "", 0, true, true],
-//								"status": ["Number", 0, 0, false, 0, 0] // 0, 0 means no min/max
-//			}], 50],0
+//										"name": ["String", "", 0, true, true],
+//										"status": ["Uint8", 0, 0, 2, false] // default 0, min 0, max 2
+//								}, false],
+//						50, false],
 //			"vCode": ["String", "", 0, true, false],
 //			"verified": ["Bool", false]
 //		}
@@ -77,22 +87,23 @@ type SchemaItem struct {
 func New(schema map[string]interface{}) (*Schema, int) {
 	// INIT queryFilters
 	if queryFilters == nil {
-		queryFilters = map[string]func(interface{}, []string, interface{}, *SchemaItem)(interface{}, int){
-			"Bool": boolFilter,
-			"Int8": int8Filter,
-			"Int16": int16Filter,
-			"Int32": int32Filter,
-			"Int64": int64Filter,
-			"Uint8": uint8Filter,
-			"Uint16": uint16Filter,
-			"Uint32": uint32Filter,
-			"Uint64": uint64Filter,
-			"Float32": float32Filter,
-			"Float64": float32Filter,
-			"String": stringFilter,
-			"Array": arrayFilter,
-			"Map": mapFilter,
-			"Object": objectFilter,
+		queryFilters = map[string]func(interface{}, []string, interface{}, *SchemaItem) (interface{}, int){
+			ItemTypeBool:    boolFilter,
+			ItemTypeInt8:    int8Filter,
+			ItemTypeInt16:   int16Filter,
+			ItemTypeInt32:   int32Filter,
+			ItemTypeInt64:   int64Filter,
+			ItemTypeUint8:   uint8Filter,
+			ItemTypeUint16:  uint16Filter,
+			ItemTypeUint32:  uint32Filter,
+			ItemTypeUint64:  uint64Filter,
+			ItemTypeFloat32: float32Filter,
+			ItemTypeFloat64: float32Filter,
+			ItemTypeString:  stringFilter,
+			ItemTypeArray:   arrayFilter,
+			ItemTypeMap:     mapFilter,
+			ItemTypeObject:  objectFilter,
+			ItemTypeTime:    timeFilter,
 		}
 	}
 
@@ -226,6 +237,14 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			}
 			return nil, helpers.ErrorSchemaInvalidItemParameters
 
+		case ItemTypeTime:
+			var format string = timeFormatInitializor[params[1].(string)]
+			if format == "" {
+				return nil, helpers.ErrorSchemaInvalidTimeFormat
+			}
+			si := SchemaItem{typeName: t, iType: TimeItem{format: format, required: params[2].(bool)}}
+			return &si, 0
+
 		default:
 			return nil, helpers.ErrorUnexpected
 		}
@@ -251,20 +270,21 @@ func (ts *Schema) ValidSchema() bool {
 func (si *SchemaItem) ValidSchemaItem() bool {
 	to := reflect.TypeOf(si.iType)
 	if to == itemTypeRefBool ||
-			to == itemTypeRefInt8 ||
-			to == itemTypeRefInt16 ||
-			to == itemTypeRefInt32 ||
-			to == itemTypeRefInt64 ||
-			to == itemTypeRefUint8 ||
-			to == itemTypeRefUint16 ||
-			to == itemTypeRefUint32 ||
-			to == itemTypeRefUint64 ||
-			to == itemTypeRefFloat32 ||
-			to == itemTypeRefFloat64 ||
-			to == itemTypeRefString ||
-			to == itemTypeRefArray ||
-			to == itemTypeRefMap ||
-			to == itemTypeRefObject {
+		to == itemTypeRefInt8 ||
+		to == itemTypeRefInt16 ||
+		to == itemTypeRefInt32 ||
+		to == itemTypeRefInt64 ||
+		to == itemTypeRefUint8 ||
+		to == itemTypeRefUint16 ||
+		to == itemTypeRefUint32 ||
+		to == itemTypeRefUint64 ||
+		to == itemTypeRefFloat32 ||
+		to == itemTypeRefFloat64 ||
+		to == itemTypeRefString ||
+		to == itemTypeRefArray ||
+		to == itemTypeRefMap ||
+		to == itemTypeRefObject ||
+		to == itemTypeRefTime {
 		return true
 	}
 	return false

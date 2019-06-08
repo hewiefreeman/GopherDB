@@ -36,11 +36,11 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 		data:         make([]interface{}, len(*(t.schema)), len(*(t.schema))),
 	}
 
-	// Fill entry data with insertObj
+	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
 		insertItem := insertObj[itemName]
 		var filterErr int
-		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, nil, schemaItem)
+		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, nil, schemaItem, &t.eMux, &t.entries)
 		if filterErr != 0 {
 			return filterErr
 		}
@@ -89,10 +89,10 @@ func (t *UserTable) GetUserData(userName string, password string) (map[string]in
 	t.eMux.Unlock()
 
 	if e == nil {
-		return nil, helpers.ErrorInvalidUserName
+		return nil, helpers.ErrorInvalidNameOrPassword
 	}
 	if !e.CheckPassword(password) {
-		return nil, helpers.ErrorInvalidPassword
+		return nil, helpers.ErrorInvalidNameOrPassword
 	}
 
 	// Make entry map
@@ -155,10 +155,10 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 
 	// Check for valid entry and password
 	if e == nil {
-		return helpers.ErrorInvalidUserName
+		return helpers.ErrorInvalidNameOrPassword
 	}
 	if !e.CheckPassword(password) {
-		return helpers.ErrorInvalidPassword
+		return helpers.ErrorInvalidNameOrPassword
 	}
 
 	// Get entry data slice
@@ -210,10 +210,10 @@ func (t *UserTable) DeleteUser(userName string, password string) int {
 	//
 	if ue == nil {
 		t.eMux.Unlock()
-		return helpers.ErrorInvalidUserName
+		return helpers.ErrorInvalidNameOrPassword
 	} else if !ue.CheckPassword(password) {
 		t.eMux.Unlock()
-		return helpers.ErrorInvalidPassword
+		return helpers.ErrorInvalidNameOrPassword
 	}
 
 	// Delete entry

@@ -3,64 +3,111 @@ package schema
 import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"reflect"
+	"time"
 )
 
 // Item data type names
 const (
-	ItemTypeBool   = "Bool"
-	ItemTypeInt8 = "Int8"
-	ItemTypeInt16 = "Int16"
-	ItemTypeInt32 = "Int32"
-	ItemTypeInt64 = "Int64"
-	ItemTypeUint8 = "Uint8"
-	ItemTypeUint16 = "Uint16"
-	ItemTypeUint32 = "Uint32"
-	ItemTypeUint64 = "Uint64"
+	ItemTypeBool    = "Bool"
+	ItemTypeInt8    = "Int8"
+	ItemTypeInt16   = "Int16"
+	ItemTypeInt32   = "Int32"
+	ItemTypeInt64   = "Int64"
+	ItemTypeUint8   = "Uint8"
+	ItemTypeUint16  = "Uint16"
+	ItemTypeUint32  = "Uint32"
+	ItemTypeUint64  = "Uint64"
 	ItemTypeFloat32 = "Float32"
 	ItemTypeFloat64 = "Float64"
-	ItemTypeString = "String"
-	ItemTypeArray  = "Array"
-	ItemTypeMap    = "Map"
-	ItemTypeObject = "Object"
+	ItemTypeString  = "String"
+	ItemTypeArray   = "Array"
+	ItemTypeMap     = "Map"
+	ItemTypeObject  = "Object"
+	ItemTypeTime    = "Time"
+)
+
+// Time formats
+const (
+	TimeFormatANSIC       = "Mon Jan _2 15:04:05 2006"
+	TimeFormatUnixDate    = "Mon Jan _2 15:04:05 MST 2006"
+	TimeFormatRubyDate    = "Mon Jan 02 15:04:05 -0700 2006"
+	TimeFormatRFC822      = "02 Jan 06 15:04 MST"
+	TimeFormatRFC822Z     = "02 Jan 06 15:04 -0700" // RFC822 with numeric zone
+	TimeFormatRFC850      = "Monday, 02-Jan-06 15:04:05 MST"
+	TimeFormatRFC1123     = "Mon, 02 Jan 2006 15:04:05 MST"
+	TimeFormatRFC1123Z    = "Mon, 02 Jan 2006 15:04:05 -0700" // RFC1123 with numeric zone
+	TimeFormatRFC3339     = "2006-01-02T15:04:05Z07:00"
+	TimeFormatRFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00"
+	TimeFormatKitchen     = "3:04PM"
+
+	// Time stamp formats
+	TimeFormatStamp      = "Jan _2 15:04:05"
+	TimeFormatStampMilli = "Jan _2 15:04:05.000"
+	TimeFormatStampMicro = "Jan _2 15:04:05.000000"
+	TimeFormatStampNano  = "Jan _2 15:04:05.000000000"
 )
 
 // Item data type initializers for table creation queries
 var (
 	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind{
-		ItemTypeBool:   []reflect.Kind{reflect.Bool},
-		ItemTypeInt8: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt16: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint8: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint16: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeBool:    []reflect.Kind{reflect.Bool},
+		ItemTypeInt8:    []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeInt16:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeInt32:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeInt64:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeUint8:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeUint16:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeUint32:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
+		ItemTypeUint64:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
 		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeString: []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeArray:  []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
-		ItemTypeMap:  []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
-		ItemTypeObject: []reflect.Kind{reflect.Map, reflect.Bool}}
+		ItemTypeString:  []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeArray:   []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
+		ItemTypeMap:     []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
+		ItemTypeObject:  []reflect.Kind{reflect.Map, reflect.Bool},
+		ItemTypeTime:    []reflect.Kind{reflect.string, reflect.Bool},
+	}
+)
+
+// Time type format initializers for table creation queries
+var (
+	timeFormatInitializor map[string]string = map[string]string {
+		"ANSIC": TimeFormatANSIC,
+		"Unix":  TimeFormatUnixDate,
+		"Ruby":  TimeFormatRubyDate,
+		"RFC822": TimeFormatRFC822,
+		"RFC822Z": TimeFormatRFC822Z,
+		"RFC850": TimeFormatRFC850,
+		"RFC1123": TimeFormatRFC1123,
+		"RFC1123Z": TimeFormatRFC1123Z,
+		"RFC3339": TimeFormatRFC3339,
+		"RFC3339Nano": TimeFormatRFC3339Nano,
+		"Kitchen": TimeFormatKitchen,
+		"Stamp": TimeFormatStamp,
+		"StampMilli": TimeFormatStampMilli,
+		"StampMicro": TimeFormatStampMicro,
+		"StampNano": TimeFormatStampNano,
+	}
 )
 
 // Item data type reflections
 var (
-	itemTypeRefBool   = reflect.TypeOf(BoolItem{})
-	itemTypeRefInt8 = reflect.TypeOf(Int8Item{})
-	itemTypeRefInt16 = reflect.TypeOf(Int16Item{})
-	itemTypeRefInt32 = reflect.TypeOf(Int32Item{})
-	itemTypeRefInt64 = reflect.TypeOf(Int64Item{})
-	itemTypeRefUint8 = reflect.TypeOf(Uint8Item{})
-	itemTypeRefUint16 = reflect.TypeOf(Uint16Item{})
-	itemTypeRefUint32 = reflect.TypeOf(Uint32Item{})
-	itemTypeRefUint64 = reflect.TypeOf(Uint64Item{})
+	itemTypeRefBool    = reflect.TypeOf(BoolItem{})
+	itemTypeRefInt8    = reflect.TypeOf(Int8Item{})
+	itemTypeRefInt16   = reflect.TypeOf(Int16Item{})
+	itemTypeRefInt32   = reflect.TypeOf(Int32Item{})
+	itemTypeRefInt64   = reflect.TypeOf(Int64Item{})
+	itemTypeRefUint8   = reflect.TypeOf(Uint8Item{})
+	itemTypeRefUint16  = reflect.TypeOf(Uint16Item{})
+	itemTypeRefUint32  = reflect.TypeOf(Uint32Item{})
+	itemTypeRefUint64  = reflect.TypeOf(Uint64Item{})
 	itemTypeRefFloat32 = reflect.TypeOf(Float32Item{})
 	itemTypeRefFloat64 = reflect.TypeOf(Float64Item{})
-	itemTypeRefString = reflect.TypeOf(StringItem{})
-	itemTypeRefArray  = reflect.TypeOf(ArrayItem{})
-	itemTypeRefMap  = reflect.TypeOf(MapItem{})
-	itemTypeRefObject = reflect.TypeOf(ObjectItem{})
+	itemTypeRefString  = reflect.TypeOf(StringItem{})
+	itemTypeRefArray   = reflect.TypeOf(ArrayItem{})
+	itemTypeRefMap     = reflect.TypeOf(MapItem{})
+	itemTypeRefObject  = reflect.TypeOf(ObjectItem{})
+	itemTypeRefTime    = reflect.TypeOf(TimeItem{})
 )
 
 type BoolItem struct {
@@ -163,6 +210,11 @@ type ObjectItem struct {
 	required bool
 }
 
+type TimeItem struct {
+	format       string
+	required     bool
+}
+
 /////////////////////////////////////////////////////////////////////////////
 //   GET A DEFAULT VALUE   //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -170,179 +222,195 @@ type ObjectItem struct {
 func defaultVal(si *SchemaItem) (interface{}, int) {
 	t := si.iType
 	switch kind := t.(type) {
-		// Bools
-		case BoolItem:
-			return kind.defaultValue, 0
+	// Bools
+	case BoolItem:
+		return kind.defaultValue, 0
 
-		// Number types
-		case Int8Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	// Number types
+	case Int8Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Int16Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Int16Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Int32Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Int32Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Int64Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Int64Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Uint8Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Uint8Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Uint16Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Uint16Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Uint32Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Uint32Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Uint64Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Uint64Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			return i, 0
+		}
+		return i, 0
 
-		case Float32Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Float32Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			if kind.abs && i < 0 {
-				i = i*(-1)
-			}
-			return i, 0
+		}
+		if kind.abs && i < 0 {
+			i = i * (-1)
+		}
+		return i, 0
 
-		case Float64Item:
-			if kind.required {
-				return nil, helpers.ErrorMissingRequiredItem
+	case Float64Item:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		i := kind.defaultValue
+		if kind.min < kind.max {
+			if i > kind.max {
+				i = kind.max
+			} else if i < kind.min {
+				i = kind.min
 			}
-			i := kind.defaultValue
-			if kind.min < kind.max {
-				if i > kind.max {
-					i = kind.max
-				} else if i < kind.min {
-					i = kind.min
-				}
-			}
-			if kind.abs && i < 0 {
-				i = i*(-1)
-			}
-			return i, 0
+		}
+		if kind.abs && i < 0 {
+			i = i * (-1)
+		}
+		return i, 0
 
-		// Strings
-		case StringItem:
-			if kind.unique {
-				return nil, helpers.ErrorMissingRequiredItem
-			} else if kind.required && len(kind.defaultValue) == 0 {
-				return nil, helpers.ErrorMissingRequiredItem
-			}
-			return kind.defaultValue, 0
+	// Strings
+	case StringItem:
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required && len(kind.defaultValue) == 0 {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		return kind.defaultValue, 0
 
-		// Arrays
-		case ArrayItem:
-			return []interface{}{}, 0
+	// Arrays
+	case ArrayItem:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		return []interface{}{}, 0
 
-		// Maps
-		case MapItem:
-			return make(map[string]interface{}), 0
+	// Maps
+	case MapItem:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		return make(map[string]interface{}), 0
 
-		// Objects
-		case ObjectItem:
-			return make(map[string]interface{}), 0
+	// Objects
+	case ObjectItem:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		return make(map[string]interface{}), 0
 
-		default:
-			return nil, helpers.ErrorUnexpected
+	// Time
+	case TimeItem:
+		if kind.required {
+			return nil, helpers.ErrorMissingRequiredItem
+		}
+		return time.Now(), 0
+
+	default:
+		return nil, helpers.ErrorUnexpected
 	}
 }
