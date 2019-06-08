@@ -5,7 +5,8 @@ Gopher Game DB is an in-memory distributed authentication, leaderboard, and gene
   - Stable, reliable schema validation
   - Highly effective, flexible queries
   - Wide selection of data types
-  - User Authentication Tables
-  - Leaderboards
+  - User Authentication Tables (single-select)
+  - Ordered Tables (multi-select)
+  - Leaderboards (multi-select)
   - Easy-to-use
   
