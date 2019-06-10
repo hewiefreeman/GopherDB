@@ -8,9 +8,6 @@ import (
 
 ////////////////// TODOs
 //////////////////
-//////////////////     - Time type
-//////////////////         - test
-//////////////////
 //////////////////     - Unique value checks
 //////////////////         - local
 //////////////////         - distributed
@@ -26,6 +23,8 @@ import (
 //////////////////         - Updating/Restoring with log files
 //////////////////         - Persisting data to storage
 //////////////////         - Updating storage data
+//////////////////
+//////////////////     - Admin connections
 //////////////////
 
 var (
@@ -48,6 +47,10 @@ type UserTable struct {
 	// entries
 	eMux    sync.Mutex // entries map lock
 	entries map[string]*UserTableEntry // UserTable uses a Map for storage since it's only look-up is with user name and password
+
+	// unique values
+	uMux       sync.Mutex
+	uniqueVals map[string]map[string]bool
 
 	// persistance
 	pMux   sync.Mutex // fileOn/lineOn lock
@@ -137,8 +140,10 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 		encryptCost:   defaultEncryptCost,
 		schema:        s,
 		entries:       make(map[string]*UserTableEntry),
+		uniqueVals:    make(map[string]map[string]bool),
 		fileOn:        fileOn,
-		lineOn:        lineOn}
+		lineOn:        lineOn,
+	}
 
 	//
 	tablesMux.Lock()

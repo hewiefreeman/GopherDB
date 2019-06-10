@@ -37,11 +37,13 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
-		insertItem := insertObj[itemName]
-		var filterErr int
-		ute.data[schemaItem.DataIndex()], filterErr = schema.QueryItemFilter(insertItem, nil, nil, schemaItem, &t.eMux, &t.entries)
-		if filterErr != 0 {
-			return filterErr
+		// Make filter
+		filter := schema.NewFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], []*schema.SchemaItem{schemaItem}, &t.uMux, &t.uniqueVals)
+
+		// Add updateItem to entry data slice
+		err := schema.QueryItemFilter(&filter)
+		if err != 0 {
+			return err
 		}
 	}
 
@@ -166,9 +168,9 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		return helpers.ErrorInvalidNameOrPassword
 	}
 
-	// Get entry data slice
+	// Lock entry
 	e.mux.Lock()
-	data := e.data
+	data := append([]interface{}{}, e.data...)
 
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
@@ -181,16 +183,20 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
+
+		// Make filter
+		filter := schema.NewFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], []*schema.SchemaItem{schemaItem}, &t.uMux, &t.uniqueVals)
+
 		// Add updateItem to entry data slice
 		var err int
-		data[schemaItem.DataIndex()], err = schema.QueryItemFilter(updateItem, itemMethods, data[schemaItem.DataIndex()], schemaItem, &t.eMux, &t.entries)
+		err = schema.QueryItemFilter(&filter)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
 		}
 	}
 
-	// Update entry data with new data
+	// Unlock entry
 	e.data = data
 	e.mux.Unlock()
 

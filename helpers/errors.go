@@ -37,6 +37,7 @@ const (
 	ErrorNumberTooLarge
 	ErrorNumberTooSmall
 	ErrorArrayItemsRequired
+	ErrorArrayEmpty
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
 

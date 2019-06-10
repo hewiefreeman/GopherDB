@@ -4,7 +4,6 @@ import (
 	"github.com/hewiefreeman/GopherGameDB/helpers"
 	"reflect"
 	"strings"
-	"sync"
 	//"fmt"
 )
 
@@ -14,6 +13,7 @@ type Schema map[string]*SchemaItem
 // SchemaItem represents one of the items in a Schema. SchemaItem also holds info about the data type and it's settings.
 type SchemaItem struct {
 	dataIndex uint32
+	name      string
 	typeName  string
 	iType     interface{}
 }
@@ -88,7 +88,7 @@ type SchemaItem struct {
 func New(schema map[string]interface{}) (*Schema, int) {
 	// INIT queryFilters
 	if queryFilters == nil {
-		queryFilters = map[string]func(interface{}, []string, interface{}, *SchemaItem, *sync.Mutex, interface{}) (interface{}, int){
+		queryFilters = map[string]func(*Filter)(int){
 			ItemTypeBool:    boolFilter,
 			ItemTypeInt8:    int8Filter,
 			ItemTypeInt16:   int16Filter,
@@ -119,7 +119,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 		}
 		// Check item format
 		if params, ok := itemParams.([]interface{}); ok {
-			schemaItem, iErr := makeSchemaItem(params)
+			schemaItem, iErr := makeSchemaItem(itemName, params)
 			if iErr != 0 {
 				return nil, iErr
 			}
@@ -136,7 +136,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 	return &s, 0
 }
 
-func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
+func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
 	if len(params) <= 1 {
 		// Invalid format - requires at least a length of 2 for any item data type
 		return nil, helpers.ErrorSchemaInvalidItemParameters
@@ -162,69 +162,70 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			}
 		}
 		// Execute create for the type
+		si := SchemaItem{name: name, typeName: t}
 		switch t {
 		case ItemTypeBool:
-			si := SchemaItem{typeName: t, iType: BoolItem{defaultValue: params[1].(bool)}}
+			si.iType = BoolItem{defaultValue: params[1].(bool)}
 			return &si, 0
 
 		case ItemTypeInt8:
-			si := SchemaItem{typeName: t, iType: Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeInt16:
-			si := SchemaItem{typeName: t, iType: Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeInt32:
-			si := SchemaItem{typeName: t, iType: Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeInt64:
-			si := SchemaItem{typeName: t, iType: Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeUint8:
-			si := SchemaItem{typeName: t, iType: Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeUint16:
-			si := SchemaItem{typeName: t, iType: Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeUint32:
-			si := SchemaItem{typeName: t, iType: Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeUint64:
-			si := SchemaItem{typeName: t, iType: Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}}
+			si.iType = Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeFloat32:
-			si := SchemaItem{typeName: t, iType: Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}}
+			si.iType = Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeFloat64:
-			si := SchemaItem{typeName: t, iType: Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}}
+			si.iType = Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeString:
-			si := SchemaItem{typeName: t, iType: StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}}
+			si.iType = StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}
 			return &si, 0
 
 		case ItemTypeArray:
-			schemaItem, iErr := makeSchemaItem(params[1].([]interface{}))
+			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
 			if iErr != 0 {
 				return nil, iErr
 			}
-			si := SchemaItem{typeName: t, iType: ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
+			si.iType = ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
 			return &si, 0
 
 		case ItemTypeMap:
-			schemaItem, iErr := makeSchemaItem(params[1].([]interface{}))
+			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
 			if iErr != 0 {
 				return nil, iErr
 			}
-			si := SchemaItem{typeName: t, iType: MapItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}}
+			si.iType = MapItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
 			return &si, 0
 
 		case ItemTypeObject:
@@ -233,7 +234,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 				if schemaErr != 0 {
 					return nil, schemaErr
 				}
-				si := SchemaItem{typeName: t, iType: ObjectItem{schema: schema}}
+				si.iType = ObjectItem{schema: schema}
 				return &si, 0
 			}
 			return nil, helpers.ErrorSchemaInvalidItemParameters
@@ -243,7 +244,7 @@ func makeSchemaItem(params []interface{}) (*SchemaItem, int) {
 			if format == "" {
 				return nil, helpers.ErrorSchemaInvalidTimeFormat
 			}
-			si := SchemaItem{typeName: t, iType: TimeItem{format: format, required: params[2].(bool)}}
+			si.iType = TimeItem{format: format, required: params[2].(bool)}
 			return &si, 0
 
 		default:
