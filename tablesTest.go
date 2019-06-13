@@ -189,7 +189,21 @@ func main() {
 	// Set timeStamp manually
 	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"timeStamp": "4:29PM"})
 	if updateErr != 0 {
-		fmt.Println("Update Error 12:", updateErr)
+		fmt.Println("Update Error 13:", updateErr)
+		return
+	}
+
+	// Add friend
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name": "as"}}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 14:", updateErr)
+		return
+	}
+
+	// Run some methods on a friend name resulting in a unique value error
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.2.name.*prepend.*append": []interface{}{"J", "on"}})
+	if updateErr != 0 {
+		fmt.Println("Update Error 15:", updateErr)
 		return
 	}
 

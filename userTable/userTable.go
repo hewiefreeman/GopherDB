@@ -50,7 +50,7 @@ type UserTable struct {
 
 	// unique values
 	uMux       sync.Mutex
-	uniqueVals map[string]map[string]bool
+	uniqueVals map[string]map[interface{}]bool
 
 	// persistance
 	pMux   sync.Mutex // fileOn/lineOn lock
@@ -140,7 +140,7 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 		encryptCost:   defaultEncryptCost,
 		schema:        s,
 		entries:       make(map[string]*UserTableEntry),
-		uniqueVals:    make(map[string]map[string]bool),
+		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 		lineOn:        lineOn,
 	}

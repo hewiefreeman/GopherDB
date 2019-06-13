@@ -16,7 +16,7 @@ type Filter struct {
 	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search)
 	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search)
 	uMux *sync.Mutex // Pointer to the table's unique value search mutex
-	uniqueVals *map[string]map[string]bool // Pointer to the table's unique value map (must lock uMux)
+	uniqueVals *map[string]map[interface{}]bool // Pointer to the table's unique value map (must lock uMux)
 }
 
 // Method names
@@ -42,7 +42,7 @@ var (
 //   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func NewFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uMux *sync.Mutex, uniqueVals *map[string]map[string]bool) Filter {
+func NewFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uMux *sync.Mutex, uniqueVals *map[string]map[interface{}]bool) Filter {
 	return Filter{
 		item: item,
 		methods: methods,
@@ -103,19 +103,67 @@ func Format(tableItem interface{}, itemType *SchemaItem) interface{} {
 //   UNIQUE CHECKS   ////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func uniqueCheck(filter *Filter, parentIndex int) bool {
-	/*// Check Map
-	if filter.schemaItems[parentIndex].typeName == ItemTypeMap {
-		var data interface{}
-		for i, si := range filter.schemaItems {
-			if i == parentIndex {
+func uniqueCheck(filter *Filter) bool {
+	// Get parent index
+	parentIndex := -1
+	for i := len(filter.schemaItems)-1; i >= 0; i-- {
+		if filter.schemaItems[i].typeName == ItemTypeArray || filter.schemaItems[i].typeName == ItemTypeMap {
+			parentIndex = i
+			break
+		}
+	}
+	if parentIndex == -1 {
+		// No valid parent, get name for table check
+		name := filter.schemaItems[0].name
+		for i := 1; i < len(filter.schemaItems)-1; i++ {
+				name = name+"."+filter.schemaItems[i].name
+		}
+		// Table check
+		(*(*filter).uMux).Lock()
+		if (*(*filter).uniqueVals)[name] == nil {
+			(*(*filter).uniqueVals)[name] = make(map[interface{}]bool)
+		} else if (*(*filter).uniqueVals)[name][filter.item] {
+			(*(*filter).uMux).Unlock()
+			return true
+		}
+		(*(*filter).uniqueVals)[name][filter.item] = true
+		(*(*filter).uMux).Unlock()
 
+		// Distributed search here !!!!!
+
+		return false
+	}
+	if filter.schemaItems[parentIndex].typeName == ItemTypeMap {
+		// Check Map
+		for _, item := range filter.innerData[parentIndex].(map[string]interface{}) {
+			if getInnerUnique(filter, parentIndex+1, item) == filter.item {
+				return true
 			}
 		}
 	} else {
-
-	}*/
+		// Check Array
+		for _, item := range filter.innerData[parentIndex].([]interface{}) {
+			if getInnerUnique(filter, (parentIndex+1), item) == filter.item {
+				return true
+			}
+		}
+	}
 	//
+	return false
+}
+
+func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
+	switch filter.schemaItems[indexOn].typeName {
+		case ItemTypeString, ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
+			ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
+			ItemTypeFloat32, ItemTypeFloat64:
+			return item
+
+		case ItemTypeObject:
+			// get item
+			innerItem := item.(map[string]interface{})[filter.schemaItems[indexOn+1].name]
+			return getInnerUnique(filter, (indexOn+1), innerItem)
+	}
 	return false
 }
 
@@ -732,60 +780,10 @@ func stringFilter(filter *Filter) int {
 		return helpers.ErrorStringRequired
 	}
 	// Check if unique
-	if it.unique {
-		if len(filter.schemaItems) == 1 {
-			// Table check
-			name := filter.schemaItems[len(filter.schemaItems)-1].name
-			(*(*filter).uMux).Lock()
-			if (*(*filter).uniqueVals)[name] == nil {
-				(*(*filter).uniqueVals)[name] = make(map[string]bool)
-			} else if (*(*filter).uniqueVals)[name][ic] {
-				(*(*filter).uMux).Unlock()
-				return helpers.ErrorUniqueValueInUse
-			}
-			(*(*filter).uniqueVals)[name][ic] = true
-			(*(*filter).uMux).Unlock()
-		} else {
-			parentIndex := -1
-			for i := len(filter.schemaItems)-1; i >= 0; i-- {
-
-				if filter.schemaItems[i].typeName == ItemTypeArray || filter.schemaItems[i].typeName == ItemTypeMap {
-					parentIndex = i
-					break
-				}
-			}
-			if parentIndex == -1 {
-				// Get name
-				name := ""
-				for i, v := range filter.schemaItems {
-					if i == 0 {
-						name = v.typeName
-					} else {
-						name = name+"."+v.name
-					}
-				}
-				// Table check
-				(*(*filter).uMux).Lock()
-				if (*(*filter).uniqueVals)[name] == nil {
-					(*(*filter).uniqueVals)[name] = make(map[string]bool)
-				} else if (*(*filter).uniqueVals)[name][ic] {
-					(*(*filter).uMux).Unlock()
-					return helpers.ErrorUniqueValueInUse
-				}
-				(*(*filter).uniqueVals)[name][ic] = true
-				(*(*filter).uMux).Unlock()
-			} else {
-				// Search in filter.data for unique string
-				if uniqueCheck(filter, parentIndex) {
-					return helpers.ErrorUniqueValueInUse
-				}
-			}
-
-		}
-
-		// Distributed checks !!!!
-	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
