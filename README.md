@@ -2,8 +2,8 @@
 Gopher DB is an in-memory distributed authentication, leaderboard, and generic database written in Go.
 
 **[ PROJECT UNDER CONSTRUCTION ]**
-
-
+<br>
+<br>
 ## Main Features
   - Stable, reliable schema validation
   - Highly effective, flexible queries
