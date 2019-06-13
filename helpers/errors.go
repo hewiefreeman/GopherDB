@@ -27,7 +27,7 @@ const (
 	ErrorInvalidArithmeticParameter
 	ErrorInvalidMethod
 	ErrorInvalidMethodParameters
-	ErrorTableFull
+	ErrorTableFull // 1020
 
 	// Schema errors
 	ErrorInvalidItemValue
@@ -39,7 +39,7 @@ const (
 	ErrorArrayItemsRequired
 	ErrorArrayEmpty
 	ErrorMapItemsRequired
-	ErrorInvalidTimeFormat
+	ErrorInvalidTimeFormat // 1030
 
 	// Leaderboard errors
 	ErrorLeaderboardExists

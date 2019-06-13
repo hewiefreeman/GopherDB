@@ -39,7 +39,7 @@ func main() {
 
 	// insert
 	var averageTime float64
-	for v := 0; v < 1000; v++ {
+	for v := 0; v < 100; v++ {
 		now := time.Now()
 		// Insert a test User
 		insertErr := table.NewUser("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"email": "dinospumoni"+strconv.Itoa(v)+"@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9"})
@@ -56,7 +56,7 @@ func main() {
 	fmt.Println("Average insert time (ms):", averageTime*1000)
 
 	averageTime = 0
-	for v := 0; v < 1000; v++ {
+	for v := 0; v < 100; v++ {
 		now := time.Now()
 		// add 1 to entry's mmr
 		updateErr := table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
@@ -73,7 +73,7 @@ func main() {
 	fmt.Println("Average update time (ms):", averageTime*1000)
 
 	averageTime = 0
-	for v := 0; v < 1000; v++ {
+	for v := 0; v < 100; v++ {
 		now := time.Now()
 		_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass")
 		if ueErr != 0 {
@@ -88,7 +88,7 @@ func main() {
 	}
 	fmt.Println("Average select time (ms):", averageTime*1000)
 
-	ud, ueErr := table.GetUserData("wtlf", "whatthe")
+	ud, ueErr := table.GetUserData("guest99", "myPass")
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)
 		return
@@ -96,104 +96,104 @@ func main() {
 	fmt.Println("Before:", ud)
 
 	// Multiply by 1.5, divide by 2, add 4, then subtract 1 from entry's mmr (using methods)
-	updateErr := table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"mmr.*mul.*div.*add.*sub": []interface{}{1.5, 2, 4, 1}})
+	updateErr := table.UpdateUserData("guest99", "myPass", map[string]interface{}{"mmr.*mul.*div.*add.*sub": []interface{}{1.5, 2, 4, 1}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 1:", updateErr)
 		return
 	}
 
 	// Append a friend to friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name": "Mag"}}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"name": "Mag"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 2:", updateErr)
 		return
 	}
 
 	// Prepend a friend to friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*prepend": []interface{}{map[string]interface{}{"name": "Jason"}}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.*prepend": []interface{}{map[string]interface{}{"name": "Jason"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 3:", updateErr)
 		return
 	}
 
 	// Append 2 friends to index 1 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*append[1]": []interface{}{map[string]interface{}{"name": "Harry"}, map[string]interface{}{"name": "Potter"}}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.*append[1]": []interface{}{map[string]interface{}{"name": "Harry"}, map[string]interface{}{"name": "Potter"}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 4:", updateErr)
 		return
 	}
 
 	// Delete 2 friends from friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.*delete": []interface{}{2, 1}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.*delete": []interface{}{2, 1}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 5:", updateErr)
 		return
 	}
 
 	// Chage name of friend at index 1 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.1.name.*append": []interface{}{"icarp"}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.1.name.*append": []interface{}{"icarp"}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 6:", updateErr)
 		return
 	}
 
 	// Chage status of friend at index 0 of friends
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"friends.0.status": 3})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.0.status": 3})
 	if updateErr != 0 {
 		fmt.Println("Update Error 7:", updateErr)
 		return
 	}
 
 	// Add something to testMap
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.*append": map[string]interface{}{"items": map[string]interface{}{}}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.*append": map[string]interface{}{"items": map[string]interface{}{}}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 8:", updateErr)
 		return
 	}
 
 	// Add something to items in testMap
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.arrows": 12})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.arrows": 12})
 	if updateErr != 0 {
 		fmt.Println("Update Error 8:", updateErr)
 		return
 	}
 
 	// Add something to items in testMap
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.beanz": 87})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.beanz": 87})
 	if updateErr != 0 {
 		fmt.Println("Update Error 9:", updateErr)
 		return
 	}
 
 	// Apply arithmetic to beanz in items in testMap
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.beanz.*add.*mul": []interface{}{3, 2}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.beanz.*add.*mul": []interface{}{3, 2}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 10:", updateErr)
 		return
 	}
 
 	// Delete arrows in items in testMap
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.*delete": []interface{}{"arrows"}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.*delete": []interface{}{"arrows"}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 11:", updateErr)
 		return
 	}
 
 	// Append rupees and silk to items
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"rupees": 99, "silk": 1}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"rupees": 99, "silk": 1}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 12:", updateErr)
 		return
 	}
 
 	// Set timeStamp manually
-	updateErr = table.UpdateUserData("wtlf", "whatthe", map[string]interface{}{"timeStamp": "4:29PM"})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"timeStamp": "4:29PM"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 12:", updateErr)
 		return
 	}
 
-	ud, ueErr = table.GetUserData("wtlf", "whatthe")
+	ud, ueErr = table.GetUserData("guest99", "myPass")
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)
 		return

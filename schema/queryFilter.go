@@ -10,13 +10,13 @@ import (
 
 // Filter for queries
 type Filter struct {
-	item interface{}
-	methods []string
-	dbEntryData *interface{}
-	schemaItems []*SchemaItem
-	schemaItemOn int
-	uMux *sync.Mutex
-	uniqueVals *map[string]map[string]bool
+	item interface{} // The item to insert
+	destination *interface{} // Pointer to where the data needs to be stored
+	methods []string // Method list
+	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search)
+	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search)
+	uMux *sync.Mutex // Pointer to the table's unique value search mutex
+	uniqueVals *map[string]map[string]bool // Pointer to the table's unique value map (must lock uMux)
 }
 
 // Method names
@@ -42,12 +42,13 @@ var (
 //   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func NewFilter(item interface{}, methods []string, dbEntryData *interface{}, schemaItems []*SchemaItem, uMux *sync.Mutex, uniqueVals *map[string]map[string]bool) Filter {
+func NewFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uMux *sync.Mutex, uniqueVals *map[string]map[string]bool) Filter {
 	return Filter{
 		item: item,
 		methods: methods,
-		dbEntryData: dbEntryData,
-		schemaItems: schemaItems,
+		destination: destination,
+		innerData: []interface{}{innerData},
+		schemaItems: []*SchemaItem{schemaItem},
 		uMux: uMux,
 		uniqueVals: uniqueVals,
 	}
@@ -60,22 +61,24 @@ func QueryItemFilter(filter *Filter) int {
 			return helpers.ErrorInvalidMethodParameters
 		}
 		// Get default value
-		defaultVal, defaultErr := defaultVal(filter.schemaItems[filter.schemaItemOn])
+		defaultVal, defaultErr := defaultVal(filter.schemaItems[len(filter.schemaItems)-1])
 		if defaultErr != 0 {
 			return defaultErr
 		}
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = defaultVal
+		if len(filter.schemaItems) == 1 {
+			(*(*filter).destination) = defaultVal
 		} else {
 			filter.item = defaultVal
-			filter.schemaItemOn--
 		}
 		return 0
 	} else {
 		// Run type filter
-		iTypeErr := queryFilters[filter.schemaItems[filter.schemaItemOn].typeName](filter)
+		iTypeErr := queryFilters[filter.schemaItems[len(filter.schemaItems)-1].typeName](filter)
 		if iTypeErr != 0 {
 			return iTypeErr
+		}
+		if len(filter.schemaItems) == 1 {
+			(*(*filter).destination) = filter.item
 		}
 		return 0
 	}
@@ -83,12 +86,37 @@ func QueryItemFilter(filter *Filter) int {
 
 func Format(tableItem interface{}, itemType *SchemaItem) interface{} {
 	if itemType.typeName == ItemTypeTime {
-		// Format Time types
-		t := tableItem.(time.Time)
-		it := itemType.iType.(TimeItem)
-		return t.Format(it.format)
+		if tableItem == nil {
+			return nil
+		} else {
+			// Format Time types
+			t := tableItem.(time.Time)
+			it := itemType.iType.(TimeItem)
+			return t.Format(it.format)
+		}
+
 	}
 	return tableItem
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   UNIQUE CHECKS   ////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func uniqueCheck(filter *Filter, parentIndex int) bool {
+	/*// Check Map
+	if filter.schemaItems[parentIndex].typeName == ItemTypeMap {
+		var data interface{}
+		for i, si := range filter.schemaItems {
+			if i == parentIndex {
+
+			}
+		}
+	} else {
+
+	}*/
+	//
+	return false
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -187,16 +215,41 @@ func applyStringMethods(strs []interface{}, methods []string, dbEntryData string
 
 func applyArrayMethods(filter *Filter) int {
 	method := filter.methods[0]
-	dbEntryPointer := filter.dbEntryData
-	dbEntryData := (*dbEntryPointer).([]interface{})
+	dbEntryData := filter.innerData[len(filter.innerData)-1].([]interface{})
 	if item, ok := filter.item.([]interface{}); ok {
 		// Basic array methods
 		switch method {
 		case MethodAppend:
+			filter.methods = []string{}
+			filter.innerData = append(filter.innerData, nil)
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			var index int
+			for index, filter.item = range item {
+				iTypeErr := QueryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				item[index] = filter.item
+			}
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 			filter.item = append(dbEntryData, item...)
 			return 0
 
 		case MethodPrepend:
+			filter.methods = []string{}
+			filter.innerData = append(filter.innerData, nil)
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			var index int
+			for index, filter.item = range item {
+				iTypeErr := QueryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				item[index] = filter.item
+			}
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 			filter.item = append(item, dbEntryData...)
 			return 0
 
@@ -204,8 +257,7 @@ func applyArrayMethods(filter *Filter) int {
 			// Item numbers to delete must be in order of greatest to least
 			var lastNum int = len(dbEntryData)
 			for _, numb := range item {
-				if cNumb, ok := makeInt(numb); ok {
-					i := int(cNumb)
+				if i, ok := makeInt(numb); ok {
 					if i >= lastNum {
 						return helpers.ErrorInvalidMethodParameters
 					} else if i >= 0 {
@@ -216,6 +268,7 @@ func applyArrayMethods(filter *Filter) int {
 					return helpers.ErrorInvalidMethodParameters
 				}
 			}
+			filter.methods = []string{}
 			filter.item = dbEntryData
 			return 0
 		}
@@ -233,6 +286,19 @@ func applyArrayMethods(filter *Filter) int {
 			} else if i > len(dbEntryData)-1 {
 				i = len(dbEntryData) - 1
 			}
+			filter.methods = []string{}
+			filter.innerData = append(filter.innerData, nil)
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			var index int
+			for index, filter.item = range item {
+				iTypeErr := QueryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				item[index] = filter.item
+			}
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 			// Merge slices (could possibly be done better?) !!!
 			entryStart := append([]interface{}{}, dbEntryData[:i]...)
 			entryStart = append(entryStart, item...)
@@ -254,34 +320,24 @@ func applyArrayMethods(filter *Filter) int {
 	} else if i > len(dbEntryData)-1 {
 		i = len(dbEntryData) - 1
 	}
-	// Check for more methods
-	if len(filter.methods) == 1 {
-		// No other methods, change value of item
-		dbEntryData[i] = filter.item
-		filter.item = dbEntryData
-		return 0
-	} else {
-		// More methods to run on item
-		filter.dbEntryData = &dbEntryData[i]
-		filter.methods = filter.methods[1:]
-		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[filter.schemaItemOn].iType.(ArrayItem).dataType.(*SchemaItem))
-		filter.schemaItemOn++
-		iTypeErr := QueryItemFilter(filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		filter.dbEntryData = dbEntryPointer
-		filter.item = dbEntryData
-		return 0
+	// Check for more methods & filter
+	filter.methods = filter.methods[1:]
+	filter.innerData = append(filter.innerData, dbEntryData[i])
+	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+	iTypeErr := QueryItemFilter(filter)
+	if iTypeErr != 0 {
+		return iTypeErr
 	}
-
-	return helpers.ErrorInvalidMethod
+	filter.innerData = filter.innerData[:len(filter.innerData)-1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+	dbEntryData[i] = filter.item
+	filter.item = dbEntryData
+	return 0
 }
 
 func applyMapMethods(filter *Filter) int {
 	method := filter.methods[0]
-	dbEntryPointer := filter.dbEntryData
-	dbEntryData := (*dbEntryPointer).(map[string]interface{})
+	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
 	// Delete - eg: ["Mary", "Joe", "Vokome"]
 	if item, ok := filter.item.([]interface{}); ok && method == MethodDelete {
 		// Delete method
@@ -292,75 +348,66 @@ func applyMapMethods(filter *Filter) int {
 				return helpers.ErrorInvalidMethodParameters
 			}
 		}
+		filter.methods = []string{}
 		filter.item = dbEntryData
 		return 0
 	} else if item, ok := filter.item.(map[string]interface{}); ok && method == MethodAppend {
 		// Append method - eg: {"x": 27, "y": 43}
-		for itemName, i := range item {
-			dbEntryData[itemName] = i
+		filter.methods = []string{}
+		filter.innerData = append(filter.innerData, nil)
+		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
+		var itemName string
+		for itemName, filter.item = range item {
+			iTypeErr := QueryItemFilter(filter)
+			if iTypeErr != 0 {
+				return iTypeErr
+			}
+			dbEntryData[itemName] = filter.item
 		}
+		filter.innerData = filter.innerData[:len(filter.innerData)-1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		filter.item = dbEntryData
 		return 0
 	}
 
 	// Checking for item with the name method[0] (Items with * not accepted)
 	if !strings.Contains(method, "*") {
-		if len(filter.methods) == 1 {
-			// Add item to, or set item in map
-			dbEntryData[method] = filter.item
-			filter.item = dbEntryData
-			return 0
-		} else {
-			// More methods to run on item
-			data := dbEntryData[method]
-			filter.dbEntryData = &data
-			filter.methods = filter.methods[1:]
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[filter.schemaItemOn].iType.(MapItem).dataType.(*SchemaItem))
-			filter.schemaItemOn++
-			iTypeErr := QueryItemFilter(filter)
-			if iTypeErr != 0 {
-				return iTypeErr
-			}
-			dbEntryData[method] = filter.item
-			filter.dbEntryData = dbEntryPointer
-			filter.item = dbEntryData
-			return 0
+		filter.methods = filter.methods[1:]
+		filter.innerData = append(filter.innerData, dbEntryData[method])
+		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
+		iTypeErr := QueryItemFilter(filter)
+		if iTypeErr != 0 {
+			return iTypeErr
 		}
+		filter.innerData = filter.innerData[:len(filter.innerData)-1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+		dbEntryData[method] = filter.item
+		filter.item = dbEntryData
+		return 0
 	}
-
 	return helpers.ErrorInvalidMethod
 }
 
 func applyObjectMethods(filter *Filter) int {
 	method := filter.methods[0]
-	dbEntryPointer := filter.dbEntryData
-	dbEntryData := (*dbEntryPointer).(map[string]interface{})
-	si := (*(filter.schemaItems[filter.schemaItemOn].iType.(ObjectItem).schema))[method]
+	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
+	si := (*(filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema))[method]
 	if si == nil {
 		return helpers.ErrorInvalidMethod
 	}
-
-	if len(filter.methods) == 1 {
-		// No other methods, change value of item
-		dbEntryData[method] = filter.item
-		filter.item = dbEntryData
-		return 0
-	} else {
-		// More methods to run on item
-		data := dbEntryData[method]
-		filter.dbEntryData = &data
-		filter.methods = filter.methods[1:]
-		filter.schemaItems = append(filter.schemaItems, si)
-		filter.schemaItemOn++
-		iTypeErr := QueryItemFilter(filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		dbEntryData[method] = filter.item
-		filter.dbEntryData = dbEntryPointer
-		filter.item = dbEntryData
-		return 0
+	// Run method on item
+	filter.methods = filter.methods[1:]
+	filter.innerData = append(filter.innerData, dbEntryData[method])
+	filter.schemaItems = append(filter.schemaItems, si)
+	iTypeErr := QueryItemFilter(filter)
+	if iTypeErr != 0 {
+		return iTypeErr
 	}
+	filter.innerData = filter.innerData[:len(filter.innerData)-1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+	dbEntryData[method] = filter.item
+	filter.item = dbEntryData
+	return 0
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -369,12 +416,7 @@ func applyObjectMethods(filter *Filter) int {
 
 func boolFilter(filter *Filter) int {
 	if i, ok := filter.item.(bool); ok {
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = i
-		} else {
-			filter.item = i
-			filter.schemaItemOn--
-		}
+		filter.item = i
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
@@ -386,15 +428,16 @@ func int8Filter(filter *Filter) int {
 		ic = int8(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(int8)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int8)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = int8(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Int8Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int8Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -403,12 +446,7 @@ func int8Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -418,15 +456,16 @@ func int16Filter(filter *Filter) int {
 		ic = int16(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(int16)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int16)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = int16(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Int16Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int16Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -435,12 +474,7 @@ func int16Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -450,15 +484,16 @@ func int32Filter(filter *Filter) int {
 		ic = int32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(int32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int32)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = int32(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Int32Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int32Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -467,12 +502,7 @@ func int32Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -482,15 +512,16 @@ func int64Filter(filter *Filter) int {
 		ic = int64(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(int64)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int64)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = int64(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Int64Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int64Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -499,12 +530,7 @@ func int64Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -514,15 +540,16 @@ func uint8Filter(filter *Filter) int {
 		ic = uint8(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(uint8)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint8)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = uint8(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Uint8Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint8Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -531,12 +558,7 @@ func uint8Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -546,15 +568,16 @@ func uint16Filter(filter *Filter) int {
 		ic = uint16(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(uint16)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint16)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = uint16(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Uint16Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint16Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -563,12 +586,7 @@ func uint16Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -578,15 +596,16 @@ func uint32Filter(filter *Filter) int {
 		ic = uint32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(uint32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint32)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = uint32(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Uint32Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint32Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -595,12 +614,7 @@ func uint32Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -610,15 +624,16 @@ func uint64Filter(filter *Filter) int {
 		ic = uint64(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(uint64)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint64)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = uint64(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Uint64Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint64Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -627,12 +642,7 @@ func uint64Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -642,15 +652,16 @@ func float32Filter(filter *Filter) int {
 		ic = float32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64((*(*filter).dbEntryData).(float32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(float32)))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = float32(mRes)
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Float32Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Float32Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -662,12 +673,7 @@ func float32Filter(filter *Filter) int {
 	if it.abs && ic < 0 {
 		ic = ic * (-1)
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -677,15 +683,16 @@ func float64Filter(filter *Filter) int {
 		ic = i
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, (*(*filter).dbEntryData).(float64))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1].(float64))
 		if mErr != 0 {
 			return mErr
 		}
 		ic = mRes
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(Float64Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Float64Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -697,12 +704,7 @@ func float64Filter(filter *Filter) int {
 	if it.abs && ic < 0 {
 		ic = ic * (-1)
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.item = ic
 	return 0
 }
 
@@ -712,7 +714,7 @@ func stringFilter(filter *Filter) int {
 		ic = i
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply string methods
-		mRes, mErr := applyStringMethods(i, filter.methods, (*(*filter).dbEntryData).(string))
+		mRes, mErr := applyStringMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1].(string))
 		if mErr != 0 {
 			return mErr
 		}
@@ -720,7 +722,7 @@ func stringFilter(filter *Filter) int {
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[filter.schemaItemOn].iType.(StringItem)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(StringItem)
 	l := uint32(len(ic))
 	// Check length and if required
 	if it.maxChars > 0 && l > it.maxChars {
@@ -730,9 +732,9 @@ func stringFilter(filter *Filter) int {
 	}
 	// Check if unique
 	if it.unique {
-		if filter.schemaItemOn == 0 {
+		if len(filter.schemaItems) == 1 {
 			// Table check
-			name := filter.schemaItems[filter.schemaItemOn].name
+			name := filter.schemaItems[len(filter.schemaItems)-1].name
 			(*(*filter).uMux).Lock()
 			if (*(*filter).uniqueVals)[name] == nil {
 				(*(*filter).uniqueVals)[name] = make(map[string]bool)
@@ -742,16 +744,48 @@ func stringFilter(filter *Filter) int {
 			}
 			(*(*filter).uniqueVals)[name][ic] = true
 			(*(*filter).uMux).Unlock()
+		} else {
+			parentIndex := -1
+			for i := len(filter.schemaItems)-1; i >= 0; i-- {
+
+				if filter.schemaItems[i].typeName == ItemTypeArray || filter.schemaItems[i].typeName == ItemTypeMap {
+					parentIndex = i
+					break
+				}
+			}
+			if parentIndex == -1 {
+				// Get name
+				name := ""
+				for i, v := range filter.schemaItems {
+					if i == 0 {
+						name = v.typeName
+					} else {
+						name = name+"."+v.name
+					}
+				}
+				// Table check
+				(*(*filter).uMux).Lock()
+				if (*(*filter).uniqueVals)[name] == nil {
+					(*(*filter).uniqueVals)[name] = make(map[string]bool)
+				} else if (*(*filter).uniqueVals)[name][ic] {
+					(*(*filter).uMux).Unlock()
+					return helpers.ErrorUniqueValueInUse
+				}
+				(*(*filter).uniqueVals)[name][ic] = true
+				(*(*filter).uMux).Unlock()
+			} else {
+				// Search in filter.data for unique string
+				if uniqueCheck(filter, parentIndex) {
+					return helpers.ErrorUniqueValueInUse
+				}
+			}
+
 		}
 
 		// Distributed checks !!!!
 	}
-	if filter.schemaItemOn == 0 {
-		(*(*filter).dbEntryData) = ic
-	} else {
-		filter.item = ic
-		filter.schemaItemOn--
-	}
+	filter.methods = []string{}
+	filter.item = ic
 	return 0
 }
 
@@ -761,31 +795,26 @@ func arrayFilter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
+		return 0
 	}
 	if i, ok := filter.item.([]interface{}); ok {
-		filter.methods = []string{}
-		it := filter.schemaItems[filter.schemaItemOn].iType.(ArrayItem)
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
 		var iTypeErr int
 		// Check inner item type
-		for k := 0; k < len(i); k++ {
-			filter.item = i[k]
-			filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
-			filter.schemaItemOn++
+		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
+		var index int
+		for index, filter.item = range i {
 			iTypeErr = QueryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
-			i[k] = filter.item
+			i[index] = filter.item
 		}
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorArrayItemsRequired
 		}
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = i
-		} else {
-			filter.item = i
-			filter.schemaItemOn--
-		}
+		filter.item = i
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
@@ -797,31 +826,26 @@ func mapFilter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
+		return 0
 	}
 	if i, ok := filter.item.(map[string]interface{}); ok {
-		filter.methods = []string{}
-		it := filter.schemaItems[filter.schemaItemOn].iType.(MapItem)
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
 		var iTypeErr int
 		// Check inner item type
-		for itemName, _ := range i {
-			filter.item = i[itemName]
-			filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
-			filter.schemaItemOn++
+		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
+		var itemName string
+		for itemName, filter.item = range i {
 			iTypeErr = QueryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
 			i[itemName] = filter.item
 		}
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorMapItemsRequired
 		}
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = i
-		} else {
-			filter.item = i
-			filter.schemaItemOn--
-		}
+		filter.item = i
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
@@ -829,19 +853,17 @@ func mapFilter(filter *Filter) int {
 
 func objectFilter(filter *Filter) int {
 	if len(filter.methods) > 0 {
-		var mErr int
-		mErr = applyObjectMethods(filter)
+		mErr := applyObjectMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
+		return 0
 	}
 	if i, ok := filter.item.(map[string]interface{}); ok {
-		filter.methods = []string{}
-		it := filter.schemaItems[filter.schemaItemOn].iType.(ObjectItem)
-		filter.schemaItems = append(filter.schemaItems, nil)
-		for itemName, schemaItem := range *(it.schema) {
-			filter.schemaItemOn++
-			filter.schemaItems[filter.schemaItemOn] = schemaItem
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem)
+		filter.schemaItems = append(filter.schemaItems, &SchemaItem{})
+		var itemName string
+		for itemName, filter.schemaItems[len(filter.schemaItems)-1] = range *(it.schema) {
 			filter.item = i[itemName]
 			filterErr := QueryItemFilter(filter)
 			if filterErr != 0 {
@@ -849,12 +871,8 @@ func objectFilter(filter *Filter) int {
 			}
 			i[itemName] = filter.item
 		}
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = i
-		} else {
-			filter.item = i
-			filter.schemaItemOn--
-		}
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+		filter.item = i
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
@@ -864,25 +882,15 @@ func timeFilter(filter *Filter) int {
 	if i, ok := filter.item.(string); ok {
 		if i == "*now" {
 			// Set to current database time
-			if filter.schemaItemOn == 0 {
-				(*(*filter).dbEntryData) = time.Now()
-			} else {
-				filter.item = time.Now()
-				filter.schemaItemOn--
-			}
+			filter.item = time.Now()
 			return 0
 		}
-		it := filter.schemaItems[filter.schemaItemOn].iType.(TimeItem)
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(TimeItem)
 		t, tErr := time.Parse(it.format, i)
 		if tErr != nil {
 			return helpers.ErrorInvalidTimeFormat
 		}
-		if filter.schemaItemOn == 0 {
-			(*(*filter).dbEntryData) = t
-		} else {
-			filter.item = t
-			filter.schemaItemOn--
-		}
+		filter.item = t
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue

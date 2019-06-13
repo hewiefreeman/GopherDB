@@ -38,7 +38,7 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
 		// Make filter
-		filter := schema.NewFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], []*schema.SchemaItem{schemaItem}, &t.uMux, &t.uniqueVals)
+		filter := schema.NewFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &t.uMux, &t.uniqueVals)
 
 		// Add updateItem to entry data slice
 		err := schema.QueryItemFilter(&filter)
@@ -185,7 +185,7 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		}
 
 		// Make filter
-		filter := schema.NewFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], []*schema.SchemaItem{schemaItem}, &t.uMux, &t.uniqueVals)
+		filter := schema.NewFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], data[schemaItem.DataIndex()], schemaItem, &t.uMux, &t.uniqueVals)
 
 		// Add updateItem to entry data slice
 		var err int
