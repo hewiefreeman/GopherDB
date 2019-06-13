@@ -719,6 +719,7 @@ func stringFilter(filter *Filter) int {
 			return mErr
 		}
 		ic = mRes
+		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -784,7 +785,6 @@ func stringFilter(filter *Filter) int {
 
 		// Distributed checks !!!!
 	}
-	filter.methods = []string{}
 	filter.item = ic
 	return 0
 }
