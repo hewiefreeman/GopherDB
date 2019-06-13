@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/schema"
-	"github.com/hewiefreeman/GopherGameDB/userTable"
-	//"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherDB/schema"
+	"github.com/hewiefreeman/GopherDB/userTable"
+	//"github.com/hewiefreeman/GopherDB/helpers"
 	"encoding/json"
 	"strconv"
 	"fmt"
@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// JSON query and unmarshalling test
-	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false], \"testMap\": [\"Map\", [\"Map\", [\"Uint16\", 100, 0, 0, false], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
+	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false, false], \"testMap\": [\"Map\", [\"Map\", [\"Int16\", 100, 0, 0, true, true, true], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
 	v := make(map[string]interface{})
 	err := json.Unmarshal([]byte(newTableJson), &v)
 	if err != nil {
@@ -201,7 +201,7 @@ func main() {
 	}
 
 	// Run some methods on a friend name resulting in a unique value error
-	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"friends.2.name.*prepend.*append": []interface{}{"J", "on"}})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"cards": 98}})
 	if updateErr != 0 {
 		fmt.Println("Update Error 15:", updateErr)
 		return

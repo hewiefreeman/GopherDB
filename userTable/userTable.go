@@ -1,15 +1,14 @@
 package userTable
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/helpers"
-	"github.com/hewiefreeman/GopherGameDB/schema"
+	"github.com/hewiefreeman/GopherDB/helpers"
+	"github.com/hewiefreeman/GopherDB/schema"
 	"sync"
 )
 
 ////////////////// TODOs
 //////////////////
 //////////////////     - Unique value checks
-//////////////////         - local
 //////////////////         - distributed
 //////////////////
 //////////////////     - Password reset for UserTable

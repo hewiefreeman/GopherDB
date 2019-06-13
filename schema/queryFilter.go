@@ -1,7 +1,7 @@
 package schema
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherDB/helpers"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +26,7 @@ const (
 	MethodOperatorMul = "*mul"
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
+	MethodOperatorAbs = "*abs"
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -494,7 +495,13 @@ func int8Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
+	if it.abs && ic < 0 {
+		ic = ic * (-1)
+	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -522,7 +529,13 @@ func int16Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
+	if it.abs && ic < 0 {
+		ic = ic * (-1)
+	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -550,7 +563,13 @@ func int32Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
+	if it.abs && ic < 0 {
+		ic = ic * (-1)
+	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -578,7 +597,13 @@ func int64Filter(filter *Filter) int {
 			ic = it.min
 		}
 	}
+	if it.abs && ic < 0 {
+		ic = ic * (-1)
+	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -607,6 +632,9 @@ func uint8Filter(filter *Filter) int {
 		}
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -635,6 +663,9 @@ func uint16Filter(filter *Filter) int {
 		}
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -663,6 +694,9 @@ func uint32Filter(filter *Filter) int {
 		}
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -691,6 +725,9 @@ func uint64Filter(filter *Filter) int {
 		}
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -722,6 +759,9 @@ func float32Filter(filter *Filter) int {
 		ic = ic * (-1)
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 
@@ -753,6 +793,9 @@ func float64Filter(filter *Filter) int {
 		ic = ic * (-1)
 	}
 	filter.item = ic
+	if it.unique && uniqueCheck(filter) {
+		return helpers.ErrorUniqueValueInUse
+	}
 	return 0
 }
 

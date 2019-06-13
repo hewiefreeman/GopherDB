@@ -2,7 +2,7 @@ package leaderboard
 
 import (
 	"fmt"
-	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherDB/helpers"
 	"sync"
 )
 

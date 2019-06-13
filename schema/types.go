@@ -1,7 +1,7 @@
 package schema
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherDB/helpers"
 	"reflect"
 	"time"
 )
@@ -51,16 +51,16 @@ const (
 var (
 	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind{
 		ItemTypeBool:    []reflect.Kind{reflect.Bool},
-		ItemTypeInt8:    []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt16:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt32:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeInt64:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint8:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint16:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint32:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeUint64:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool},
-		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeInt8:    []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
+		ItemTypeInt16:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
+		ItemTypeInt32:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
+		ItemTypeInt64:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
+		ItemTypeUint8:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeUint16:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeUint32:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeUint64:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
+		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
+		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
 		ItemTypeString:  []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
 		ItemTypeArray:   []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
 		ItemTypeMap:     []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
@@ -118,28 +118,36 @@ type Int8Item struct {
 	defaultValue int8
 	min          int8
 	max          int8
+	abs          bool
 	required     bool
+	unique       bool
 }
 
 type Int16Item struct {
 	defaultValue int16
 	min          int16
 	max          int16
+	abs          bool
 	required     bool
+	unique       bool
 }
 
 type Int32Item struct {
 	defaultValue int32
 	min          int32
 	max          int32
+	abs          bool
 	required     bool
+	unique       bool
 }
 
 type Int64Item struct {
 	defaultValue int64
 	min          int64
 	max          int64
+	abs          bool
 	required     bool
+	unique       bool
 }
 
 type Uint8Item struct {
@@ -147,6 +155,7 @@ type Uint8Item struct {
 	min          uint8
 	max          uint8
 	required     bool
+	unique       bool
 }
 
 type Uint16Item struct {
@@ -154,6 +163,7 @@ type Uint16Item struct {
 	min          uint16
 	max          uint16
 	required     bool
+	unique       bool
 }
 
 type Uint32Item struct {
@@ -161,6 +171,7 @@ type Uint32Item struct {
 	min          uint32
 	max          uint32
 	required     bool
+	unique       bool
 }
 
 type Uint64Item struct {
@@ -168,6 +179,7 @@ type Uint64Item struct {
 	min          uint64
 	max          uint64
 	required     bool
+	unique       bool
 }
 
 type Float32Item struct {
@@ -176,6 +188,7 @@ type Float32Item struct {
 	max          float32
 	abs          bool
 	required     bool
+	unique       bool
 }
 
 type Float64Item struct {
@@ -184,6 +197,7 @@ type Float64Item struct {
 	max          float64
 	abs          bool
 	required     bool
+	unique       bool
 }
 
 type StringItem struct {
@@ -228,7 +242,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 
 	// Number types
 	case Int8Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -242,7 +258,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Int16Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -256,7 +274,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Int32Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -270,7 +290,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Int64Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -284,7 +306,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Uint8Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -298,7 +322,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Uint16Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -312,7 +338,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Uint32Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -326,7 +354,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Uint64Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -340,7 +370,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Float32Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
@@ -357,7 +389,9 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return i, 0
 
 	case Float64Item:
-		if kind.required {
+		if kind.unique {
+			return nil, helpers.ErrorMissingRequiredItem
+		} else if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue

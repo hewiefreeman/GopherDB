@@ -1,10 +1,9 @@
 package schema
 
 import (
-	"github.com/hewiefreeman/GopherGameDB/helpers"
+	"github.com/hewiefreeman/GopherDB/helpers"
 	"reflect"
 	"strings"
-	//"fmt"
 )
 
 // Schema represents a database schema that one or more tables must adhere to.
@@ -25,11 +24,14 @@ type SchemaItem struct {
 //			> defaultValue: default value of the Bool
 //
 //		    *INT_TYPE*: "Int8" | "Int16" | "Int32" | "Int64" | "Uint8" | "Uint16" | "Uint32" | "Uint64"
-//		- ["*INT_TYPE*", defaultValue, min, max, required] : store as int(8-64) | uint(8-64)
+//		- ["*INT_TYPE*", defaultValue, min, max, absolute, required, unique] : store as int(8-64) | uint(8-64)
 //			> defaultValue: default value of the integer
 //			> min: minimum value
 //			> max: maximum value
+//			> absolute: when true, the vale will always be a positive or 0 value (specifying a negative number will store it as positive)
 //			> required: when true, the value must be specified when inserting (does not check on updates)
+//			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
+//				Note: a unique value (or a unique value Object item) inside an Array/Map checks the containing Array/Map, and not the whole database
 //
 //		    *FLOAT_TYPE*: "Float32" | "Float64"
 //		- ["*FLOAT_TYPE*", defaultValue, min, max, absolute, required] : store as float32 | float64
@@ -38,13 +40,15 @@ type SchemaItem struct {
 //			> max: maximum value
 //			> absolute: when true, the vale will always be a positive or 0 value (specifying a negative number will store it as positive)
 //			> required: when true, the value must be specified when inserting (does not check on updates)
+//			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
+//				Note: a unique value (or a unique value Object item) inside an Array/Map checks the containing Array/Map, and not the whole database
 //
 //		- ["String", defaultValue, maxChars, required, unique] : store as string
 //			> defaultValue: default value the of String
 //			> maxChars: maximum characters the String can be
 //			> required: when true, the value cannot be set to a blank string. When inserting, the value must be specified unless there is a valid default value
 //			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
-//				Note: a unique String (or a unique String Object item) inside an Array checks the containing Array, and not other database entries
+//				Note: a unique value (or a unique value Object item) inside an Array/Map checks the containing Array/Map, and not the whole database
 //
 //		- ["Array", dataType, maxItems, required] : store as []interface{}
 //			> dataType: the data type of the Array's items
@@ -169,43 +173,43 @@ func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
 			return &si, 0
 
 		case ItemTypeInt8:
-			si.iType = Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeInt16:
-			si.iType = Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeInt32:
-			si.iType = Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeInt64:
-			si.iType = Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeUint8:
-			si.iType = Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeUint16:
-			si.iType = Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeUint32:
-			si.iType = Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeUint64:
-			si.iType = Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool)}
+			si.iType = Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
 			return &si, 0
 
 		case ItemTypeFloat32:
-			si.iType = Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool)}
+			si.iType = Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeFloat64:
-			si.iType = Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool)}
+			si.iType = Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
 			return &si, 0
 
 		case ItemTypeString:

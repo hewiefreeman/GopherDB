@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/hewiefreeman/GopherGameDB/leaderboards"
+	"github.com/hewiefreeman/GopherDB/leaderboard"
 	"time"
 )
 
 func main() {
-	lb, err := leaderboards.New("test", 30, leaderboards.DuplicateTargetPushBottom, false)
+	lb, err := leaderboard.New("test", 30, leaderboard.DuplicateTargetPushBottom, false)
 	if err != 0 {
 		fmt.Println("Error: ", err)
 		return
