@@ -118,7 +118,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 	var i uint32
 	for itemName, itemParams := range schema {
 		// Names cannot have "." or "*"
-		if strings.Contains(itemName, ".") || strings.Contains(itemName, "*") {
+		if len(itemName) == 0 || strings.Contains(itemName, ".") || strings.Contains(itemName, "*") {
 			return nil, helpers.ErrorSchemaInvalidItemName
 		}
 		// Check item format
@@ -274,6 +274,9 @@ func (ts *Schema) ValidSchema() bool {
 
 // ValidSchemaItem checks if a *SchemaItem is valid format
 func (si *SchemaItem) ValidSchemaItem() bool {
+	if si.name == "" || si.typeName == "" || si.dataIndex < 0 {
+		return false
+	}
 	to := reflect.TypeOf(si.iType)
 	if to == itemTypeRefBool ||
 		to == itemTypeRefInt8 ||
@@ -299,4 +302,57 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 // DataIndex gets the SchemaItem data index (table specific).
 func (si *SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
+}
+
+// DataIndex gets the SchemaItem data index (table specific).
+func (si *SchemaItem) TypeName() string {
+	return si.typeName
+}
+
+// DataIndex gets the SchemaItem data index (table specific).
+func (si *SchemaItem) Unique() bool {
+	switch kind := si.iType.(type) {
+		case Int8Item:
+			return kind.unique
+		case Int16Item:
+			return kind.unique
+		case Int32Item:
+			return kind.unique
+		case Int64Item:
+			return kind.unique
+		case Uint8Item:
+			return kind.unique
+		case Uint16Item:
+			return kind.unique
+		case Uint32Item:
+			return kind.unique
+		case Uint64Item:
+			return kind.unique
+		case Float32Item:
+			return kind.unique
+		case Float64Item:
+			return kind.unique
+		case StringItem:
+			return kind.unique
+	}
+	return false
+}
+
+func GetUniqueItems(schema *Schema, destination *[]string, outerItems string) {
+	// Loop through schema & find unique value names
+	for itemName, schemaItem := range *schema {
+		if schemaItem.typeName == ItemTypeObject {
+			if outerItems != "" {
+				outerItems = outerItems + "." + itemName
+			} else {
+				outerItems = itemName
+			}
+			GetUniqueItems(schemaItem.iType.(ObjectItem).schema, destination, outerItems)
+		} else if schemaItem.Unique() {
+			if outerItems != "" {
+				outerItems = outerItems + "."
+			}
+			*destination = append(*destination, outerItems+itemName)
+		}
+	}
 }

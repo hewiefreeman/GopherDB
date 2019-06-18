@@ -37,6 +37,13 @@ func main() {
 		return
 	}
 
+	// Table settings
+	alErr := table.SetAltLoginItem("email")
+	if alErr != 0 {
+		fmt.Println("Set Login item failure:", alErr)
+		return
+	}
+
 	// insert
 	var averageTime float64
 	for v := 0; v < 100; v++ {
@@ -75,7 +82,7 @@ func main() {
 	averageTime = 0
 	for v := 0; v < 100; v++ {
 		now := time.Now()
-		_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass")
+		_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", nil)
 		if ueErr != 0 {
 			fmt.Println("User Data Error:", ueErr)
 			return
@@ -88,7 +95,7 @@ func main() {
 	}
 	fmt.Println("Average select time (ms):", averageTime*1000)
 
-	ud, ueErr := table.GetUserData("guest99", "myPass")
+	ud, ueErr := table.GetUserData("dinospumoni99@yahoo.com", "myPass", nil)
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)
 		return
@@ -200,17 +207,33 @@ func main() {
 		return
 	}
 
-	// Run some methods on a friend name resulting in a unique value error
-	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"testMap.items.*append": map[string]interface{}{"cards": 98}})
+	// Change email item (also altLoginItem & unique)
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"email": "dinospumoni137@yahoo.com"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 15:", updateErr)
 		return
 	}
 
-	ud, ueErr = table.GetUserData("guest99", "myPass")
+	// Delete a UserTable entry
+	deleteErr := table.DeleteUser("guest98", "myPass")
+	if deleteErr != 0 {
+		fmt.Println("Update Error 14:", deleteErr)
+		return
+	}
+	fmt.Println("Delete success!")
+
+	// Try to get deleted account
+	ud, ueErr = table.GetUserData("dinospumoni98@yahoo.com", "myPass", []string{"email"})
+	if ueErr != 0 {
+		fmt.Println("Error getting deleted account:", ueErr)
+	}
+
+	now := time.Now()
+	ud, ueErr = table.GetUserData("dinospumoni137@yahoo.com", "myPass", nil)
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)
 		return
 	}
+	fmt.Println("Get took", (time.Since(now).Seconds() * 1000), "ms")
 	fmt.Println("After:", ud)
 }

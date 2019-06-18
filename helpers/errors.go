@@ -20,14 +20,16 @@ const (
 	ErrorNameRequired
 	ErrorPasswordLength
 	ErrorPasswordEncryption
+	ErrorNoEmailItem
 
 	// Generic Table Query Errors
 	ErrorQueryInvalidFormat
+	ErrorInvalidItem
 	ErrorInvalidArithmeticOperator
 	ErrorInvalidArithmeticParameter
-	ErrorInvalidMethod
+	ErrorInvalidMethod // 1020
 	ErrorInvalidMethodParameters
-	ErrorTableFull // 1020
+	ErrorTableFull
 
 	// Schema errors
 	ErrorInvalidItemValue
@@ -37,9 +39,9 @@ const (
 	ErrorNumberTooLarge
 	ErrorNumberTooSmall
 	ErrorArrayItemsRequired
-	ErrorArrayEmpty
+	ErrorArrayEmpty // 1030
 	ErrorMapItemsRequired
-	ErrorInvalidTimeFormat // 1030
+	ErrorInvalidTimeFormat
 
 	// Leaderboard errors
 	ErrorLeaderboardExists

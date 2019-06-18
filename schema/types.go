@@ -234,8 +234,7 @@ type TimeItem struct {
 /////////////////////////////////////////////////////////////////////////////
 
 func defaultVal(si *SchemaItem) (interface{}, int) {
-	t := si.iType
-	switch kind := t.(type) {
+	switch kind := si.iType.(type) {
 	// Bools
 	case BoolItem:
 		return kind.defaultValue, 0
