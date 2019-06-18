@@ -29,7 +29,6 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 
 	// Create entry
 	ute := UserTableEntry{
-		name:         name,
 		persistFile:  0,
 		persistIndex: 0,
 		data:         make([]interface{}, len(*(t.schema)), len(*(t.schema))),

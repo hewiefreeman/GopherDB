@@ -194,7 +194,7 @@ func main() {
 	}
 
 	// Set timeStamp manually
-	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"timeStamp": "4:29PM"})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"timeStamp": "*now"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 13:", updateErr)
 		return
@@ -208,7 +208,7 @@ func main() {
 	}
 
 	// Change email item (also altLoginItem & unique)
-	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"email": "dinospumoni137@yahoo.com"})
+	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"email": "someemail@yahoo.com"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 15:", updateErr)
 		return
@@ -229,7 +229,7 @@ func main() {
 	}
 
 	now := time.Now()
-	ud, ueErr = table.GetUserData("dinospumoni137@yahoo.com", "myPass", nil)
+	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)
 		return

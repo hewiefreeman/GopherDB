@@ -8,24 +8,32 @@ import (
 
 ////////////////// TODOs
 //////////////////
-//////////////////     - Alternative login name item for UserTable
+//////////////////     - Logging & persisting
+//////////////////         - Logging
+//////////////////         - Persisting data to storage
+//////////////////         - Updating storage data
+//////////////////         - Updating/Restoring with log/persist files
 //////////////////
 //////////////////     - Password reset for UserTable
-//////////////////         - Email item
 //////////////////         - Setting server name/address, subject & body message for password reset emails
 //////////////////         - Send emails for password resets
 //////////////////
-//////////////////     - Rate limit
+//////////////////     - Database server
+//////////////////         - Connection authentication
+//////////////////         - Connection privillages
+//////////////////         - Replica connections
 //////////////////
-//////////////////     - Logging & persisting
-//////////////////         - Logging
-//////////////////         - Updating/Restoring with log files
-//////////////////         - Persisting data to storage
-//////////////////         - Updating storage data
+//////////////////     - Rate limiting
 //////////////////
-//////////////////     - Admin connections
+//////////////////     - Query router
+//////////////////         - Connection authentication
+//////////////////         - Connection privillages
+//////////////////         - Sharding
+//////////////////         - Distributed queries
 //////////////////
 //////////////////     - Distributed unique value checks
+//////////////////
+//////////////////     - Key-value & List tables
 
 var (
 	tablesMux      sync.Mutex
@@ -35,12 +43,13 @@ var (
 
 type UserTable struct {
 	// settings and schema
-	logFolder     string
-	persistFolder string
-	partitionMax  uint16
-	schema        *schema.Schema
-	emailItem     string
-	altLoginItem  string
+	logFolder     string // folder name for log files
+	persistFolder string // folder name for persist files
+	partitionMax  uint16 // maximum persist file entries
+	schema        *schema.Schema // table's schema
+	emailItem     string // item in schema that represents a user's email address
+	altLoginItem  string // item in schema that a user can log in with as if it's their user name (examples with "email")
+	dataOnDrive   bool // when true, entry data is not stored in memory
 
 	sMux          sync.Mutex // locks all table settings below
 	maxEntries    uint64
@@ -68,7 +77,6 @@ type UserTableEntry struct {
 	persistIndex uint16 // 0 - Not persisted
 
 	mux      sync.Mutex
-	name     string
 	password []byte
 	data     []interface{}
 }

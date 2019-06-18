@@ -1047,9 +1047,8 @@ func timeFilter(filter *Filter) int {
 				}
 				filter.methods = []string{}
 				return 0
-			} else {
-				return helpers.ErrorInvalidMethod
 			}
+			return helpers.ErrorInvalidMethod
 		}
 		t := filter.item.(time.Time)
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(TimeItem)
