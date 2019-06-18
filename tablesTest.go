@@ -208,11 +208,13 @@ func main() {
 	}
 
 	// Change email item (also altLoginItem & unique)
+	now := time.Now()
 	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"email": "someemail@yahoo.com"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 15:", updateErr)
 		return
 	}
+	fmt.Println("Email update took", (time.Since(now).Seconds() * 1000), "ms")
 
 	// Delete a UserTable entry
 	deleteErr := table.DeleteUser("guest98", "myPass")
@@ -228,7 +230,7 @@ func main() {
 		fmt.Println("Error getting deleted account:", ueErr)
 	}
 
-	now := time.Now()
+	now = time.Now()
 	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
 	if ueErr != 0 {
 		fmt.Println("User Data Error:", ueErr)

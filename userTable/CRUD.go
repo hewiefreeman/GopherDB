@@ -40,11 +40,8 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
-		// Make filter
-		filter := schema.NewFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
-
-		// Add updateItem to entry data slice
-		err := schema.QueryItemFilter(&filter)
+		// Item filter
+		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
 		if err != 0 {
 			return err
 		}
@@ -121,10 +118,9 @@ func (t *UserTable) GetUserData(userName string, password string, items []string
 			if si == nil {
 				return nil, helpers.ErrorInvalidItem
 			}
-			// Make filter
+			// Item filter
 			var i interface{}
-			filter := schema.NewFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
-			err = schema.QueryItemFilter(&filter)
+			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
 			if err != 0 {
 				return nil, err
 			}
@@ -132,9 +128,9 @@ func (t *UserTable) GetUserData(userName string, password string, items []string
 		}
 	} else {
 		for itemName, si := range *(t.schema) {
+			// Item filter
 			var i interface{}
-			filter := schema.NewFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true)
-			err = schema.QueryItemFilter(&filter)
+			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true)
 			if err != 0 {
 				return nil, err
 			}
@@ -210,11 +206,8 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 			altLoginBefore = e.data[schemaItem.DataIndex()].(string)
 		}
 
-		// Make filter
-		filter := schema.NewFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], e.data[schemaItem.DataIndex()], schemaItem, &uniqueVals, false)
-
-		// Add updateItem to entry data slice
-		err := schema.QueryItemFilter(&filter)
+		// Item filter
+		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], e.data[schemaItem.DataIndex()], schemaItem, &uniqueVals, false)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
@@ -359,8 +352,7 @@ func (t *UserTable) DeleteUser(userName string, password string) int {
 		}
 		// Make filter
 		var i interface{}
-		filter := schema.NewFilter(ue.data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
-		err = schema.QueryItemFilter(&filter)
+		err := schema.ItemFilter(ue.data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
 		if err != 0 {
 			ue.mux.Unlock()
 			t.uMux.Unlock()

@@ -47,8 +47,8 @@ var (
 //   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func NewFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool) Filter {
-	return Filter{
+func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool) int {
+	filter := Filter{
 		get: get,
 		item: item,
 		methods: methods,
@@ -57,10 +57,11 @@ func NewFilter(item interface{}, methods []string, destination *interface{}, inn
 		schemaItems: []*SchemaItem{schemaItem},
 		uniqueVals: uniqueVals,
 	}
+	return queryItemFilter(&filter)
 }
 
-// QueryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
-func QueryItemFilter(filter *Filter) int {
+// queryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
+func queryItemFilter(filter *Filter) int {
 	if filter.item == nil {
 		// No methods allowed on a nil item
 		if len(filter.methods) > 0 {
@@ -259,7 +260,7 @@ func applyArrayMethods(filter *Filter) int {
 			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
 			var index int
 			for index, filter.item = range item {
-				iTypeErr := QueryItemFilter(filter)
+				iTypeErr := queryItemFilter(filter)
 				if iTypeErr != 0 {
 					return iTypeErr
 				}
@@ -276,7 +277,7 @@ func applyArrayMethods(filter *Filter) int {
 			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
 			var index int
 			for index, filter.item = range item {
-				iTypeErr := QueryItemFilter(filter)
+				iTypeErr := queryItemFilter(filter)
 				if iTypeErr != 0 {
 					return iTypeErr
 				}
@@ -325,7 +326,7 @@ func applyArrayMethods(filter *Filter) int {
 			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
 			var index int
 			for index, filter.item = range item {
-				iTypeErr := QueryItemFilter(filter)
+				iTypeErr := queryItemFilter(filter)
 				if iTypeErr != 0 {
 					return iTypeErr
 				}
@@ -359,7 +360,7 @@ func applyArrayMethods(filter *Filter) int {
 	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
 	if !filter.get {
 		filter.innerData = append(filter.innerData, dbEntryData[i])
-		iTypeErr := QueryItemFilter(filter)
+		iTypeErr := queryItemFilter(filter)
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
@@ -369,7 +370,7 @@ func applyArrayMethods(filter *Filter) int {
 		filter.item = dbEntryData
 	} else {
 		filter.item = dbEntryData[i]
-		iTypeErr := QueryItemFilter(filter)
+		iTypeErr := queryItemFilter(filter)
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
@@ -407,7 +408,7 @@ func applyMapMethods(filter *Filter) int {
 			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
 			var itemName string
 			for itemName, filter.item = range item {
-				iTypeErr := QueryItemFilter(filter)
+				iTypeErr := queryItemFilter(filter)
 				if iTypeErr != 0 {
 					return iTypeErr
 				}
@@ -426,7 +427,7 @@ func applyMapMethods(filter *Filter) int {
 		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
 		if !filter.get {
 			filter.innerData = append(filter.innerData, dbEntryData[method])
-			iTypeErr := QueryItemFilter(filter)
+			iTypeErr := queryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
@@ -437,7 +438,7 @@ func applyMapMethods(filter *Filter) int {
 			filter.item = dbEntryData
 		} else {
 			filter.item = dbEntryData[method]
-			iTypeErr := QueryItemFilter(filter)
+			iTypeErr := queryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
@@ -465,7 +466,7 @@ func applyObjectMethods(filter *Filter) int {
 	filter.schemaItems = append(filter.schemaItems, si)
 	if !filter.get {
 		filter.innerData = append(filter.innerData, dbEntryData[method])
-		iTypeErr := QueryItemFilter(filter)
+		iTypeErr := queryItemFilter(filter)
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
@@ -475,7 +476,7 @@ func applyObjectMethods(filter *Filter) int {
 		filter.item = dbEntryData
 	} else {
 		filter.item = dbEntryData[method]
-		iTypeErr := QueryItemFilter(filter)
+		iTypeErr := queryItemFilter(filter)
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
@@ -942,7 +943,7 @@ func arrayFilter(filter *Filter) int {
 		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
 		var index int
 		for index, filter.item = range i {
-			iTypeErr = QueryItemFilter(filter)
+			iTypeErr = queryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
@@ -974,7 +975,7 @@ func mapFilter(filter *Filter) int {
 		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
 		var itemName string
 		for itemName, filter.item = range i {
-			iTypeErr = QueryItemFilter(filter)
+			iTypeErr = queryItemFilter(filter)
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
@@ -1005,7 +1006,7 @@ func objectFilter(filter *Filter) int {
 		var itemName string
 		for itemName, filter.schemaItems[len(filter.schemaItems)-1] = range *(it.schema) {
 			filter.item = i[itemName]
-			filterErr := QueryItemFilter(filter)
+			filterErr := queryItemFilter(filter)
 			if filterErr != 0 {
 				return filterErr
 			}
