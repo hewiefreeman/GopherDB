@@ -37,6 +37,7 @@ var (
 )
 
 type fileAction struct {
+	file   string
 	action int
 	params []interface{}
 
@@ -51,8 +52,8 @@ func Start(bufferSize int) {
 	go fileActionHandler()
 }
 
-func QueueFileAction(action int, params []interface{}, returnChan chan interface{}) int {
-	fa := fileAction{action: action, params: params, returnChan: returnChan}
+func QueueFileAction(file string, action int, params []interface{}, returnChan chan interface{}) int {
+	fa := fileAction{file: file, action: action, params: params, returnChan: returnChan}
 	select {
 		case FileActionChan <- fa:
 			return 0
@@ -68,75 +69,39 @@ func fileActionHandler() {
 		action := <-FileActionChan
 		switch action.action {
 			case FileActionRead:
-				if len(action.params) != 2 {
-					action.returnChan <- []byte{}
-					continue
-				}
-				bytes := ReadLine(action.params[0].(string), int(action.params[1].(uint16)))
+				bytes := ReadLine(action.file, int(action.params[0].(uint16)))
 				action.returnChan <- bytes
 
 			case FileActionInsert:
-				if len(action.params) != 2 {
-					action.returnChan <- []interface{}{0, errors.New("Invalid Parameters")}
-					continue
-				}
-				lineOn, err := AppendJSON(action.params[0].(string), action.params[1].([]byte))
+				lineOn, err := AppendJSON(action.file, action.params[0].([]byte))
 				action.returnChan <- []interface{}{lineOn, err}
 
 			case FileActionInsertMulti:
-				if len(action.params) != 2 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := AppendJSONMulti(action.params[0].(string), action.params[1].([][]byte))
+				err := AppendJSONMulti(action.file, action.params[0].([][]byte))
 				action.returnChan <- err
 
 			case FileActionUpdate:
-				if len(action.params) != 3 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := UpdateJSON(action.params[0].(string), action.params[1].(uint16), action.params[2].([]byte))
+				err := UpdateJSON(action.file, action.params[0].(uint16), action.params[1].([]byte))
 				action.returnChan <- err
 
 			case FileActionUpdateMulti:
-				if len(action.params) != 2 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := UpdateJSONMulti(action.params[0].(string), action.params[1].(map[int][]byte))
+				err := UpdateJSONMulti(action.file, action.params[0].(map[int][]byte))
 				action.returnChan <- err
 
 			case FileActionMakeDir:
-				if len(action.params) != 1 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := MakeDir(action.params[0].(string))
+				err := MakeDir(action.file)
 				action.returnChan <- err
 
 			case FileActionDeleteDir:
-				if len(action.params) != 1 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := DeleteDir(action.params[0].(string))
+				err := DeleteDir(action.file)
 				action.returnChan <- err
 
 			case FileActionMakeFile:
-				if len(action.params) != 1 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := MakeFile(action.params[0].(string))
+				err := MakeFile(action.file)
 				action.returnChan <- err
 
 			case FileActionDeleteFile:
-				if len(action.params) != 1 {
-					action.returnChan <- errors.New("Invalid Parameters")
-					continue
-				}
-				err := DeleteFile(action.params[0].(string))
+				err := DeleteFile(action.file)
 				action.returnChan <- err
 
 			case FileActionKill:

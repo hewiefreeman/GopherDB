@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	// Start the storage engine with default buffer length
 	storage.Start(0)
 
 	// JSON query and unmarshalling test
@@ -33,7 +34,7 @@ func main() {
 	}
 
 	// Make a new UserTable with the schema
-	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 0, 0, 0, true)
+	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 1000, 0, 0, true)
 	if tableErr != 0 {
 		fmt.Println("Table Create Error:", tableErr)
 		return
@@ -46,9 +47,11 @@ func main() {
 		return
 	}
 
+	testSize := 100
+
 	// insert
 	var averageTime float64
-	for v := 0; v < 100; v++ {
+	for v := 0; v < testSize; v++ {
 		now := time.Now()
 		// Insert a test User
 		insertErr := table.NewUser("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"email": "dinospumoni"+strconv.Itoa(v)+"@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9"})
@@ -65,7 +68,7 @@ func main() {
 	fmt.Println("Average insert time (ms):", averageTime*1000)
 
 	averageTime = 0
-	for v := 0; v < 100; v++ {
+	for v := 0; v < testSize; v++ {
 		now := time.Now()
 		// add 1 to entry's mmr
 		updateErr := table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
@@ -82,7 +85,7 @@ func main() {
 	fmt.Println("Average update time (ms):", averageTime*1000)
 
 	averageTime = 0
-	for v := 0; v < 100; v++ {
+	for v := 0; v < testSize; v++ {
 		now := time.Now()
 		_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", nil)
 		if ueErr != 0 {

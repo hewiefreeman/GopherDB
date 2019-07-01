@@ -109,7 +109,7 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 
 	// Append jBytes to fileOn and get the persistIndex
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionInsert, []interface{}{t.persistName + "/" + strconv.Itoa(int(fileOn)) + storage.FileTypeStorage, jBytes}, retChan)
+	qErr := storage.QueueFileAction(t.persistName + "/" + strconv.Itoa(int(fileOn)) + storage.FileTypeStorage, storage.FileActionInsert, []interface{}{jBytes}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		t.uMux.Unlock()
@@ -216,7 +216,7 @@ func (t *UserTable) GetUserData(userName string, password string, items []string
 
 func (t *UserTable) dataFromDrive(file string, index uint16) ([]interface{}, int) {
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionRead, []interface{}{file, index}, retChan)
+	qErr := storage.QueueFileAction(file, storage.FileActionRead, []interface{}{index}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		return nil, qErr
@@ -347,7 +347,7 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 
 	// Update entry on disk with jBytes
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionUpdate, []interface{}{t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex, jBytes}, retChan)
+	qErr := storage.QueueFileAction(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, storage.FileActionUpdate, []interface{}{e.persistIndex, jBytes}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		e.mux.Unlock()
@@ -432,7 +432,7 @@ func (t *UserTable) ChangePassword(userName string, password string, newPassword
 
 	// Update entry on disk with jBytes
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionUpdate, []interface{}{t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes}, retChan)
+	qErr := storage.QueueFileAction(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, storage.FileActionUpdate, []interface{}{ue.persistIndex, jBytes}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		ue.mux.Unlock()
@@ -517,7 +517,7 @@ func (t *UserTable) ResetPassword(userName string) int {
 
 	// Update entry on disk with jBytes
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionUpdate, []interface{}{t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes}, retChan)
+	qErr := storage.QueueFileAction(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, storage.FileActionUpdate, []interface{}{ue.persistIndex, jBytes}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		return qErr
@@ -590,7 +590,7 @@ func (t *UserTable) DeleteUser(userName string, password string) int {
 
 	// Update entry on disk with empty []byte
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionUpdate, []interface{}{t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, []byte{}}, retChan)
+	qErr := storage.QueueFileAction(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, storage.FileActionUpdate, []interface{}{ue.persistIndex, []byte{}}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		return qErr

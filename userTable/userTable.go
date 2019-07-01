@@ -139,7 +139,7 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 
 	// Make table folder   & update config file !!!
 	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(storage.FileActionMakeDir, []interface{}{namePre}, retChan)
+	qErr := storage.QueueFileAction(namePre, storage.FileActionMakeDir, []interface{}{}, retChan)
 	if qErr != 0 {
 		close(retChan)
 		return nil, qErr
