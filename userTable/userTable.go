@@ -3,6 +3,7 @@ package userTable
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
+	"github.com/hewiefreeman/GopherDB/storage"
 	"sync"
 )
 
@@ -21,14 +22,13 @@ import (
 //////////////////     - Database server
 //////////////////         - Connection authentication
 //////////////////         - Connection privillages
-//////////////////         - Replica connections
 //////////////////
 //////////////////     - Rate limiting
 //////////////////
 //////////////////     - Query router
 //////////////////         - Connection authentication
 //////////////////         - Connection privillages
-//////////////////         - Sharding
+//////////////////         - Sharding & Replication
 //////////////////         - Distributed queries
 //////////////////
 //////////////////     - Distributed unique value checks
@@ -43,19 +43,18 @@ var (
 
 type UserTable struct {
 	// settings and schema
-	logFolder     string // folder name for log files
-	persistFolder string // folder name for persist files
-	partitionMax  uint16 // maximum persist file entries
+	persistName   string // table's logger/persist folder name
 	schema        *schema.Schema // table's schema
-	emailItem     string // item in schema that represents a user's email address
-	altLoginItem  string // item in schema that a user can log in with as if it's their user name (examples with "email")
-	dataOnDrive   bool // when true, entry data is not stored in memory
+	dataOnDrive   bool // when true, entry data and password are not stored in memory (new entries only temporarily)
+	partitionMax  uint16
 
 	sMux          sync.Mutex // locks all table settings below
-	maxEntries    uint64
-	minPassword   uint8
-	encryptCost   int
-	passResetLen  uint8
+	maxEntries    uint64 // maximum amount of entries in the UserTable
+	minPassword   uint8 // minimum password length
+	encryptCost   int // encryption cost of passwords
+	passResetLen  uint8 // the length of passwords created by the database
+	emailItem     string // item in schema that represents a user's email address
+	altLoginItem  string // item in schema that a user can log in with as if it's their user name (usually the emailItem)
 
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
@@ -66,15 +65,15 @@ type UserTable struct {
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
 
-	// persistance
-	pMux   sync.Mutex // fileOn/lineOn lock
-	fileOn uint16
-	lineOn uint16
+	// persist numbers
+	pMux      sync.Mutex
+	fileOn    uint16
+	lineOn    uint16
 }
 
 type UserTableEntry struct {
-	persistFile  uint16 // 0 - Not persisted
-	persistIndex uint16 // 0 - Not persisted
+	persistFile  uint16
+	persistIndex uint16
 
 	mux      sync.Mutex
 	password []byte
@@ -83,27 +82,18 @@ type UserTableEntry struct {
 
 // File/folder prefixes
 const (
-	prefixUserTableLogging           = "log-"
-	prefixUserTableDataFolder        = "data-"
-	prefixUserTableDataPartitionFile = "part-"
-)
-
-// File types
-const (
-	fileTypeConfig = ".gcf"
-	fileTypeLog    = ".glf"
-	fileTypeData   = ".gdf"
+	prefixUserTable = "UT-"
 )
 
 // Defaults
 const (
-	defaultPartitionMax = 2500
-	defaultMinPassword  = 6
-	defaultPassResetLen = 12
-	defaultEncryptCost  = 8
-	encryptCostMax      = 31
-	encryptCostMin      = 4
-	defaultConfig       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"UserTables\":[],\"Leaderboards\":[]}"
+	defaultPartitionMax uint16 = 2500
+	defaultMinPassword uint8   = 6
+	defaultPassResetLen uint8  = 12
+	defaultEncryptCost int     = 8
+	encryptCostMax int         = 31
+	encryptCostMin int         = 4
+	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"UserTables\":[],\"Leaderboards\":[]}"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,7 +118,7 @@ const (
 //
 
 // New creates a new UserTable with the provided name, schema, and other parameters.
-func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16) (*UserTable, int) {
+func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16, dataOnDrive bool) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
 	} else if Get(name) != nil {
@@ -145,9 +135,24 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 		minPassword = defaultMinPassword
 	}
 
+	namePre := prefixUserTable + name
+
+	// Make table folder   & update config file !!!
+	retChan := make(chan interface{})
+	qErr := storage.QueueFileAction(storage.FileActionMakeDir, []interface{}{namePre}, retChan)
+	if qErr != 0 {
+		close(retChan)
+		return nil, qErr
+	}
+	qRes := <-retChan
+	close(retChan)
+	if qRes != nil {
+		return nil, helpers.ErrorCreatingFolder
+	}
+
 	// make table
-	t := UserTable{logFolder: prefixUserTableLogging + name,
-		persistFolder: prefixUserTableDataFolder + name,
+	t := UserTable{persistName: namePre,
+		dataOnDrive:   dataOnDrive,
 		partitionMax:  partitionMax,
 		maxEntries:    maxEntries,
 		minPassword:   minPassword,
@@ -166,8 +171,6 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 	tables[name] = &t
 	tr := tables[name]
 	tablesMux.Unlock()
-
-	// !!!!!! make new folder on system for persisting data & create log file & update config file
 
 	return tr, 0
 }
@@ -297,6 +300,20 @@ func (t *UserTable) SetAltLoginItem(item string) int {
 
 	t.sMux.Lock()
 	t.altLoginItem = item
+	t.sMux.Unlock()
+	return 0
+}
+
+func (t *UserTable) SetEmailItem(item string) int {
+	si := (*(t.schema))[item]
+	if si == nil {
+		return helpers.ErrorInvalidItem
+	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() {
+		return helpers.ErrorInvalidItem
+	}
+
+	t.sMux.Lock()
+	t.emailItem = item
 	t.sMux.Unlock()
 	return 0
 }

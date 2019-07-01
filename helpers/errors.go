@@ -52,6 +52,19 @@ const (
 	ErrorEntryNameInUse
 	ErrorInvalidNameOrPassword
 
+	// Storage errors
+	ErrorLoggerExists
+	ErrorLoggerFileCreate
+	ErrorTableFolderCreate // 1040
+	ErrorCreatingFolder
+	ErrorFileAppend
+	ErrorFileUpdate
+	ErrorFileRead
+	ErrorJsonEncoding
+	ErrorJsonDecoding
+	ErrorJsonDataFormat
+	ErrorDatabaseBusy
+
 	// Unexpected error
 	ErrorUnexpected
 )

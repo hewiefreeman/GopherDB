@@ -163,7 +163,11 @@ func GetQueryItemMethods(itemName string) (string, []string) {
 	return itemName, itemMethods
 }
 
-func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData float64) (float64, int) {
+func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData interface{}) (float64, int) {
+	var entryData float64
+	if cNumb, ok := makeFloat(dbEntryData); ok {
+		entryData = cNumb
+	}
 	// Must have same amount of numbers in array as methods to use on them
 	if len(numbs) != len(methods) {
 		return 0, helpers.ErrorInvalidMethodParameters
@@ -174,19 +178,19 @@ func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData float
 			op := methods[i]
 			switch op {
 			case MethodOperatorAdd:
-				dbEntryData = dbEntryData + cNumb
+				entryData = entryData + cNumb
 
 			case MethodOperatorSub:
-				dbEntryData = dbEntryData - cNumb
+				entryData = entryData - cNumb
 
 			case MethodOperatorMul:
-				dbEntryData = dbEntryData * cNumb
+				entryData = entryData * cNumb
 
 			case MethodOperatorDiv:
-				dbEntryData = dbEntryData / cNumb
+				entryData = entryData / cNumb
 
 			case MethodOperatorMod:
-				dbEntryData = float64(int(dbEntryData) % int(cNumb))
+				entryData = float64(int(entryData) % int(cNumb))
 
 			default:
 				return 0, helpers.ErrorInvalidMethod
@@ -195,7 +199,7 @@ func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData float
 			return 0, helpers.ErrorInvalidMethodParameters
 		}
 	}
-	return dbEntryData, 0
+	return entryData, 0
 }
 
 func applyStringMethods(strs []interface{}, methods []string, dbEntryData string) (string, int) {
@@ -514,7 +518,7 @@ func int8Filter(filter *Filter) int {
 		ic = int8(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int8)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -554,7 +558,7 @@ func int16Filter(filter *Filter) int {
 		ic = int16(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int16)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -594,7 +598,7 @@ func int32Filter(filter *Filter) int {
 		ic = int32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -634,7 +638,7 @@ func int64Filter(filter *Filter) int {
 		ic = int64(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(int64)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -674,7 +678,7 @@ func uint8Filter(filter *Filter) int {
 		ic = uint8(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint8)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -711,7 +715,7 @@ func uint16Filter(filter *Filter) int {
 		ic = uint16(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint16)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -748,7 +752,7 @@ func uint32Filter(filter *Filter) int {
 		ic = uint32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -785,7 +789,7 @@ func uint64Filter(filter *Filter) int {
 		ic = uint64(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(uint64)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -822,7 +826,7 @@ func float32Filter(filter *Filter) int {
 		ic = float32(i)
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, float64(filter.innerData[len(filter.innerData)-1].(float32)))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -862,7 +866,7 @@ func float64Filter(filter *Filter) int {
 		ic = i
 	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
 		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1].(float64))
+		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
 		if mErr != 0 {
 			return mErr
 		}
@@ -1021,6 +1025,14 @@ func objectFilter(filter *Filter) int {
 
 func timeFilter(filter *Filter) int {
 	if filter.get {
+		// If the item is a string, was retrieved from disk - convert to time.Time
+		if i, ok := filter.item.(string); ok {
+			t, tErr := time.Parse(TimeFormatRFC3339, i) // JSON uses RFC3339
+			if tErr != nil {
+				return helpers.ErrorInvalidTimeFormat
+			}
+			filter.item = t
+		}
 		if len(filter.methods) > 0 {
 			if filter.methods[0] == MethodSince {
 				format := MethodSecond

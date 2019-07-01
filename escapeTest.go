@@ -20,11 +20,19 @@ func main() {
 
 	// Test storage functions...
 	now := time.Now()
-	line := storage.ReadLine("Test.json", 2503)
-	if line == nil {
-		fmt.Println("No item found in file!")
+	/*err := */storage.ReadLine("Test.json", 2512)
+	/*if err != nil {
+		fmt.Println(err)
 		return
-	}
+	}*/
+
+	// Test make file in directory that doesn't exist
+	/*now := time.Now()
+	err := storage.DeleteDir("test123")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}*/
+
 	fmt.Println("Took:", time.Since(now).Seconds()*1000, "ms")
-	fmt.Println("Found:", string(line))
 }
