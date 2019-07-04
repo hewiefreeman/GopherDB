@@ -57,6 +57,7 @@ const (
 	ErrorLoggerFileCreate
 	ErrorTableFolderCreate // 1040
 	ErrorCreatingFolder
+	ErrorFileOpen
 	ErrorFileAppend
 	ErrorFileUpdate
 	ErrorFileRead

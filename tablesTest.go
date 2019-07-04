@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/userTable"
-	"github.com/hewiefreeman/GopherDB/storage"
 	"encoding/json"
 	"strconv"
 	"fmt"
@@ -11,9 +10,6 @@ import (
 )
 
 func main() {
-	// Start the storage engine with default buffer length
-	storage.Start(0)
-
 	// JSON query and unmarshalling test
 	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false, false], \"testMap\": [\"Map\", [\"Map\", [\"Int16\", 100, 0, 0, true, true, true], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
 	v := make(map[string]interface{})
@@ -34,7 +30,7 @@ func main() {
 	}
 
 	// Make a new UserTable with the schema
-	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 1000, 0, 0, true)
+	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 100, 0, 0, true)
 	if tableErr != 0 {
 		fmt.Println("Table Create Error:", tableErr)
 		return
@@ -47,58 +43,70 @@ func main() {
 		return
 	}
 
-	testSize := 100
+	testSize := 1000
 
 	// insert
 	var averageTime float64
+	now := time.Now()
+	done := make(chan int)
 	for v := 0; v < testSize; v++ {
-		now := time.Now()
 		// Insert a test User
-		insertErr := table.NewUser("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"email": "dinospumoni"+strconv.Itoa(v)+"@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9"})
-		if insertErr != 0 {
-			fmt.Println("Insert Error:", insertErr)
+		go func(a int){
+			done <- table.NewUser("guest"+strconv.Itoa(a), "myPass", map[string]interface{}{"email": "dinospumoni"+strconv.Itoa(a)+"@yahoo.com", "mmr": 1674+v, "vCode": "06AJ3T9"})
+		}(v)
+	}
+	for v := 0; v < testSize; v++ {
+		res := <-done
+		if res != 0 {
+			fmt.Println("Insert Error: ", res)
+			close(done)
 			return
 		}
-		if averageTime == 0 {
-			averageTime = time.Since(now).Seconds()
-		} else {
-			averageTime = (averageTime + time.Since(now).Seconds()) / 2
-		}
 	}
-	fmt.Println("Average insert time (ms):", averageTime*1000)
+	close(done)
+	averageTime = time.Since(now).Seconds()*1000
+	fmt.Println("Bulk insert time (ms):", averageTime)
 
 	averageTime = 0
+	now = time.Now()
+	done = make(chan int)
 	for v := 0; v < testSize; v++ {
-		now := time.Now()
-		// add 1 to entry's mmr
-		updateErr := table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
-		if updateErr != 0 {
-			fmt.Println("Update Error:", updateErr)
+		go func(v int){
+			done <- table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
+		}(v)
+	}
+	for v := 0; v < testSize; v++ {
+		res := <-done
+		if res != 0 {
+			fmt.Println("Update Error: ", res)
+			close(done)
 			return
 		}
-		if averageTime == 0 {
-			averageTime = time.Since(now).Seconds()
-		} else {
-			averageTime = (averageTime + time.Since(now).Seconds()) / 2
-		}
 	}
-	fmt.Println("Average update time (ms):", averageTime*1000)
+	close(done)
+	averageTime = time.Since(now).Seconds()*1000
+	fmt.Println("Bulk update time (ms):", averageTime)
 
 	averageTime = 0
+	now = time.Now()
+	done = make(chan int)
 	for v := 0; v < testSize; v++ {
-		now := time.Now()
-		_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", nil)
-		if ueErr != 0 {
-			fmt.Println("User Data Error:", ueErr)
+		go func(v int){
+			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", nil)
+			done <- ueErr
+		}(v)
+	}
+	for v := 0; v < testSize; v++ {
+		res := <-done
+		if res != 0 {
+			fmt.Println("Get Error: ", res)
+			close(done)
 			return
 		}
-		if averageTime == 0 {
-			averageTime = time.Since(now).Seconds()
-		} else {
-			averageTime = (averageTime + time.Since(now).Seconds()) / 2
-		}
 	}
-	fmt.Println("Average select time (ms):", averageTime*1000)
+	close(done)
+	averageTime = time.Since(now).Seconds()*1000
+	fmt.Println("Bulk get time (ms):", averageTime)
 
 	ud, ueErr := table.GetUserData("dinospumoni99@yahoo.com", "myPass", nil)
 	if ueErr != 0 {
@@ -213,7 +221,7 @@ func main() {
 	}
 
 	// Change email item (also altLoginItem & unique)
-	now := time.Now()
+	now = time.Now()
 	updateErr = table.UpdateUserData("guest99", "myPass", map[string]interface{}{"email": "someemail@yahoo.com"})
 	if updateErr != 0 {
 		fmt.Println("Update Error 15:", updateErr)
@@ -243,4 +251,16 @@ func main() {
 	}
 	fmt.Println("Get took", (time.Since(now).Seconds() * 1000), "ms")
 	fmt.Println("After:", ud)
+
+	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
+	if ueErr != 0 {
+		fmt.Println("User Data Error:", ueErr)
+		return
+	}
+	time.Sleep(time.Second * 1)
+	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
+	if ueErr != 0 {
+		fmt.Println("User Data Error:", ueErr)
+		return
+	}
 }

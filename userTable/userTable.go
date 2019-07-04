@@ -60,15 +60,11 @@ type UserTable struct {
 	eMux      sync.Mutex // entries/altLogins map lock
 	entries   map[string]*UserTableEntry // UserTable uses a Map for storage since it's only look-up is with user name and password
 	altLogins map[string]*UserTableEntry
+	fileOn    uint16
 
 	// unique values
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
-
-	// persist numbers
-	pMux      sync.Mutex
-	fileOn    uint16
-	lineOn    uint16
 }
 
 type UserTableEntry struct {
@@ -138,15 +134,8 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 	namePre := prefixUserTable + name
 
 	// Make table folder   & update config file !!!
-	retChan := make(chan interface{})
-	qErr := storage.QueueFileAction(namePre, storage.FileActionMakeDir, []interface{}{}, retChan)
-	if qErr != 0 {
-		close(retChan)
-		return nil, qErr
-	}
-	qRes := <-retChan
-	close(retChan)
-	if qRes != nil {
+	mkErr := storage.MakeDir(namePre)
+	if mkErr != nil {
 		return nil, helpers.ErrorCreatingFolder
 	}
 

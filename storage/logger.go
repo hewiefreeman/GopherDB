@@ -47,9 +47,9 @@ func NewLogger(name string, fileOn uint16, lineOn uint16, partitionMax uint16, d
 	}*/
 
 	// Make logger file
-	if err := MakeFile(name + "/" + name + loggerFileExtension); err != nil {
+	/*if err := MakeFile(name + "/" + name + loggerFileExtension); err != nil {
 		return nil, helpers.ErrorLoggerFileCreate
-	}
+	}*/
 
 	lMux.Lock()
 	if loggers[name] != nil {
