@@ -114,7 +114,7 @@ const (
 //
 
 // New creates a new UserTable with the provided name, schema, and other parameters.
-func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, lineOn uint16, dataOnDrive bool) (*UserTable, int) {
+func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, dataOnDrive bool) (*UserTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorUserTableNameRequired
 	} else if Get(name) != nil {
@@ -152,7 +152,6 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 		altLogins:     make(map[string]*UserTableEntry),
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
-		lineOn:        lineOn,
 	}
 
 	//
