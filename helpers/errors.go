@@ -61,10 +61,11 @@ const (
 	ErrorFileAppend
 	ErrorFileUpdate
 	ErrorFileRead
+	ErrorEOF
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat
-	ErrorDatabaseBusy
+	ErrorDatabaseBusy // 1050
 
 	// Unexpected error
 	ErrorUnexpected

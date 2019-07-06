@@ -6,6 +6,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/storage"
 	"strconv"
 	"encoding/json"
+	"fmt"
 )
 
 const (
@@ -33,6 +34,7 @@ func makeJsonBytes(name string, password []byte, data []interface{}) ([]byte, in
 
 // NewUser creates a new UserTableEntry in the UserTable
 func (t *UserTable) NewUser(name string, password string, insertObj map[string]interface{}) int {
+	// Get current table settings
 	t.sMux.Lock()
 	eCost := t.encryptCost
 	minPass := t.minPassword
@@ -44,13 +46,11 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 		return helpers.ErrorNameRequired
 	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
-	} else if maxEntries > 0 && t.Size() >= int(maxEntries) {
-		return helpers.ErrorTableFull
 	}
 
 	// Create entry
 	ute := UserTableEntry{
-		data:         make([]interface{}, len(*(t.schema)), len(*(t.schema))),
+		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
 	}
 
 	// Alternative login name
@@ -88,6 +88,9 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 	if t.entries[name] != nil {
 		t.eMux.Unlock()
 		return helpers.ErrorEntryNameInUse
+	} else if maxEntries > 0 && len(t.entries) >= int(maxEntries) {
+		// Table is full
+		return helpers.ErrorTableFull
 	}
 	t.uMux.Lock()
 	// Check unique values
@@ -108,6 +111,17 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 		t.eMux.Unlock()
 		return aErr
 	}
+
+	// Apply unique values
+	for itemName, itemVal := range uniqueVals {
+		if t.uniqueVals[itemName] == nil {
+			t.uniqueVals[itemName] = make(map[interface{}]bool)
+		}
+		t.uniqueVals[itemName][itemVal] = true
+	}
+	t.uMux.Unlock()
+
+	//
 	ute.persistIndex = lineOn
 	ute.persistFile = t.fileOn
 
@@ -121,17 +135,11 @@ func (t *UserTable) NewUser(name string, password string, insertObj map[string]i
 		ute.data = nil
 	}
 
-	// Apply unique values
-	for itemName, itemVal := range uniqueVals {
-		if t.uniqueVals[itemName] == nil {
-			t.uniqueVals[itemName] = make(map[interface{}]bool)
-		}
-		t.uniqueVals[itemName][itemVal] = true
-	}
+	// Apply altLogin
 	if altLogin != "" {
 		t.altLogins[altLogin] = &ute
 	}
-	t.uMux.Unlock()
+
 	// Insert item
 	t.entries[name] = &ute
 	t.eMux.Unlock()
@@ -168,7 +176,7 @@ func (t *UserTable) GetUserData(userName string, password string, items []string
 
 	// Check for specific items/methods to get
 	m := make(map[string]interface{})
-	if len(items) > 0 {
+	if items != nil {
 		for _, itemName := range items {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
@@ -199,6 +207,7 @@ func (t *UserTable) GetUserData(userName string, password string, items []string
 }
 
 func (t *UserTable) dataFromDrive(file string, index uint16) ([]interface{}, int) {
+	fmt.Println("getting data from drive...")
 	// Read bytes from file
 	bytes, rErr := storage.Read(file, index)
 	if rErr != 0 {
@@ -250,7 +259,7 @@ func (t *UserTable) dataFromDrive(file string, index uint16) ([]interface{}, int
 
 // UpdateUserData
 func (t *UserTable) UpdateUserData(userName string, password string, updateObj map[string]interface{}) int {
-	if len(updateObj) == 0 {
+	if updateObj == nil || len(updateObj) == 0 {
 		return helpers.ErrorQueryInvalidFormat
 	}
 
@@ -268,10 +277,10 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		if dErr != 0 {
 			return dErr
 		}
-		e.mux.Lock()
 	} else {
 		e.mux.Lock()
 		data = append([]interface{}{}, e.data...)
+		e.mux.Unlock()
 	}
 	altLoginBefore := ""
 	altLoginAfter := ""
@@ -284,7 +293,6 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		// Check if valid schema item
 		schemaItem := (*(*t).schema)[updateName]
 		if schemaItem == nil {
-			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
 
@@ -293,7 +301,6 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		// Item filter
 		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false)
 		if err != 0 {
-			e.mux.Unlock()
 			return err
 		}
 
@@ -302,6 +309,15 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 			altLoginAfter = data[schemaItem.DataIndex()].(string)
 		}
 	}
+
+	e.mux.Lock()
+	// Make JSON []byte for entry
+	jBytes, jErr := makeJsonBytes(userName, e.password, data)
+	if jErr != 0 {
+		e.mux.Unlock()
+		return helpers.ErrorJsonEncoding
+	}
+
 
 	t.uMux.Lock()
 	// Check unique values
@@ -313,14 +329,6 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 		}/* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
-	}
-
-	// Make JSON []byte for entry
-	jBytes, jErr := makeJsonBytes(userName, e.password, data)
-	if jErr != 0 {
-		t.uMux.Unlock()
-		e.mux.Unlock()
-		return helpers.ErrorJsonEncoding
 	}
 
 	// Update entry on disk with jBytes
@@ -357,6 +365,7 @@ func (t *UserTable) UpdateUserData(userName string, password string, updateObj m
 }
 
 func (t *UserTable) ChangePassword(userName string, password string, newPassword string) int {
+	// Get current table settings
 	t.sMux.Lock()
 	eCost := t.encryptCost
 	minPass := t.minPassword
@@ -371,7 +380,7 @@ func (t *UserTable) ChangePassword(userName string, password string, newPassword
 		return err
 	}
 
-	// Change password
+	// Encrypt new password
 	ePass, eErr := helpers.EncryptString(newPassword, eCost)
 	if eErr != nil {
 		return helpers.ErrorPasswordEncryption

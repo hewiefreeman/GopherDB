@@ -156,6 +156,9 @@ func Read(file string, lineNum uint16) ([]byte, int) {
 		}
 	}
 	f.mux.Unlock()
+	if lineNum > lineOn {
+		return nil, helpers.ErrorEOF
+	}
 	return bytes, 0
 }
 
@@ -202,6 +205,10 @@ func Update(file string, index uint16, json []byte) int {
 		f.mux.Unlock()
 		return helpers.ErrorFileUpdate
 	}
+	/*if tErr := f.file.Truncate(int64(len(f.bytes))); tErr != nil {
+		f.mux.Unlock()
+		return helpers.ErrorFileUpdate
+	}*/ // Leave trailing bits after writes for performance? !!!
 	f.mux.Unlock()
 	return 0
 }

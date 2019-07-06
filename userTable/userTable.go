@@ -37,7 +37,6 @@ import (
 
 var (
 	tablesMux      sync.Mutex
-	logPersistTime int16                 = 60
 	tables         map[string]*UserTable = make(map[string]*UserTable)
 )
 
@@ -109,7 +108,7 @@ const (
 //				"vCode": ["String", "", 0, true, false],
 //				"verified": ["Bool", false]
 //			},
-//			0, 0, 0, 0
+//			0, 0, 0, 0, false
 //		]};
 //
 
@@ -190,6 +189,7 @@ func Get(name string) *UserTable {
 }
 
 func (t *UserTable) Get(userName string, password string) (*UserTableEntry, int) {
+	// Get current table settings
 	t.sMux.Lock()
 	minPass := t.minPassword
 	t.sMux.Unlock()
@@ -223,10 +223,10 @@ func (t *UserTable) Get(userName string, password string) (*UserTableEntry, int)
 }
 
 // CheckPassword compares the UserTableEntry's encrypted password with the given string password.
-func (t *UserTableEntry) CheckPassword(pass string) bool {
-	t.mux.Lock()
-	p := t.password
-	t.mux.Unlock()
+func (e *UserTableEntry) CheckPassword(pass string) bool {
+	e.mux.Lock()
+	p := e.password
+	e.mux.Unlock()
 	return helpers.StringMatchesEncryption(pass, p)
 }
 

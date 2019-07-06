@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Make a new UserTable with the schema
-	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 100, 0, true)
+	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 100, 0, false)
 	if tableErr != 0 {
 		fmt.Println("Table Create Error:", tableErr)
 		return
@@ -43,7 +43,7 @@ func main() {
 		return
 	}
 
-	testSize := 1000
+	testSize := 100
 
 	// insert
 	var averageTime float64
@@ -66,15 +66,6 @@ func main() {
 	close(done)
 	averageTime = time.Since(now).Seconds()*1000
 	fmt.Println("Bulk insert time (ms):", averageTime)
-
-	averageTime = 0
-	now = time.Now()
-	if nuErr := table.NewUser("potman", "myPass", map[string]interface{}{"email": "potman@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9"}); nuErr != 0 {
-		fmt.Println("Single insert Error: ", nuErr)
-		return
-	}
-	averageTime = time.Since(now).Seconds()*1000
-	fmt.Println("Single insert time (ms):", averageTime)
 
 	averageTime = 0
 	now = time.Now()
@@ -101,7 +92,7 @@ func main() {
 	done = make(chan int)
 	for v := 0; v < testSize; v++ {
 		go func(v int){
-			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", nil)
+			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", []string{"mmr"})
 			done <- ueErr
 		}(v)
 	}

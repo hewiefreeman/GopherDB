@@ -25,6 +25,10 @@ const (
 	MethodOperatorMul = "*mul"
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
+	MethodLength      = "*length" // TO-DO
+	MethodEquals      = "*equals" // TO-DO
+	MethodContains    = "*contains" // TO-DO
+	MethodIndexOf     = "*indexOf" // TO-DO
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -84,7 +88,7 @@ func queryItemFilter(filter *Filter) int {
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
-		if (!filter.get && len(filter.schemaItems) == 1) || (filter.get && len(filter.methods) == 0) {
+		if (filter.get && len(filter.methods) == 0) || (!filter.get && len(filter.schemaItems) == 1) {
 			(*(*filter).destination) = filter.item
 		}
 		return 0
@@ -495,9 +499,6 @@ func applyObjectMethods(filter *Filter) int {
 
 func boolFilter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	} else if i, ok := filter.item.(bool); ok {
 		filter.item = i
@@ -508,9 +509,6 @@ func boolFilter(filter *Filter) int {
 
 func int8Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic int8
@@ -548,9 +546,6 @@ func int8Filter(filter *Filter) int {
 
 func int16Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic int16
@@ -588,9 +583,6 @@ func int16Filter(filter *Filter) int {
 
 func int32Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic int32
@@ -628,9 +620,6 @@ func int32Filter(filter *Filter) int {
 
 func int64Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic int64
@@ -668,9 +657,6 @@ func int64Filter(filter *Filter) int {
 
 func uint8Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic uint8
@@ -705,9 +691,6 @@ func uint8Filter(filter *Filter) int {
 
 func uint16Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic uint16
@@ -742,9 +725,6 @@ func uint16Filter(filter *Filter) int {
 
 func uint32Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic uint32
@@ -779,9 +759,6 @@ func uint32Filter(filter *Filter) int {
 
 func uint64Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic uint64
@@ -816,9 +793,6 @@ func uint64Filter(filter *Filter) int {
 
 func float32Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic float32
@@ -856,9 +830,6 @@ func float32Filter(filter *Filter) int {
 
 func float64Filter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic float64
@@ -896,9 +867,6 @@ func float64Filter(filter *Filter) int {
 
 func stringFilter(filter *Filter) int {
 	if filter.get {
-		if len(filter.methods) > 0 {
-			return helpers.ErrorInvalidMethod
-		}
 		return 0
 	}
 	var ic string
@@ -1091,8 +1059,8 @@ func timeFilter(filter *Filter) int {
 //   ITEM TYPE CONVERTERS   /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func makeFloat(insertItem interface{}) (float64, bool) {
-	switch t := insertItem.(type) {
+func makeFloat(i interface{}) (float64, bool) {
+	switch t := i.(type) {
 	case float64:
 		return t, true
 
@@ -1129,8 +1097,8 @@ func makeFloat(insertItem interface{}) (float64, bool) {
 	return 0, false
 }
 
-func makeInt(insertItem interface{}) (int, bool) {
-	switch t := insertItem.(type) {
+func makeInt(i interface{}) (int, bool) {
+	switch t := i.(type) {
 	case int:
 		return t, true
 
