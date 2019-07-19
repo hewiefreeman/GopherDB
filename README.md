@@ -17,8 +17,8 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
   
 ### Data Types
   - Boolean
-  - Unsigned Integer (8-64 bit)
-  - Integer (8-64 bit)
+  - Unsigned Integer (8 to 64 bit)
+  - Integer (8 to 64 bit)
   - Float (32 & 64 bit)
   - String
   - Array
