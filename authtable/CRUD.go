@@ -6,7 +6,6 @@ import (
 	"github.com/hewiefreeman/GopherDB/storage"
 	"strconv"
 	"encoding/json"
-	"fmt"
 )
 
 const (
@@ -211,7 +210,6 @@ func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int
 	jMap := make(map[string]interface{})
 	jErr := json.Unmarshal(bytes, &jMap)
 	if jErr != nil {
-		fmt.Println("got data from '"+file+"': '"+string(bytes)+"'")
 		return nil, helpers.ErrorJsonDecoding
 	}
 	if jMap[JsonEntryData] == nil || len(jMap[JsonEntryData].([]interface{})) != len(*(t.schema)) {
@@ -362,6 +360,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 	return 0
 }
 
+// ChangePassword
 func (t *AuthTable) ChangePassword(userName string, password string, newPassword string) int {
 	if len(newPassword) < int(t.minPassword.Load().(uint8)) {
 		return helpers.ErrorPasswordLength
@@ -411,6 +410,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 	return 0
 }
 
+// ResetPassword
 func (t *AuthTable) ResetPassword(userName string) int {
 	// Name and password are required
 	if len(userName) == 0 {
@@ -482,6 +482,7 @@ func (t *AuthTable) ResetPassword(userName string) int {
 	return 0
 }
 
+// DeleteUser
 func (t *AuthTable) DeleteUser(userName string, password string) int {
 	ue, err := t.Get(userName, password)
 	if err != 0 {

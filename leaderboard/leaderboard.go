@@ -12,8 +12,8 @@ var (
 )
 
 type Leaderboard struct {
-	maxEntries    int
-	dupePush      int
+	maxEntries    uint64
+	dupePushAbove bool
 	alwaysReplace bool
 
 	mux     sync.Mutex
@@ -29,28 +29,21 @@ type LeaderboardEntry struct {
 	extra  map[string]interface{}
 }
 
-const (
-	DuplicateTargetPushTop = iota
-	DuplicateTargetPushBottom
-)
-
-func New(name string, maxEntries int, dupePush int, alwaysReplace bool) (*Leaderboard, int) {
-	dt := 0
-	if dupePush > 0 {
-		dt = 1
-	}
+// New creates a new leaderboard.
+func New(name string, maxEntries int, dupePushAbove bool, alwaysReplace bool) (*Leaderboard, int) {
 	leaderboardsMux.Lock()
 	if leaderboards[name] != nil {
 		leaderboardsMux.Unlock()
 		return nil, helpers.ErrorLeaderboardExists
 	}
-	lb := &Leaderboard{maxEntries: maxEntries, dupePush: dt, alwaysReplace: alwaysReplace, entries: make([]*LeaderboardEntry, 0)}
+	lb := &Leaderboard{maxEntries: maxEntries, dupePushAbove: dupePushAbove, alwaysReplace: alwaysReplace, entries: make([]*LeaderboardEntry, 0)}
 	leaderboards[name] = lb
 	leaderboardsMux.Unlock()
 
 	return lb, 0
 }
 
+// Get retrieves a leaderboard by name.
 func Get(name string) (*Leaderboard, int) {
 	leaderboardsMux.Lock()
 	if leaderboards[name] == nil {
@@ -62,6 +55,7 @@ func Get(name string) (*Leaderboard, int) {
 	return lb, 0
 }
 
+// Len returns the length of the leaderboard
 func (l *Leaderboard) Len() int {
 	l.mux.Lock()
 	length := len(l.entries)
@@ -69,6 +63,7 @@ func (l *Leaderboard) Len() int {
 	return length
 }
 
+// GetPage gets a segment of the list for paging.
 func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
 	if page < 0 {
 		page = 0
@@ -92,6 +87,7 @@ func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
 	return cp
 }
 
+// CheckAndPush checks the target against the leaderboard, and pushes worth entries into it.
 func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string]interface{}) {
 	l.mux.Lock()
 	// Check if Leaderboard is empty
@@ -125,7 +121,7 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 			if target > currTarget {
 				newPos = i
 			} else if target == currTarget {
-				if l.dupePush == DuplicateTargetPushTop {
+				if l.dupePushAbove {
 					newPos = i
 				} else {
 					if i == l.maxEntries-1 {
@@ -192,6 +188,7 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 	l.mux.Unlock()
 }
 
+// Print prints the leaderboard to console.
 func (l *Leaderboard) Print() {
 	fmt.Println("=================================================")
 	l.mux.Lock()

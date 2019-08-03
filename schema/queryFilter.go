@@ -31,11 +31,6 @@ const (
 	MethodMillisecond = "*mil"
 )
 
-// Item type query filters - Initialized when the first Schema is made (see New())
-/*var (
-	queryFilters map[string]func(*Filter)(int)
-)*/
-
 // Filter for queries
 type Filter struct {
 	get bool // when true, output is for get queries
@@ -51,6 +46,7 @@ type Filter struct {
 //   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ItemFilter filters an item in a query against it's cooresponding SchemaItem.
 func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool) int {
 	filter := Filter{
 		get: get,
@@ -157,6 +153,7 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 //   ITEM TYPE METHODS   ////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// GetQueryItemMethods checks query item names for methods and returns the item name and the list of methods.
 func GetQueryItemMethods(itemName string) (string, []string) {
 	if strings.Contains(itemName, ".") {
 		ml := strings.Split(itemName, ".")

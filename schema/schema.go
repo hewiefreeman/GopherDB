@@ -304,12 +304,12 @@ func (si *SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
 }
 
-// DataIndex gets the SchemaItem data index (table specific).
+// TypeName gets the type name of the SchemaItem.
 func (si *SchemaItem) TypeName() string {
 	return si.typeName
 }
 
-// DataIndex gets the SchemaItem data index (table specific).
+// Unique returns true if the SchemaItem is unique.
 func (si *SchemaItem) Unique() bool {
 	switch kind := si.iType.(type) {
 		case Int8Item:
@@ -338,6 +338,7 @@ func (si *SchemaItem) Unique() bool {
 	return false
 }
 
+// GetUniqueItems gets the item name of all unique local table items and appends them to destination.
 func GetUniqueItems(schema *Schema, destination *[]string, outerItems string) {
 	// Loop through schema & find unique value names
 	for itemName, schemaItem := range *schema {
