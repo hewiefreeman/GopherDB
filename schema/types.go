@@ -28,45 +28,23 @@ const (
 
 // Time formats
 const (
-	TimeFormatANSIC       = "Mon Jan _2 15:04:05 2006"
-	TimeFormatUnixDate    = "Mon Jan _2 15:04:05 MST 2006"
-	TimeFormatRubyDate    = "Mon Jan 02 15:04:05 -0700 2006"
-	TimeFormatRFC822      = "02 Jan 06 15:04 MST"
+	TimeFormatANSIC       = "Mon Jan _2 15:04:05 2006" // ANSIC
+	TimeFormatUnixDate    = "Mon Jan _2 15:04:05 MST 2006" // Unix Date
+	TimeFormatRubyDate    = "Mon Jan 02 15:04:05 -0700 2006" // Ruby Date
+	TimeFormatRFC822      = "02 Jan 06 15:04 MST" // RFC882
 	TimeFormatRFC822Z     = "02 Jan 06 15:04 -0700" // RFC822 with numeric zone
-	TimeFormatRFC850      = "Monday, 02-Jan-06 15:04:05 MST"
-	TimeFormatRFC1123     = "Mon, 02 Jan 2006 15:04:05 MST"
+	TimeFormatRFC850      = "Monday, 02-Jan-06 15:04:05 MST" // RFC850
+	TimeFormatRFC1123     = "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
 	TimeFormatRFC1123Z    = "Mon, 02 Jan 2006 15:04:05 -0700" // RFC1123 with numeric zone
-	TimeFormatRFC3339     = "2006-01-02T15:04:05Z07:00"
-	TimeFormatRFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00"
-	TimeFormatKitchen     = "3:04PM"
+	TimeFormatRFC3339     = "2006-01-02T15:04:05Z07:00" // RFC3339
+	TimeFormatRFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00" // RFC3339 nano
+	TimeFormatKitchen     = "3:04PM" // Kitchen
 
 	// Time stamp formats
-	TimeFormatStamp      = "Jan _2 15:04:05"
-	TimeFormatStampMilli = "Jan _2 15:04:05.000"
-	TimeFormatStampMicro = "Jan _2 15:04:05.000000"
-	TimeFormatStampNano  = "Jan _2 15:04:05.000000000"
-)
-
-// Item data type initializers for table creation queries
-var (
-	itemTypeInitializor map[string][]reflect.Kind = map[string][]reflect.Kind{
-		ItemTypeBool:    []reflect.Kind{reflect.Bool},
-		ItemTypeInt8:    []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeInt16:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeInt32:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeInt64:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeUint8:   []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeUint16:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeUint32:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeUint64:  []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeFloat32: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeFloat64: []reflect.Kind{reflect.Float64, reflect.Float64, reflect.Float64, reflect.Bool, reflect.Bool, reflect.Bool},
-		ItemTypeString:  []reflect.Kind{reflect.String, reflect.Float64, reflect.Bool, reflect.Bool},
-		ItemTypeArray:   []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
-		ItemTypeMap:     []reflect.Kind{reflect.Slice, reflect.Float64, reflect.Bool},
-		ItemTypeObject:  []reflect.Kind{reflect.Map, reflect.Bool},
-		ItemTypeTime:    []reflect.Kind{reflect.String, reflect.Bool},
-	}
+	TimeFormatStamp      = "Jan _2 15:04:05" // Time Stamp
+	TimeFormatStampMilli = "Jan _2 15:04:05.000" // Time Stamp with milliseconds
+	TimeFormatStampMicro = "Jan _2 15:04:05.000000" // Time Stamp with microseconds
+	TimeFormatStampNano  = "Jan _2 15:04:05.000000000" // Time Stamp with nanoseconds
 )
 
 // Time type format initializers for table creation queries
@@ -446,6 +424,150 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 	default:
 		return nil, helpers.ErrorUnexpected
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//   ITEM TYPE FORMAT CHECKS   //////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+func checkTypeFormat(t string) func([]interface{})bool {
+	switch t {
+	case ItemTypeUint8, ItemTypeUint16,
+			ItemTypeUint32, ItemTypeUint64:
+		return checkNumericFormat
+	case ItemTypeInt8, ItemTypeInt16,
+			ItemTypeInt32, ItemTypeInt64,
+			ItemTypeFloat32, ItemTypeFloat64:
+		return checkNumericPlusFormat
+	case ItemTypeString:
+		return checkStringFormat
+	case ItemTypeArray, ItemTypeMap:
+		return checkListFormat
+	case ItemTypeObject:
+		return checkObjectFormat
+	case ItemTypeTime:
+		return checkTimeFormat
+	default:
+		return retFalse
+	}
+}
+
+func retFalse(f []interface{}) bool {
+	return false
+}
+
+func checkNumericFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 5 {
+		return false
+	}
+	if _, ok := f[0].(float64); !ok {
+		return false
+	}
+	if _, ok := f[1].(float64); !ok {
+		return false
+	}
+	if _, ok := f[2].(float64); !ok {
+		return false
+	}
+	if _, ok := f[3].(bool); !ok {
+		return false
+	}
+	if _, ok := f[4].(bool); !ok {
+		return false
+	}
+	return true
+}
+
+func checkNumericPlusFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 6 {
+		return false
+	}
+	if _, ok := f[0].(float64); !ok {
+		return false
+	}
+	if _, ok := f[1].(float64); !ok {
+		return false
+	}
+	if _, ok := f[2].(float64); !ok {
+		return false
+	}
+	if _, ok := f[3].(bool); !ok {
+		return false
+	}
+	if _, ok := f[4].(bool); !ok {
+		return false
+	}
+	if _, ok := f[5].(bool); !ok {
+		return false
+	}
+	return true
+}
+
+func checkStringFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 4 {
+		return false
+	}
+	if _, ok := f[0].(string); !ok {
+		return false
+	}
+	if _, ok := f[1].(float64); !ok {
+		return false
+	}
+	if _, ok := f[2].(bool); !ok {
+		return false
+	}
+	if _, ok := f[3].(bool); !ok {
+		return false
+	}
+	return true
+}
+
+func checkListFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 4 {
+		return false
+	}
+	if _, ok := f[0].([]interface{}); !ok {
+		return false
+	}
+	if _, ok := f[1].(float64); !ok {
+		return false
+	}
+	if _, ok := f[2].(bool); !ok {
+		return false
+	}
+	return true
+}
+
+func checkObjectFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 4 {
+		return false
+	}
+	if _, ok := f[0].(map[string]interface{}); !ok {
+		return false
+	}
+	if _, ok := f[1].(bool); !ok {
+		return false
+	}
+	return true
+}
+
+func checkTimeFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 4 {
+		return false
+	}
+	if _, ok := f[0].(string); !ok {
+		return false
+	}
+	if _, ok := f[1].(bool); !ok {
+		return false
+	}
+	return true
 }
 
 /////////////////////////////////////////////////////////////////////////////

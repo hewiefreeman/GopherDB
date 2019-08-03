@@ -90,31 +90,7 @@ type SchemaItem struct {
 
 // New creates a new schema from a JSON schema object
 func New(schema map[string]interface{}) (*Schema, int) {
-	// INIT queryFilters
-	/*if queryFilters == nil {
-		queryFilters = map[string]func(*Filter)(int){
-			ItemTypeBool:    boolFilter,
-			ItemTypeInt8:    int8Filter,
-			ItemTypeInt16:   int16Filter,
-			ItemTypeInt32:   int32Filter,
-			ItemTypeInt64:   int64Filter,
-			ItemTypeUint8:   uint8Filter,
-			ItemTypeUint16:  uint16Filter,
-			ItemTypeUint32:  uint32Filter,
-			ItemTypeUint64:  uint64Filter,
-			ItemTypeFloat32: float32Filter,
-			ItemTypeFloat64: float32Filter,
-			ItemTypeString:  stringFilter,
-			ItemTypeArray:   arrayFilter,
-			ItemTypeMap:     mapFilter,
-			ItemTypeObject:  objectFilter,
-			ItemTypeTime:    timeFilter,
-		}
-	}*/
-
 	s := make(Schema)
-
-	// Make Schema
 	var i uint32
 	for itemName, itemParams := range schema {
 		// Names cannot have "." or "*"
@@ -148,22 +124,8 @@ func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
 
 	// Get data type
 	if t, ok := params[0].(string); ok {
-		dti := itemTypeInitializor[t]
-		// Check for valid params length
-		dtiPL := len(dti)
-		if dtiPL == 0 {
-			return nil, helpers.ErrorSchemaInvalidItemType
-		} else if dtiPL != len(params)-1 {
+		if !checkTypeFormat(t)(params[1:]) {
 			return nil, helpers.ErrorSchemaInvalidItemParameters
-		}
-		// Check for valid parameter data types
-		for i := 0; i < dtiPL; i++ {
-			if params[i+1] == nil {
-				return nil, helpers.ErrorSchemaInvalidItemParameters
-			}
-			if reflect.TypeOf(params[i+1]).Kind() != dti[i] {
-				return nil, helpers.ErrorSchemaInvalidItemParameters
-			}
 		}
 		// Execute create for the type
 		si := SchemaItem{name: name, typeName: t}

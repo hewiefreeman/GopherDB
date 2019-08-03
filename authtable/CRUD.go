@@ -98,7 +98,6 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
 	}
-
 	// Append jBytes to fileOn and get the persistIndex
 	lineOn, aErr := storage.Insert(t.persistName + "/" + strconv.Itoa(int(t.fileOn)) + storage.FileTypeStorage, jBytes)
 	if aErr != 0 {
