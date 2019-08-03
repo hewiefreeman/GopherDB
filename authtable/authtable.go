@@ -1,10 +1,11 @@
-package userTable
+package authtable
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
 	"sync"
+	"sync/atomic"
 )
 
 ////////////////// TODOs
@@ -15,7 +16,7 @@ import (
 //////////////////         - Updating storage data
 //////////////////         - Updating/Restoring with log/persist files
 //////////////////
-//////////////////     - Password reset for UserTable
+//////////////////     - Password reset for AuthTable
 //////////////////         - Setting server name/address, subject & body message for password reset emails
 //////////////////         - Send emails for password resets
 //////////////////
@@ -37,67 +38,72 @@ import (
 
 var (
 	tablesMux      sync.Mutex
-	tables         map[string]*UserTable = make(map[string]*UserTable)
+	tables         map[string]*AuthTable = make(map[string]*AuthTable)
 )
 
-type UserTable struct {
-	// settings and schema
-	persistName   string // table's logger/persist folder name
-	schema        *schema.Schema // table's schema
-	dataOnDrive   bool // when true, entry data and password are not stored in memory (new entries only temporarily)
-	partitionMax  uint16
+type AuthTable struct {
+	fileOn    uint16 // locked by eMux - placed for memory efficiency
 
-	sMux          sync.Mutex // locks all table settings below
-	maxEntries    uint64 // maximum amount of entries in the UserTable
-	minPassword   uint8 // minimum password length
-	encryptCost   int // encryption cost of passwords
-	passResetLen  uint8 // the length of passwords created by the database
-	emailItem     string // item in schema that represents a user's email address
-	altLoginItem  string // item in schema that a user can log in with as if it's their user name (usually the emailItem)
+	// Settings and schema - read only
+	memOnly       bool
+	dataOnDrive   bool // when true, entry data and password are not stored in memory (new entries only temporarily)
+	persistName   string // table's logger/persist folder name
+	schema        *interface{} // table's schema
+
+	// Atomic changable settings values - 99% read
+	partitionMax  atomic.Value // *uint16* maximum entries per data file
+	maxEntries    atomic.Value // *uint64* maximum amount of entries in the AuthTable
+	minPassword   atomic.Value // *uint8* minimum password length
+	encryptCost   atomic.Value // *int* encryption cost of passwords
+	passResetLen  atomic.Value // *uint8* the length of passwords created by the database
+	emailItem     atomic.Value // *string* item in schema that represents a user's email address
+	altLoginItem  atomic.Value // *string* item in schema that a user can log in with as if it's their user name (usually the emailItem)
 
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
-	entries   map[string]*UserTableEntry // UserTable uses a Map for storage since it's only look-up is with user name and password
-	altLogins map[string]*UserTableEntry
-	fileOn    uint16
+	entries   map[string]*interface{} // AuthTable uses a Map for storage since it's only look-up is with user name and password
+	altLogins map[string]*interface{}
 
 	// unique values
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
 }
 
-type UserTableEntry struct {
+type AuthTableEntry struct {
 	persistFile  uint16
 	persistIndex uint16
 
-	mux      sync.Mutex
-	password []byte
-	data     []interface{}
+	password atomic.Value
+
+	mux  sync.Mutex
+	data []interface{}
 }
 
 // File/folder prefixes
 const (
-	prefixUserTable = "UT-"
+	prefixAuthTable = "AT-"
 )
 
 // Defaults
 const (
-	defaultPartitionMax uint16 = 2500
+	defaultPartitionMax uint16 = 200
+	partitionMin uint16        = 10
+	defaultMaxEntries uint64   = 0
 	defaultMinPassword uint8   = 6
 	defaultPassResetLen uint8  = 12
-	defaultEncryptCost int     = 8
+	defaultEncryptCost int     = 4
 	encryptCostMax int         = 31
 	encryptCostMin int         = 4
-	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"UserTables\":[],\"Leaderboards\":[]}"
+	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-//   UserTable   ////////////////////////////////////////////////////////////////////////////////
+//   AuthTable   ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-//	Example JSON query to make a new UserTable:
+//	Example JSON query to make a new AuthTable:
 //
-//		{"NewUserTable": [
+//		{"NewAuthTable": [
 //			"users",
 //			{
 //				"email": ["String", "", 0, true, true],
@@ -112,25 +118,17 @@ const (
 //		]};
 //
 
-// New creates a new UserTable with the provided name, schema, and other parameters.
-func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, partitionMax uint16, fileOn uint16, dataOnDrive bool) (*UserTable, int) {
+// New creates a new AuthTable with the provided name, schema, and other parameters.
+func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool) (*AuthTable, int) {
 	if len(name) == 0 {
-		return nil, helpers.ErrorUserTableNameRequired
+		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
-		return nil, helpers.ErrorUserTableExists
+		return nil, helpers.ErrorTableExists
 	} else if !s.ValidSchema() {
-		return nil, helpers.ErrorUserTableExists
+		return nil, helpers.ErrorTableExists
 	}
 
-	// defaults
-	if partitionMax == 0 {
-		partitionMax = defaultPartitionMax
-	}
-	if minPassword == 0 {
-		minPassword = defaultMinPassword
-	}
-
-	namePre := prefixUserTable + name
+	namePre := prefixAuthTable + name
 
 	// Make table folder   & update config file !!!
 	mkErr := storage.MakeDir(namePre)
@@ -139,35 +137,39 @@ func New(name string, s *schema.Schema, maxEntries uint64, minPassword uint8, pa
 	}
 
 	// make table
-	t := UserTable{persistName: namePre,
+	t := AuthTable{
+		persistName: namePre,
 		dataOnDrive:   dataOnDrive,
-		partitionMax:  partitionMax,
-		maxEntries:    maxEntries,
-		minPassword:   minPassword,
-		passResetLen:  defaultPassResetLen,
-		encryptCost:   defaultEncryptCost,
 		schema:        s,
-		entries:       make(map[string]*UserTableEntry),
-		altLogins:     make(map[string]*UserTableEntry),
+		entries:       make(map[string]*AuthTableEntry),
+		altLogins:     make(map[string]*AuthTableEntry),
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 	}
 
-	//
+	// set defaults
+	t.partitionMax.Store(defaultPartitionMax)
+	t.maxEntries.Store(defaultMaxEntries)
+	t.minPassword.Store(defaultMinPassword)
+	t.encryptCost.Store(defaultEncryptCost)
+	t.passResetLen.Store(defaultPassResetLen)
+	t.emailItem.Store("")
+	t.altLoginItem.Store("")
+
+	// push to tables map
 	tablesMux.Lock()
 	tables[name] = &t
-	tr := tables[name]
 	tablesMux.Unlock()
 
-	return tr, 0
+	return &t, 0
 }
 
-// Delete deletes a UserTable with the given name.
+// Delete deletes a AuthTable with the given name.
 func Delete(name string) int {
 	if len(name) == 0 {
-		return helpers.ErrorUserTableNameRequired
+		return helpers.ErrorTableNameRequired
 	} else if Get(name) == nil {
-		return helpers.ErrorUserTableDoesntExist
+		return helpers.ErrorTableDoesntExist
 	}
 
 	tablesMux.Lock()
@@ -179,8 +181,8 @@ func Delete(name string) int {
 	return 0
 }
 
-// Get retrieves a UserTable by name
-func Get(name string) *UserTable {
+// Get retrieves a AuthTable by name
+func Get(name string) *AuthTable {
 	tablesMux.Lock()
 	t := tables[name]
 	tablesMux.Unlock()
@@ -188,23 +190,18 @@ func Get(name string) *UserTable {
 	return t
 }
 
-func (t *UserTable) Get(userName string, password string) (*UserTableEntry, int) {
-	// Get current table settings
-	t.sMux.Lock()
-	minPass := t.minPassword
-	t.sMux.Unlock()
-
+func (t *AuthTable) Get(userName string, password string) (*AuthTableEntry, int) {
 	// Name and password are required
 	if len(userName) == 0 {
 		return nil, helpers.ErrorNameRequired
-	} else if len(password) < int(minPass) {
+	} else if len(password) < int(t.minPassword.Load().(uint8)) {
 		return nil, helpers.ErrorPasswordLength
 	}
 
 	// Find entry
 	t.eMux.Lock()
 	ue := t.entries[userName]
-	if ue == nil && t.altLoginItem != "" {
+	if ue == nil && t.altLoginItem.Load().(string) != "" {
 		ue = t.altLogins[userName]
 	}
 	t.eMux.Unlock()
@@ -222,63 +219,55 @@ func (t *UserTable) Get(userName string, password string) (*UserTableEntry, int)
 	return ue, 0
 }
 
-// CheckPassword compares the UserTableEntry's encrypted password with the given string password.
-func (e *UserTableEntry) CheckPassword(pass string) bool {
-	e.mux.Lock()
-	p := e.password
-	e.mux.Unlock()
+// CheckPassword compares the AuthTableEntry's encrypted password with the given string password.
+func (e *AuthTableEntry) CheckPassword(pass string) bool {
+	p := e.password.Load().([]byte)
 	return helpers.StringMatchesEncryption(pass, p)
 }
 
-func (t *UserTable) Size() int {
+func (t *AuthTable) Size() int {
 	t.eMux.Lock()
 	s := len(t.entries)
 	t.eMux.Unlock()
 	return s
 }
 
-func (t *UserTable) SetEncryptionCost(cost int) {
+func (t *AuthTable) SetEncryptionCost(cost int) {
 	if cost > encryptCostMax {
 		cost = encryptCostMax
 	} else if cost < encryptCostMin {
 		cost = encryptCostMin
 	}
-	t.sMux.Lock()
-	t.encryptCost = cost
-	t.sMux.Unlock()
+	t.encryptCost.Store(cost)
 }
 
-func (t *UserTable) SetMaxEntries(max uint64) {
+func (t *AuthTable) SetMaxEntries(max uint64) {
 	if max < 0 {
 		max = 0
 	}
-	t.sMux.Lock()
-	t.maxEntries = max
-	t.sMux.Unlock()
+	t.maxEntries.Store(max)
 }
 
-func (t *UserTable) SetMinPasswordLength(min uint8) {
+func (t *AuthTable) SetMinPasswordLength(min uint8) {
 	if min < 1 {
 		min = 1
 	}
-	t.sMux.Lock()
-	if t.passResetLen < min {
-		t.passResetLen = min
+	if t.passResetLen.Load().(uint8) < min {
+		t.passResetLen.Store(min)
 	}
-	t.minPassword = min
-	t.sMux.Unlock()
+	t.minPassword.Store(min)
 }
 
-func (t *UserTable) SetPasswordResetLength(len uint8) {
-	t.sMux.Lock()
-	if len < t.minPassword {
-		len = t.minPassword
+func (t *AuthTable) SetPasswordResetLength(len uint8) {
+	mLen := t.minPassword.Load().(uint8)
+	if len < mLen {
+		len = mLen
 	}
-	t.passResetLen = len
-	t.sMux.Unlock()
+	t.passResetLen.Store(len)
 }
 
-func (t *UserTable) SetAltLoginItem(item string) int {
+// SetAltLoginItem sets the AuthTable's alternative login item. Item must be a string and unique.
+func (t *AuthTable) SetAltLoginItem(item string) int {
 	si := (*(t.schema))[item]
 	if si == nil {
 		return helpers.ErrorInvalidItem
@@ -286,13 +275,12 @@ func (t *UserTable) SetAltLoginItem(item string) int {
 		return helpers.ErrorInvalidItem
 	}
 
-	t.sMux.Lock()
-	t.altLoginItem = item
-	t.sMux.Unlock()
+	t.altLoginItem.Store(item)
 	return 0
 }
 
-func (t *UserTable) SetEmailItem(item string) int {
+// SetAltLoginItem sets the AuthTable's email item. Item must be a string and unique.
+func (t *AuthTable) SetEmailItem(item string) int {
 	si := (*(t.schema))[item]
 	if si == nil {
 		return helpers.ErrorInvalidItem
@@ -300,8 +288,13 @@ func (t *UserTable) SetEmailItem(item string) int {
 		return helpers.ErrorInvalidItem
 	}
 
-	t.sMux.Lock()
-	t.emailItem = item
-	t.sMux.Unlock()
+	t.emailItem.Store(item)
 	return 0
+}
+
+func (t *AuthTable) SetPartitionMax(max uint16) {
+	if max < partitionMin {
+		max = defaultPartitionMax
+	}
+	t.partitionMax.Store(max)
 }

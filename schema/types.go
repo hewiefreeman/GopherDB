@@ -447,3 +447,29 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 		return nil, helpers.ErrorUnexpected
 	}
 }
+
+/////////////////////////////////////////////////////////////////////////////
+//   GET TYPE FILTER   //////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+func getTypeFilter(typeName string) func(*Filter)(int) {
+	switch typeName {
+	case ItemTypeBool: return boolFilter
+	case ItemTypeInt8: return int8Filter
+	case ItemTypeInt16: return int16Filter
+	case ItemTypeInt32: return int32Filter
+	case ItemTypeInt64: return int64Filter
+	case ItemTypeUint8: return uint8Filter
+	case ItemTypeUint16: return uint16Filter
+	case ItemTypeUint32: return uint32Filter
+	case ItemTypeUint64: return uint64Filter
+	case ItemTypeFloat32: return float32Filter
+	case ItemTypeFloat64: return float64Filter
+	case ItemTypeString: return stringFilter
+	case ItemTypeArray: return arrayFilter
+	case ItemTypeMap: return mapFilter
+	case ItemTypeObject: return objectFilter
+	case ItemTypeTime: return timeFilter
+	default: return nil
+	}
+}

@@ -7,17 +7,6 @@ import (
 	"time"
 )
 
-// Filter for queries
-type Filter struct {
-	get bool // when true, output is for get queries
-	item interface{} // The item data to insert/get
-	destination *interface{} // Pointer to where the filtered/retrieved data must go
-	methods []string // Method list
-	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search in insert/updates)
-	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
-	uniqueVals *map[string]interface{} // Pointer to the table's unique value map (must lock uMux)
-}
-
 // Method names
 const (
 	MethodOperatorAdd = "*add"
@@ -43,9 +32,20 @@ const (
 )
 
 // Item type query filters - Initialized when the first Schema is made (see New())
-var (
+/*var (
 	queryFilters map[string]func(*Filter)(int)
-)
+)*/
+
+// Filter for queries
+type Filter struct {
+	get bool // when true, output is for get queries
+	item interface{} // The item data to insert/get
+	destination *interface{} // Pointer to where the filtered/retrieved data must go
+	methods []string // Method list
+	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search in insert/updates)
+	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
+	uniqueVals *map[string]interface{} // Pointer to the table's unique value map (must lock uMux)
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //   QUERY FILTER   /////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,17 +82,17 @@ func queryItemFilter(filter *Filter) int {
 			filter.item = defaultVal
 		}
 		return 0
-	} else {
-		// Run type filter
-		iTypeErr := queryFilters[filter.schemaItems[len(filter.schemaItems)-1].typeName](filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		if (filter.get && len(filter.methods) == 0) || (!filter.get && len(filter.schemaItems) == 1) {
-			(*(*filter).destination) = filter.item
-		}
-		return 0
 	}
+
+	// Run type filter
+	iTypeErr := getTypeFilter(filter.schemaItems[len(filter.schemaItems)-1].typeName)(filter)
+	if iTypeErr != 0 {
+		return iTypeErr
+	}
+	if (filter.get && len(filter.methods) == 0) || (!filter.get && len(filter.schemaItems) == 1) {
+		(*(*filter).destination) = filter.item
+	}
+	return 0
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -158,13 +158,11 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func GetQueryItemMethods(itemName string) (string, []string) {
-	var itemMethods []string
 	if strings.Contains(itemName, ".") {
 		ml := strings.Split(itemName, ".")
-		itemMethods = ml[1:]
-		itemName = ml[0]
+		return ml[0], ml[1:]
 	}
-	return itemName, itemMethods
+	return itemName, nil
 }
 
 func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData interface{}) (float64, int) {
@@ -993,13 +991,16 @@ func objectFilter(filter *Filter) int {
 
 func timeFilter(filter *Filter) int {
 	if filter.get {
+		var t time.Time
 		// If the item is a string, was retrieved from disk - convert to time.Time
 		if i, ok := filter.item.(string); ok {
-			t, tErr := time.Parse(TimeFormatRFC3339, i) // JSON uses RFC3339
+			var tErr error
+			t, tErr = time.Parse(TimeFormatRFC3339, i) // JSON uses RFC3339
 			if tErr != nil {
 				return helpers.ErrorInvalidTimeFormat
 			}
-			filter.item = t
+		} else {
+			t = filter.item.(time.Time)
 		}
 		if len(filter.methods) > 0 {
 			if filter.methods[0] == MethodSince {
@@ -1009,19 +1010,19 @@ func timeFilter(filter *Filter) int {
 				}
 				switch format {
 					case MethodMillisecond:
-						filter.item = time.Since(filter.item.(time.Time)).Seconds() * 1000
+						filter.item = time.Since(t).Seconds() * 1000
 
 					case MethodSecond:
-						filter.item = time.Since(filter.item.(time.Time)).Seconds()
+						filter.item = time.Since(t).Seconds()
 
 					case MethodMinute:
-						filter.item = time.Since(filter.item.(time.Time)).Minutes()
+						filter.item = time.Since(t).Minutes()
 
 					case MethodHour:
-						filter.item = time.Since(filter.item.(time.Time)).Hours()
+						filter.item = time.Since(t).Hours()
 
 					case MethodDay:
-						filter.item = time.Since(filter.item.(time.Time)).Hours() / 24
+						filter.item = time.Since(t).Hours() / 24
 
 					default:
 						return helpers.ErrorInvalidMethod
@@ -1031,7 +1032,6 @@ func timeFilter(filter *Filter) int {
 			}
 			return helpers.ErrorInvalidMethod
 		}
-		t := filter.item.(time.Time)
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(TimeItem)
 		filter.item = t.Format(it.format)
 		return 0

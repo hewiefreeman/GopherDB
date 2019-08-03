@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/hewiefreeman/GopherDB/schema"
-	"github.com/hewiefreeman/GopherDB/userTable"
+	"github.com/hewiefreeman/GopherDB/authtable"
 	"encoding/json"
 	"strconv"
 	"fmt"
@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// JSON query and unmarshalling test
-	newTableJson := "{\"NewUserTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false, false], \"testMap\": [\"Map\", [\"Map\", [\"Int16\", 100, 0, 0, true, true, true], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
+	newTableJson := "{\"NewAuthTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false, false], \"testMap\": [\"Map\", [\"Map\", [\"Int16\", 100, 0, 0, true, true, true], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
 	v := make(map[string]interface{})
 	err := json.Unmarshal([]byte(newTableJson), &v)
 	if err != nil {
@@ -20,7 +20,7 @@ func main() {
 	}
 
 	// Get the schema object from the query
-	s := v["NewUserTable"].([]interface{})[1].(map[string]interface{})
+	s := v["NewAuthTable"].([]interface{})[1].(map[string]interface{})
 
 	// Make a schema with the query's schema object
 	schemaObj, schemaErr := schema.New(s)
@@ -29,8 +29,8 @@ func main() {
 		return
 	}
 
-	// Make a new UserTable with the schema
-	table, tableErr := userTable.New("users", schemaObj, 6000, 0, 100, 0, false)
+	// Make a new AuthTable with the schema
+	table, tableErr := authtable.New("users", schemaObj, 0, 0, 0, 0, false)
 	if tableErr != 0 {
 		fmt.Println("Table Create Error:", tableErr)
 		return
@@ -69,7 +69,7 @@ func main() {
 
 	averageTime = 0
 	now = time.Now()
-	done = make(chan int)
+	done = make(chan int, 100)
 	for v := 0; v < testSize; v++ {
 		go func(v int){
 			done <- table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
@@ -89,10 +89,30 @@ func main() {
 
 	averageTime = 0
 	now = time.Now()
+	done = make(chan int, 100)
+	for v := 0; v < testSize; v++ {
+		go func(v int){
+			done <- table.UpdateUserData("guest"+strconv.Itoa(v), "myPass", map[string]interface{}{"mmr.*add": []interface{}{2}})
+		}(v)
+	}
+	for v := 0; v < testSize; v++ {
+		res := <-done
+		if res != 0 {
+			fmt.Println("Update 2 Error: ", res)
+			close(done)
+			return
+		}
+	}
+	close(done)
+	averageTime = time.Since(now).Seconds()*1000
+	fmt.Println("Bulk update 2 time (ms):", averageTime)
+
+	averageTime = 0
+	now = time.Now()
 	done = make(chan int)
 	for v := 0; v < testSize; v++ {
 		go func(v int){
-			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", []string{"mmr"})
+			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", []string{"verified"})
 			done <- ueErr
 		}(v)
 	}
@@ -107,6 +127,27 @@ func main() {
 	close(done)
 	averageTime = time.Since(now).Seconds()*1000
 	fmt.Println("Bulk get time (ms):", averageTime)
+
+	averageTime = 0
+	now = time.Now()
+	done = make(chan int)
+	for v := 0; v < testSize; v++ {
+		go func(v int){
+			_, ueErr := table.GetUserData("guest"+strconv.Itoa(v), "myPass", []string{"verified"})
+			done <- ueErr
+		}(v)
+	}
+	for v := 0; v < testSize; v++ {
+		res := <-done
+		if res != 0 {
+			fmt.Println("Get 2 Error: ", res)
+			close(done)
+			return
+		}
+	}
+	close(done)
+	averageTime = time.Since(now).Seconds()*1000
+	fmt.Println("Bulk get 2 time (ms):", averageTime)
 
 	ud, ueErr := table.GetUserData("dinospumoni99@yahoo.com", "myPass", nil)
 	if ueErr != 0 {
@@ -229,7 +270,7 @@ func main() {
 	}
 	fmt.Println("Email update took", (time.Since(now).Seconds() * 1000), "ms")
 
-	// Delete a UserTable entry
+	// Delete a AuthTable entry
 	deleteErr := table.DeleteUser("guest98", "myPass")
 	if deleteErr != 0 {
 		fmt.Println("Update Error 14:", deleteErr)

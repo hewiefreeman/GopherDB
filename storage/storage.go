@@ -30,7 +30,7 @@ const (
 var (
 	openFilesMux   sync.Mutex
 	openFiles map[string]*openFile = make(map[string]*openFile)
-	fileOpenTime time.Duration = 1
+	fileOpenTime time.Duration = 10 // in seconds
 )
 
 type openFile struct {
@@ -38,7 +38,8 @@ type openFile struct {
 	file *os.File
 	timer *time.Timer
 	bytes []byte
-	lineOn uint16
+	//lineOn uint16
+	lineByteOn []int
 }
 
 //
@@ -65,6 +66,14 @@ func newOpenFile(file string) (*openFile, int) {
 	_, rErr := f.ReadAt(newOF.bytes, 0)
 	if rErr != nil && rErr != io.EOF {
 		return nil, helpers.ErrorFileRead
+	}
+
+	// Make lineByteOn list
+	newOF.lineByteOn = []int{0}
+	for i, b := range newOF.bytes {
+		if b == newLineIndicator {
+			newOF.lineByteOn = append(newOF.lineByteOn, i+1)
+		}
 	}
 
 	// Start close timer
@@ -96,17 +105,21 @@ func fileCloseTimer(timer *time.Timer, file string) {
 	<-timer.C
 	openFilesMux.Lock()
 	f := openFiles[file]
+	openFilesMux.Unlock()
 	f.mux.Lock()
 	if timer != f.timer {
 		// The openFile has already been reset - don't close file
-		openFilesMux.Unlock()
 		f.mux.Unlock()
 		return
 	}
 	f.timer = nil
+	f.file.Truncate(int64(len(f.bytes)))
+	f.bytes = nil
+	f.lineByteOn = nil
 	f.file.Close()
-	delete(openFiles, file)
 	f.mux.Unlock()
+	openFilesMux.Lock()
+	delete(openFiles, file)
 	openFilesMux.Unlock()
 }
 
@@ -121,7 +134,7 @@ func DeleteDir(dir string) error {
 }
 
 // Read reads a specific line from a file.
-func Read(file string, lineNum uint16) ([]byte, int) {
+func Read(file string, index uint16) ([]byte, int) {
 	f, fErr := getOpenFile(file)
 	if fErr != 0 {
 		return nil, fErr
@@ -143,22 +156,21 @@ func Read(file string, lineNum uint16) ([]byte, int) {
 		go fileCloseTimer(f.timer, file)
 	}
 
-	var bytes []byte
-	var lineOn uint16 = 1
-	for _, b := range f.bytes {
-		if b == newLineIndicator {
-			lineOn++
-			if lineOn > lineNum {
-				break
-			}
-		} else if lineOn == lineNum {
-			bytes = append(bytes, b)
+
+	bStart := f.lineByteOn[index-1]
+	bEnd := 0
+	for i := bStart; i < len(f.bytes); i++ {
+		if f.bytes[i] == newLineIndicator {
+			bEnd = i
+			break
 		}
 	}
-	f.mux.Unlock()
-	if lineNum > lineOn {
-		return nil, helpers.ErrorEOF
+	if bEnd < bStart {
+		bEnd = len(f.bytes)
 	}
+
+	bytes := f.bytes[bStart:bEnd]
+	f.mux.Unlock()
 	return bytes, 0
 }
 
@@ -184,31 +196,27 @@ func Update(file string, index uint16, json []byte) int {
 		f.timer = time.NewTimer(fileOpenTime * time.Second)
 		go fileCloseTimer(f.timer, file)
 	}
-	// Get the start and end index of line in f.bytes
-	var iStart int
-	var iEnd   int
-	var lineOn uint16 = 1
-	for i := 0; i < len(f.bytes); i++ {
+	// Get the start and end index of line
+	iStart := f.lineByteOn[index-1]
+	var iEnd int
+	for i := iStart; i < len(f.bytes); i++ {
 		if f.bytes[i] == newLineIndicator {
-			lineOn++
-			if lineOn == index {
-				iStart = i+1
-			} else if lineOn > index {
-				iEnd = i
-				break
-			}
+			iEnd = i
+			break
 		}
 	}
+	// Calculate byte difference for subsequent lines
+	iDif := len(json)-(iEnd-iStart)
+	for i := int(index); i < len(f.lineByteOn); i++ {
+		f.lineByteOn[i] += iDif
+	}
+	// Make & push data
 	rHalf := append(json, f.bytes[iEnd:]...)
 	f.bytes = append(f.bytes[:iStart], rHalf...)
 	if _, wErr := f.file.WriteAt(rHalf, int64(iStart)); wErr != nil {
 		f.mux.Unlock()
 		return helpers.ErrorFileUpdate
 	}
-	/*if tErr := f.file.Truncate(int64(len(f.bytes))); tErr != nil {
-		f.mux.Unlock()
-		return helpers.ErrorFileUpdate
-	}*/ // Leave trailing bits after writes for performance? !!!
 	f.mux.Unlock()
 	return 0
 }
@@ -236,23 +244,16 @@ func Insert(file string, json []byte) (uint16, int) {
 		go fileCloseTimer(f.timer, file)
 	}
 
-	if f.lineOn == 0 {
-		f.lineOn = 1
-		// Get line on
-		for _, b := range f.bytes {
-			if b == newLineIndicator {
-				f.lineOn++
-			}
-		}
-	}
-	lineOn := f.lineOn
+	//
+
+	lineOn := uint16(len(f.lineByteOn)+1)
 	json = append(json, newLineIndicator)
 	if _, wErr := f.file.WriteAt(json, int64(len(f.bytes))); wErr != nil {
 		f.mux.Unlock()
 		return 0, helpers.ErrorFileAppend
 	}
+	f.lineByteOn = append(f.lineByteOn, len(f.bytes))
 	f.bytes = append(f.bytes, json...)
-	f.lineOn++
 	f.mux.Unlock()
 	return lineOn, 0
 }

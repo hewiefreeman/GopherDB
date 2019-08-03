@@ -2,10 +2,10 @@ package helpers
 
 const (
 	// Table should or shouldn't exist
-	ErrorUserTableExists      = iota + 1001
-	ErrorUserTableDoesntExist
+	ErrorTableExists      = iota + 1001
+	ErrorTableDoesntExist
 
-	// Missing or invalid set-up requirements
+	// Missing or invalid schema requirements
 	ErrorSchemaRequired
 	ErrorSchemaItemsRequired
 	ErrorSchemaInvalidItemName
@@ -15,57 +15,51 @@ const (
 	ErrorSchemaInvalidTimeFormat
 	ErrorSchemaInvalid
 
-	// User Table Query Errors
-	ErrorUserTableNameRequired
+	// Generic Table Query Errors
+	ErrorTableNameRequired
+	ErrorTableFull
+	ErrorQueryInvalidFormat
+	ErrorInvalidItem
+	ErrorInvalidMethod
+	ErrorInvalidMethodParameters
+
+	// Auth Table Query Errors
 	ErrorNameRequired
 	ErrorPasswordLength
 	ErrorPasswordEncryption
-	ErrorNoEmailItem
-
-	// Generic Table Query Errors
-	ErrorQueryInvalidFormat
-	ErrorInvalidItem
-	ErrorInvalidArithmeticOperator
-	ErrorInvalidArithmeticParameter
-	ErrorInvalidMethod // 1020
-	ErrorInvalidMethodParameters
-	ErrorTableFull
+	ErrorNoEmailItem // 1020
+	ErrorInvalidNameOrPassword
 
 	// Schema errors
 	ErrorInvalidItemValue
 	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
-	ErrorNumberTooLarge
-	ErrorNumberTooSmall
 	ErrorArrayItemsRequired
-	ErrorArrayEmpty // 1030
+	ErrorArrayEmpty
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
 
 	// Leaderboard errors
-	ErrorLeaderboardExists
+	ErrorLeaderboardExists // 1030
 	ErrorLeaderboardDoesntExist
 
 	// Unique value errors
 	ErrorUniqueValueInUse
 	ErrorEntryNameInUse
-	ErrorInvalidNameOrPassword
 
 	// Storage errors
 	ErrorLoggerExists
 	ErrorLoggerFileCreate
-	ErrorTableFolderCreate // 1040
+	ErrorTableFolderCreate
 	ErrorCreatingFolder
 	ErrorFileOpen
 	ErrorFileAppend
-	ErrorFileUpdate
+	ErrorFileUpdate // 1040
 	ErrorFileRead
-	ErrorEOF
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat
-	ErrorDatabaseBusy // 1050
 
 	// Unexpected error
 	ErrorUnexpected

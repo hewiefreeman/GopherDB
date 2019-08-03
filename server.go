@@ -24,7 +24,7 @@ var (
 const (
 	configFile string = "db.conf"
 
-	defaultConfigFile string = "{\"masterPass\":"",\"dbs\":[],\"replica\":false,\"readOnly\":false,\"replicas\":[],\"routers\":[],\"UserTables\":[],\"Leaderboards\":[]}"
+	defaultConfigFile string = "{\"masterPass\":"",\"dbs\":[],\"replica\":false,\"readOnly\":false,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
 )
 
 // Database statuses

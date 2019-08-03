@@ -62,7 +62,7 @@ type SchemaItem struct {
 //
 //		- ["Object", schema, required] : store as map[string]interface{}
 //			> schema: the schema that the Object must adhere to
-//				Note: same as making the schema for a UserTable
+//				Note: same as making the schema for a AuthTable
 //				Note: if an Object's parent is the database, any unique Strings in the Object with be checked against the rest of the database. Use an Array of Object to make locally (to a User entry) unique Object lists
 //             > required: when true, the value must be specified when inserting (does not check on updates)
 //
@@ -91,7 +91,7 @@ type SchemaItem struct {
 // New creates a new schema from a JSON schema object
 func New(schema map[string]interface{}) (*Schema, int) {
 	// INIT queryFilters
-	if queryFilters == nil {
+	/*if queryFilters == nil {
 		queryFilters = map[string]func(*Filter)(int){
 			ItemTypeBool:    boolFilter,
 			ItemTypeInt8:    int8Filter,
@@ -110,7 +110,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 			ItemTypeObject:  objectFilter,
 			ItemTypeTime:    timeFilter,
 		}
-	}
+	}*/
 
 	s := make(Schema)
 
