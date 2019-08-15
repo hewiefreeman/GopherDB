@@ -10,13 +10,7 @@ import (
 
 ////////////////// TODOs
 //////////////////
-//////////////////     - Logging & persisting
-//////////////////         - Logging
-//////////////////         - Persisting data to storage
-//////////////////         - Updating storage data
-//////////////////         - Updating/Restoring with log/persist files
-//////////////////
-//////////////////     - Password reset for AuthTable
+//////////////////     - Password reset for AuthTable:
 //////////////////         - Setting server name/address, subject & body message for password reset emails
 //////////////////         - Send emails for password resets
 //////////////////
@@ -34,7 +28,7 @@ import (
 //////////////////
 //////////////////     - Distributed unique value checks
 //////////////////
-//////////////////     - Key-value & List tables
+//////////////////     - Keystore & Datelist tables
 
 var (
 	tablesMux      sync.Mutex
@@ -45,10 +39,10 @@ type AuthTable struct {
 	fileOn    uint16 // locked by eMux - placed for memory efficiency
 
 	// Settings and schema - read only
-	memOnly       bool
-	dataOnDrive   bool // when true, entry data and password are not stored in memory (new entries only temporarily)
+	memOnly       bool // Store data in memory only (overrides dataOnDrive)
+	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing and password
 	persistName   string // table's logger/persist folder name
-	schema        *interface{} // table's schema
+	schema        *schema.Schema // table's schema
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
@@ -61,8 +55,8 @@ type AuthTable struct {
 
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
-	entries   map[string]*interface{} // AuthTable uses a Map for storage since it's only look-up is with user name and password
-	altLogins map[string]*interface{}
+	entries   map[string]*AuthTableEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
+	altLogins map[string]*AuthTableEntry
 
 	// unique values
 	uMux       sync.Mutex
@@ -81,19 +75,13 @@ type AuthTableEntry struct {
 
 // File/folder prefixes
 const (
-	prefixAuthTable = "AT-"
+	dataFolderPrefix = "AT-"
 )
 
 // Defaults
 const (
-	defaultPartitionMax uint16 = 200
-	partitionMin uint16        = 10
-	defaultMaxEntries uint64   = 0
 	defaultMinPassword uint8   = 6
 	defaultPassResetLen uint8  = 12
-	defaultEncryptCost int     = 4
-	encryptCostMax int         = 31
-	encryptCostMin int         = 4
 	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
 )
 
@@ -119,7 +107,7 @@ const (
 //
 
 // New creates a new AuthTable with the provided name, schema, and other parameters.
-func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool) (*AuthTable, int) {
+func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
@@ -128,7 +116,12 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool) (*AuthT
 		return nil, helpers.ErrorTableExists
 	}
 
-	namePre := prefixAuthTable + name
+	// memOnly overrides dataOnDrive
+	if memOnly {
+		dataOnDrive = false
+	}
+
+	namePre := dataFolderPrefix + name
 
 	// Make table folder   & update config file !!!
 	mkErr := storage.MakeDir(namePre)
@@ -138,7 +131,8 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool) (*AuthT
 
 	// make table
 	t := AuthTable{
-		persistName: namePre,
+		persistName:   namePre,
+		memOnly:       memOnly,
 		dataOnDrive:   dataOnDrive,
 		schema:        s,
 		entries:       make(map[string]*AuthTableEntry),
@@ -148,10 +142,10 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool) (*AuthT
 	}
 
 	// set defaults
-	t.partitionMax.Store(defaultPartitionMax)
-	t.maxEntries.Store(defaultMaxEntries)
+	t.partitionMax.Store(helpers.DefaultPartitionMax)
+	t.maxEntries.Store(helpers.DefaultMaxEntries)
 	t.minPassword.Store(defaultMinPassword)
-	t.encryptCost.Store(defaultEncryptCost)
+	t.encryptCost.Store(helpers.DefaultEncryptCost)
 	t.passResetLen.Store(defaultPassResetLen)
 	t.emailItem.Store("")
 	t.altLoginItem.Store("")
@@ -208,12 +202,12 @@ func (t *AuthTable) Get(userName string, password string) (*AuthTableEntry, int)
 
 	// Check if found
 	if ue == nil {
-		return nil, helpers.ErrorInvalidNameOrPassword
+		return nil, helpers.ErrorNoEntryFound
 	}
 
 	// Check Password
 	if !ue.CheckPassword(password) {
-		return nil, helpers.ErrorInvalidNameOrPassword
+		return nil, helpers.ErrorNoEntryFound
 	}
 
 	return ue, 0
@@ -233,10 +227,10 @@ func (t *AuthTable) Size() int {
 }
 
 func (t *AuthTable) SetEncryptionCost(cost int) {
-	if cost > encryptCostMax {
-		cost = encryptCostMax
-	} else if cost < encryptCostMin {
-		cost = encryptCostMin
+	if cost > helpers.EncryptCostMax {
+		cost = helpers.EncryptCostMax
+	} else if cost < helpers.EncryptCostMin {
+		cost = helpers.EncryptCostMin
 	}
 	t.encryptCost.Store(cost)
 }
@@ -293,8 +287,8 @@ func (t *AuthTable) SetEmailItem(item string) int {
 }
 
 func (t *AuthTable) SetPartitionMax(max uint16) {
-	if max < partitionMin {
-		max = defaultPartitionMax
+	if max < helpers.PartitionMin {
+		max = helpers.DefaultPartitionMax
 	}
 	t.partitionMax.Store(max)
 }

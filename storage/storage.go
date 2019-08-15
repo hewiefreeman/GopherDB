@@ -257,3 +257,9 @@ func Insert(file string, json []byte) (uint16, int) {
 	f.mux.Unlock()
 	return lineOn, 0
 }
+
+func SetFileOpenTime(t time.Duration) {
+	openFilesMux.Lock()
+	fileOpenTime = t
+	openFilesMux.Unlock()
+}

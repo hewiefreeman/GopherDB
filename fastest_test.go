@@ -2,9 +2,8 @@ package main
 
 import (
 	"testing"
-	//"sync"
-	"strconv"
-	"encoding/json"
+	//"strconv"
+	//"encoding/json"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -205,56 +204,10 @@ func option5() bool {
 */
 
 /////////////////////////////////////////////////////////////////////////////////////////
-//  Mutex Lock Order  ///////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-var (
-	mux sync.Mutex
-	get []interface{} = []interface{}{
-		"hello",
-		25.12,
-		[]int{1, 2, 3},
-	}
-	getP *[]interface{} = &get
-)
-
-func BenchmarkLockOnce(b *testing.B) {
-	b.ReportAllocs()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			mux.Lock()
-			get[0] = get[0].(string)+"wtf"
-			get[1] = get[1].(float64)+13.37
-			get[2] = append(get[2].([]int), []int{4, 5, 6}...)
-			mux.Unlock()
-		}
-	})
-}
-
-// Takes twice as long (as expected) and +1 alloc/op
-func BenchmarkLockTwice(b *testing.B) {
-	b.ReportAllocs()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			mux.Lock()
-			g := append([]interface{}{}, *getP...)
-			mux.Unlock()
-			g[0] = g[0].(string)+"wtf"
-			g[1] = g[1].(float64)+13.37
-			g[2] = append(g[2].([]int), []int{4, 5, 6}...)
-			mux.Lock()
-			*getP = g
-			mux.Unlock()
-		}
-	})
-}
-*/
-
-/////////////////////////////////////////////////////////////////////////////////////////
 //  Pass Pointer Vs. Return Value  //////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]byte) int {
 	var jErr error
 	*jBytes, jErr = json.Marshal(map[string]interface{}{
@@ -298,6 +251,214 @@ func BenchmarkReturnValue(b *testing.B) {
 		if _, jErr := makeJsonBytes2("someName", []byte("somePass"), []interface{}{1, 2, 3}); jErr != 0 {
 			b.Errorf("Error: %v", jErr)
 		}
+	}
+}
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Itteration Map vs Slice  ////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+func BenchmarkIterMap(b *testing.B) {
+	b.ReportAllocs()
+	a := map[string]string{
+		"a": "a",
+		"b": "b",
+		"c": "c",
+		"d": "d",
+		"e": "e",
+		"f": "f",
+		"g": "g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for n, _ := range a {
+			a[n] = "hello";
+		}
+	}
+}
+
+// Winner; about 65x faster
+func BenchmarkIterSlice(b *testing.B) {
+	b.ReportAllocs()
+	a := []string{
+		"a",
+		"b",
+		"c",
+		"d",
+		"e",
+		"f",
+		"g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i, _ := range a {
+			a[i] = "hello";
+		}
+	}
+}
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Lookup Map vs Slice  ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+func BenchmarkLookupMap(b *testing.B) {
+	b.ReportAllocs()
+	a := map[string]string{
+		"a": "a",
+		"b": "b",
+		"c": "c",
+		"d": "d",
+		"e": "e",
+		"f": "f",
+		"g": "g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a["g"]
+	}
+}
+
+// Winner; about 45x faster
+func BenchmarkLookupSlice(b *testing.B) {
+	b.ReportAllocs()
+	a := []string{
+		"a",
+		"b",
+		"c",
+		"d",
+		"e",
+		"f",
+		"g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a[6]
+	}
+}
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Assign Map vs Slice  ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+func BenchmarkAssignMap(b *testing.B) {
+	b.ReportAllocs()
+	a := map[string]string{
+		"a": "a",
+		"b": "b",
+		"c": "c",
+		"d": "d",
+		"e": "e",
+		"f": "f",
+		"g": "g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a["g"] = "h"
+	}
+}
+
+// Winner; about 57x faster
+func BenchmarkAssignSlice(b *testing.B) {
+	b.ReportAllocs()
+	a := []string{
+		"a",
+		"b",
+		"c",
+		"d",
+		"e",
+		"f",
+		"g",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a[6] = "h"
+	}
+}
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Pass Many vs Pass One  //////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// STALEMATE
+
+/*
+func BenchmarkPassOne(b *testing.B) {
+	b.ReportAllocs()
+	a := passOne{}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		onePassed(&a)
+	}
+}
+
+func BenchmarkPassMany(b *testing.B) {
+	b.ReportAllocs()
+	a := 2
+	f := "Up-B"
+	c := "ok!"
+	d := "ok!"
+	e := "ok!" // - SSB Nes
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		manyPassed(&a, &f, &c, &d, &e)
+	}
+}
+
+func manyPassed(a *int, b *string, c *string, d *string, e *string) {
+	*a = 12
+	*b = "hello"
+	*c = "hey"
+	*d = "sup"
+	*e = "yo"
+}
+
+type passOne struct {
+	a int
+	b string
+	c string
+	d string
+	e string
+}
+
+func onePassed(one *passOne) {
+	one.a = 12
+	one.b = "hello"
+	one.c = "hey"
+	one.d = "sup"
+	one.e = "yo"
+}
+*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  map[int] vs map[string]  ////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+func BenchmarkMapInt(b *testing.B) {
+	b.ReportAllocs()
+	a := map[int]string{
+		0: "hello",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a[0]
+	}
+}
+
+func BenchmarkMapString(b *testing.B) {
+	b.ReportAllocs()
+	a := map[string]string{
+		"a": "hello",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a["a"]
 	}
 }
 

@@ -23,12 +23,16 @@ const (
 	ErrorInvalidMethod
 	ErrorInvalidMethodParameters
 
+	// Keystore Errors
+	ErrorKeyRequired
+	ErrorKeyInUse
+
 	// Auth Table Query Errors
 	ErrorNameRequired
-	ErrorPasswordLength
+	ErrorPasswordLength // 1020
 	ErrorPasswordEncryption
-	ErrorNoEmailItem // 1020
-	ErrorInvalidNameOrPassword
+	ErrorNoEmailItem
+	ErrorNoEntryFound
 
 	// Schema errors
 	ErrorInvalidItemValue
@@ -37,11 +41,11 @@ const (
 	ErrorStringRequired
 	ErrorArrayItemsRequired
 	ErrorArrayEmpty
-	ErrorMapItemsRequired
+	ErrorMapItemsRequired // 1030
 	ErrorInvalidTimeFormat
 
 	// Leaderboard errors
-	ErrorLeaderboardExists // 1030
+	ErrorLeaderboardExists
 	ErrorLeaderboardDoesntExist
 
 	// Unique value errors
@@ -53,9 +57,9 @@ const (
 	ErrorLoggerFileCreate
 	ErrorTableFolderCreate
 	ErrorCreatingFolder
-	ErrorFileOpen
+	ErrorFileOpen // 1040
 	ErrorFileAppend
-	ErrorFileUpdate // 1040
+	ErrorFileUpdate
 	ErrorFileRead
 	ErrorJsonEncoding
 	ErrorJsonDecoding

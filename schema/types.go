@@ -432,6 +432,8 @@ func defaultVal(si *SchemaItem) (interface{}, int) {
 
 func checkTypeFormat(t string) func([]interface{})bool {
 	switch t {
+	case ItemTypeBool:
+		return checkBoolFormat
 	case ItemTypeUint8, ItemTypeUint16,
 			ItemTypeUint32, ItemTypeUint64:
 		return checkNumericFormat
@@ -454,6 +456,17 @@ func checkTypeFormat(t string) func([]interface{})bool {
 
 func retFalse(f []interface{}) bool {
 	return false
+}
+
+func checkBoolFormat(f []interface{}) bool {
+	fLen := len(f)
+	if fLen != 1 {
+		return false
+	}
+	if _, ok := f[0].(bool); !ok {
+		return false
+	}
+	return true
 }
 
 func checkNumericFormat(f []interface{}) bool {
@@ -527,7 +540,7 @@ func checkStringFormat(f []interface{}) bool {
 
 func checkListFormat(f []interface{}) bool {
 	fLen := len(f)
-	if fLen != 4 {
+	if fLen != 3 {
 		return false
 	}
 	if _, ok := f[0].([]interface{}); !ok {
@@ -544,7 +557,7 @@ func checkListFormat(f []interface{}) bool {
 
 func checkObjectFormat(f []interface{}) bool {
 	fLen := len(f)
-	if fLen != 4 {
+	if fLen != 2 {
 		return false
 	}
 	if _, ok := f[0].(map[string]interface{}); !ok {
@@ -558,7 +571,7 @@ func checkObjectFormat(f []interface{}) bool {
 
 func checkTimeFormat(f []interface{}) bool {
 	fLen := len(f)
-	if fLen != 4 {
+	if fLen != 2 {
 		return false
 	}
 	if _, ok := f[0].(string); !ok {

@@ -24,6 +24,7 @@ const (
 	MethodPrepend     = "*prepend"
 	MethodDelete      = "*delete"
 	MethodSince       = "*since"
+	MethodUntil       = "*until"
 	MethodDay         = "*day"
 	MethodHour        = "*hr"
 	MethodMinute      = "*min"
@@ -39,7 +40,7 @@ type Filter struct {
 	methods []string // Method list
 	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search in insert/updates)
 	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
-	uniqueVals *map[string]interface{} // Pointer to the table's unique value map (must lock uMux)
+	uniqueVals *map[string]interface{} // Pointer to map storing unique values to check & set
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -485,6 +486,51 @@ func applyObjectMethods(filter *Filter) int {
 		}
 		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 	}
+	return 0
+}
+
+func applyTimeMethods(filter *Filter, t time.Time) int {
+	// Get method duration
+	var d time.Duration
+	switch filter.methods[0] {
+	case MethodSince:
+		d = time.Since(t)
+
+	case MethodUntil:
+		d = time.Until(t)
+
+	default:
+		return helpers.ErrorInvalidMethod
+	}
+
+	// Get method format
+	format := MethodSecond
+	if len(filter.methods) > 1 {
+		format = filter.methods[1]
+	}
+
+	switch format {
+	case MethodMillisecond:
+		filter.item = d.Seconds() * 1000
+
+	case MethodSecond:
+		filter.item = d.Seconds()
+
+	case MethodMinute:
+		filter.item = d.Minutes()
+
+	case MethodHour:
+		filter.item = d.Hours()
+
+	case MethodDay:
+		filter.item = d.Hours() / 24
+
+	default:
+		return helpers.ErrorInvalidMethod
+	}
+
+	//
+	filter.methods = []string{}
 	return 0
 }
 
@@ -1000,34 +1046,9 @@ func timeFilter(filter *Filter) int {
 			t = filter.item.(time.Time)
 		}
 		if len(filter.methods) > 0 {
-			if filter.methods[0] == MethodSince {
-				format := MethodSecond
-				if len(filter.methods) > 1 {
-					format = filter.methods[1]
-				}
-				switch format {
-					case MethodMillisecond:
-						filter.item = time.Since(t).Seconds() * 1000
-
-					case MethodSecond:
-						filter.item = time.Since(t).Seconds()
-
-					case MethodMinute:
-						filter.item = time.Since(t).Minutes()
-
-					case MethodHour:
-						filter.item = time.Since(t).Hours()
-
-					case MethodDay:
-						filter.item = time.Since(t).Hours() / 24
-
-					default:
-						return helpers.ErrorInvalidMethod
-				}
-				filter.methods = []string{}
-				return 0
+			if mErr := applyTimeMethods(filter, t); mErr != 0 {
+				return mErr
 			}
-			return helpers.ErrorInvalidMethod
 		}
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(TimeItem)
 		filter.item = t.Format(it.format)

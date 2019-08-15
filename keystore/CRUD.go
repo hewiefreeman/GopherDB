@@ -1,4 +1,4 @@
-package authtable
+package keystore
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
@@ -9,16 +9,14 @@ import (
 )
 
 const (
-	JsonEntryName     = "n"
-	JsonEntryPassword = "p"
+	JsonEntryKey     = "k"
 	JsonEntryData     = "d"
 )
 
-func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]byte) int {
+func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 	var jErr error
 	*jBytes, jErr = json.Marshal(map[string]interface{}{
-		JsonEntryName: name,
-		JsonEntryPassword: password,
+		JsonEntryKey: key,
 		JsonEntryData: data,
 	})
 	if jErr != nil {
@@ -27,54 +25,38 @@ func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]b
 	return 0
 }
 
-// Example JSON for new user query:
+// Example JSON for new key query:
 //
-//     {"NewUser": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
+//     {"InsertKey": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
 //
 
-// NewUser creates a new AuthTableEntry in the AuthTable
-func (t *AuthTable) NewUser(name string, password string, insertObj map[string]interface{}) int {
+// Insert creates a new KeystoreEntry in the Keystore, as long as one doesnt already exist
+func (t *Keystore) Insert(key string, insertObj map[string]interface{}) int {
 	// Name and password are required
-	if len(name) == 0 {
-		return helpers.ErrorNameRequired
-	} else if len(password) < int(t.minPassword.Load().(uint8)) {
-		return helpers.ErrorPasswordLength
+	if len(key) == 0 {
+		return helpers.ErrorKeyRequired
 	}
 
 	// Create entry
-	ute := AuthTableEntry{
+	e := KeystoreEntry{
 		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
 	}
 
-	// Alternative login name
-	altLogin := ""
-	altLoginItem := t.altLoginItem.Load().(string)
 	uniqueVals := make(map[string]interface{})
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
 		// Item filter
-		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
 		if err != 0 {
 			return err
 		}
-
-		if itemName == altLoginItem {
-			altLogin = ute.data[schemaItem.DataIndex()].(string)
-		}
 	}
-
-	// Encrypt password and store in entry
-	ePass, ePassErr := helpers.EncryptString(password, t.encryptCost.Load().(int))
-	if ePassErr != nil {
-		return helpers.ErrorPasswordEncryption
-	}
-	ute.password.Store(ePass)
 
 	// Make JSON []byte for entry
 	var jBytes []byte
 	if !t.memOnly {
-		if jErr := makeJsonBytes(name, ePass, ute.data, &jBytes); jErr != 0 {
+		if jErr := makeJsonBytes(key, e.data, &jBytes); jErr != 0 {
 			return jErr
 		}
 	}
@@ -82,9 +64,9 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	// Lock table, check for duplicate entry
 	maxEntries := t.maxEntries.Load().(uint64)
 	t.eMux.Lock()
-	if t.entries[name] != nil {
+	if t.entries[key] != nil {
 		t.eMux.Unlock()
-		return helpers.ErrorEntryNameInUse
+		return helpers.ErrorKeyInUse
 	} else if maxEntries > 0 && len(t.entries) >= int(maxEntries) {
 		// Table is full
 		return helpers.ErrorTableFull
@@ -122,26 +104,21 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	t.uMux.Unlock()
 
 	//
-	ute.persistIndex = lineOn
-	ute.persistFile = t.fileOn
+	e.persistIndex = lineOn
+	e.persistFile = t.fileOn
 
 	// Increase fileOn when the index has reached or surpassed partitionMax
-	if ute.persistIndex >= t.partitionMax.Load().(uint16) {
+	if e.persistIndex >= t.partitionMax.Load().(uint16) {
 		t.fileOn++
 	}
 
 	// Remove data from memory if dataOnDrive is true
 	if t.dataOnDrive {
-		ute.data = nil
-	}
-
-	// Apply altLogin
-	if altLogin != "" {
-		t.altLogins[altLogin] = &ute
+		e.data = nil
 	}
 
 	// Insert item
-	t.entries[name] = &ute
+	t.entries[key] = &e
 	t.eMux.Unlock()
 
 	return 0
@@ -152,9 +129,9 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 //     {"GetUserData": {"table": "tableName", "query": ["userName", "password"]}}
 //
 
-// GetUserData
-func (t *AuthTable) GetUserData(userName string, password string, items []string) (map[string]interface{}, int) {
-	e, err := t.Get(userName, password)
+// Get
+func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, int) {
+	e, err := t.Get(key)
 	if err != 0 {
 		return nil, err
 	}
@@ -206,7 +183,7 @@ func (t *AuthTable) GetUserData(userName string, password string, items []string
 	return m, 0
 }
 
-func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int) {
+func (t *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int) {
 	// Read bytes from file
 	bytes, rErr := storage.Read(file, index)
 	if rErr != 0 {
@@ -256,13 +233,13 @@ func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int
 //     {"UpdateUserData": {"table": "tableName", "query": ["userName", "password", {"timeStamp": "5:23AM"}]}}
 //
 
-// UpdateUserData
-func (t *AuthTable) UpdateUserData(userName string, password string, updateObj map[string]interface{}) int {
+// Update
+func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int {
 	if updateObj == nil || len(updateObj) == 0 {
 		return helpers.ErrorQueryInvalidFormat
 	}
 
-	e, err := t.Get(userName, password)
+	e, err := t.Get(key)
 	if err != 0 {
 		return err
 	}
@@ -281,9 +258,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 		e.mux.Lock()
 		data = append([]interface{}{}, e.data...)
 	}
-	var altLoginBefore string
-	var altLoginAfter string
-	altLoginItem := t.altLoginItem.Load().(string)
+
 	uniqueVals := make(map[string]interface{})
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
@@ -305,18 +280,12 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 			e.mux.Unlock()
 			return err
 		}
-
-		//
-		if updateName == altLoginItem {
-			altLoginBefore = itemBefore.(string)
-			altLoginAfter = data[schemaItem.DataIndex()].(string)
-		}
 	}
 
 	// Make JSON []byte for entry
 	var jBytes []byte
 	if !t.memOnly {
-		if jErr := makeJsonBytes(userName, e.password.Load().([]byte), data, &jBytes); jErr != 0 {
+		if jErr := makeJsonBytes(key, data, &jBytes); jErr != 0 {
 			return jErr
 		}
 	}
@@ -352,13 +321,6 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 	}
 	t.uMux.Unlock()
 
-	// Apply alt login and remove old if changed
-	if altLoginBefore != "" {
-		t.eMux.Lock()
-		delete(t.altLogins, altLoginBefore)
-		t.altLogins[altLoginAfter] = e
-		t.eMux.Unlock()
-	}
 	//
 	if !t.dataOnDrive {
 		e.data = data
@@ -368,135 +330,9 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 	return 0
 }
 
-// ChangePassword
-func (t *AuthTable) ChangePassword(userName string, password string, newPassword string) int {
-	if len(newPassword) < int(t.minPassword.Load().(uint8)) {
-		return helpers.ErrorPasswordLength
-	}
-
-	ue, err := t.Get(userName, password)
-	if err != 0 {
-		return err
-	}
-
-	// Encrypt new password
-	ePass, eErr := helpers.EncryptString(newPassword, t.encryptCost.Load().(int))
-	if eErr != nil {
-		return helpers.ErrorPasswordEncryption
-	}
-
-	var data []interface{}
-
-	// Get entry data
-	if t.dataOnDrive {
-		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
-		if dErr != 0 {
-			return dErr
-		}
-	} else {
-		ue.mux.Lock()
-		data = append([]interface{}{}, ue.data...)
-		ue.mux.Unlock()
-	}
-
-	if !t.memOnly {
-		// Make JSON []byte for entry
-		var jBytes []byte
-		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
-			return jErr
-		}
-
-		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes)
-		if uErr != 0 {
-			return uErr
-		}
-	}
-
-	ue.password.Store(ePass)
-
-	//
-	return 0
-}
-
-// ResetPassword
-func (t *AuthTable) ResetPassword(userName string) int {
-	// Name and password are required
-	if len(userName) == 0 {
-		return helpers.ErrorNameRequired
-	} else if t.emailItem.Load().(string) == "" {
-		// Database shouldn't change password without sending an email to the user
-		return helpers.ErrorNoEmailItem
-	}
-
-	// Generate new password
-	newPass, pErr := helpers.GenerateRandomBytes(int(t.passResetLen.Load().(uint8)))
-	if pErr != nil {
-		return helpers.ErrorPasswordEncryption
-	}
-
-	// Send newPass to emailItem, do not proceed unless the email was a success !!!
-
-	// Get entry
-	t.eMux.Lock()
-	ue := t.entries[userName]
-	t.eMux.Unlock()
-
-	var data []interface{}
-
-	// Get entry data
-	if t.dataOnDrive {
-		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
-		if dErr != 0 {
-			return dErr
-		}
-	} else {
-		ue.mux.Lock()
-		data = append([]interface{}{}, ue.data...)
-		ue.mux.Unlock()
-	}
-
-	if ue == nil && t.altLoginItem.Load().(string) != "" {
-		ue = t.altLogins[userName]
-	}
-
-	//
-	if ue == nil {
-		return helpers.ErrorNoEntryFound
-	}
-	// Change password
-	ePass, eErr := helpers.EncryptString(string(newPass), t.encryptCost.Load().(int))
-	if eErr != nil {
-		return helpers.ErrorPasswordEncryption
-	}
-
-	// Delete auto-login hashes !!!
-
-	if !t.memOnly {
-		// Make JSON []byte for entry
-		var jBytes []byte
-		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
-			return jErr
-		}
-
-		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes)
-		if uErr != 0 {
-			return uErr
-		}
-	}
-
-	ue.password.Store(ePass)
-
-	//
-	return 0
-}
-
-// DeleteUser
-func (t *AuthTable) DeleteUser(userName string, password string) int {
-	ue, err := t.Get(userName, password)
+// Delete
+func (t *Keystore) Delete(key string) int {
+	ue, err := t.Get(key)
 	if err != 0 {
 		return err
 	}
@@ -518,7 +354,6 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 
 	t.uMux.Lock()
 	uItems := []string{}
-	altLoginItem := t.altLoginItem.Load().(string)
 	schema.GetUniqueItems(t.schema, &uItems, "")
 	for _, itemName := range uItems {
 		// Get entry's unique value for this unique item
@@ -538,11 +373,6 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 			t.uMux.Unlock()
 			return helpers.ErrorUnexpected
 		}
-		if itemName == altLoginItem {
-			t.eMux.Lock()
-			delete(t.altLogins, i.(string))
-			t.eMux.Unlock()
-		}
 		delete(t.uniqueVals[itemName], i)
 	}
 	ue.mux.Unlock()
@@ -558,7 +388,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 
 	t.eMux.Lock()
 	// Delete entry
-	delete(t.entries, userName)
+	delete(t.entries, key)
 	t.eMux.Unlock()
 
 	//
