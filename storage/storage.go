@@ -22,11 +22,6 @@ const (
 	FileActionUpdateMulti
 )
 
-const (
-	FileTypeLog     = ".gdbl"
-	FileTypeStorage = ".gdbs"
-)
-
 var (
 	openFilesMux   sync.Mutex
 	openFiles map[string]*openFile = make(map[string]*openFile)
@@ -38,7 +33,6 @@ type openFile struct {
 	file *os.File
 	timer *time.Timer
 	bytes []byte
-	//lineOn uint16
 	lineByteOn []int
 }
 
@@ -47,14 +41,12 @@ func newOpenFile(file string) (*openFile, int) {
 	// Open the File
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
-		openFilesMux.Unlock()
 		return nil, helpers.ErrorFileOpen
 	}
 
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
-		openFilesMux.Unlock()
 		return nil, helpers.ErrorFileOpen
 	}
 
@@ -105,20 +97,18 @@ func fileCloseTimer(timer *time.Timer, file string) {
 	<-timer.C
 	openFilesMux.Lock()
 	f := openFiles[file]
-	openFilesMux.Unlock()
 	f.mux.Lock()
 	if timer != f.timer {
 		// The openFile has already been reset - don't close file
+		openFilesMux.Unlock()
 		f.mux.Unlock()
 		return
 	}
-	f.timer = nil
 	f.file.Truncate(int64(len(f.bytes)))
 	f.bytes = nil
 	f.lineByteOn = nil
 	f.file.Close()
 	f.mux.Unlock()
-	openFilesMux.Lock()
 	delete(openFiles, file)
 	openFilesMux.Unlock()
 }
@@ -141,22 +131,13 @@ func Read(file string, index uint16) ([]byte, int) {
 	}
 
 	f.mux.Lock()
-	if f.timer == nil {
-		// Timer has already closed and cleared item
-		f.mux.Unlock()
-		// Reload item
-		f, fErr = getOpenFile(file)
-		if fErr != 0 {
-			return nil, fErr
-		}
-		f.mux.Lock()
-	} else if !f.timer.Reset(fileOpenTime * time.Second) {
+	if !f.timer.Reset(fileOpenTime * time.Second) {
 		// Timer has ended, but has not cleared item. Remake timer & closer
 		f.timer = time.NewTimer(fileOpenTime * time.Second)
 		go fileCloseTimer(f.timer, file)
 	}
 
-
+	// Get the start and end index of line
 	bStart := f.lineByteOn[index-1]
 	bEnd := 0
 	for i := bStart; i < len(f.bytes); i++ {
@@ -182,20 +163,12 @@ func Update(file string, index uint16, json []byte) int {
 	}
 
 	f.mux.Lock()
-	if f.timer == nil {
-		// Timer has already closed and cleared item
-		f.mux.Unlock()
-		// Reload item
-		f, fErr = getOpenFile(file)
-		if fErr != 0 {
-			return fErr
-		}
-		f.mux.Lock()
-	} else if !f.timer.Reset(fileOpenTime * time.Second) {
+	if !f.timer.Reset(fileOpenTime * time.Second) {
 		// Timer has ended, but has not cleared item. Remake timer & closer
 		f.timer = time.NewTimer(fileOpenTime * time.Second)
 		go fileCloseTimer(f.timer, file)
 	}
+
 	// Get the start and end index of line
 	iStart := f.lineByteOn[index-1]
 	var iEnd int
@@ -229,23 +202,13 @@ func Insert(file string, json []byte) (uint16, int) {
 	}
 
 	f.mux.Lock()
-	if f.timer == nil {
-		// Timer has already closed and cleared item
-		f.mux.Unlock()
-		// Reload item
-		f, fErr = getOpenFile(file)
-		if fErr != 0 {
-			return 0, fErr
-		}
-		f.mux.Lock()
-	} else if !f.timer.Reset(fileOpenTime * time.Second) {
+	if !f.timer.Reset(fileOpenTime * time.Second) {
 		// Timer has ended, but has not cleared item. Remake timer & closer
 		f.timer = time.NewTimer(fileOpenTime * time.Second)
 		go fileCloseTimer(f.timer, file)
 	}
 
-	//
-
+	// Insert and get line on
 	lineOn := uint16(len(f.lineByteOn)+1)
 	json = append(json, newLineIndicator)
 	if _, wErr := f.file.WriteAt(json, int64(len(f.bytes))); wErr != nil {

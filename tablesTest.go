@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Make a new AuthTable with the schema
-	table, tableErr := authtable.New("users", schemaObj, 0, 0, 0, 0, false)
+	table, tableErr := authtable.New("users", schemaObj, 0, false, true)
 	if tableErr != 0 {
 		fmt.Println("Table Create Error:", tableErr)
 		return
@@ -292,16 +292,4 @@ func main() {
 	}
 	fmt.Println("Get took", (time.Since(now).Seconds() * 1000), "ms")
 	fmt.Println("After:", ud)
-
-	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
-	if ueErr != 0 {
-		fmt.Println("User Data Error:", ueErr)
-		return
-	}
-	time.Sleep(time.Second * 1)
-	ud, ueErr = table.GetUserData("someemail@yahoo.com", "myPass", []string{"timeStamp.*since.*mil"})
-	if ueErr != 0 {
-		fmt.Println("User Data Error:", ueErr)
-		return
-	}
 }

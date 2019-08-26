@@ -15,6 +15,13 @@ type SchemaItem struct {
 	name      string
 	typeName  string
 	iType     interface{}
+	rawParams []interface{}
+}
+
+type SchemaConfigItem struct {
+	Name     string
+	DataType []interface{}
+	Position uint32
 }
 
 // NOTES:
@@ -104,6 +111,7 @@ func New(schema map[string]interface{}) (*Schema, int) {
 				return nil, iErr
 			}
 			schemaItem.dataIndex = i
+			schemaItem.rawParams = params
 			s[itemName] = schemaItem
 			i++
 		} else {
@@ -221,6 +229,45 @@ func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
 	}
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   RESTORING A SCHEMA   ///////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Restore restores a schema from a config file with it's Schema array
+func Restore(schema []SchemaConfigItem) (*Schema, int) {
+	s := make(Schema)
+	for _, schemaConfItem := range schema {
+		si, iErr := makeSchemaItem(schemaConfItem.Name, schemaConfItem.DataType)
+		if iErr != 0 {
+			return nil, iErr
+		}
+		si.dataIndex = schemaConfItem.Position
+		si.rawParams = schemaConfItem.DataType
+		s[schemaConfItem.Name] = si
+	}
+
+	return &s, 0
+}
+
+func (s *Schema) MakeConfig() []SchemaConfigItem {
+	var sc []SchemaConfigItem = make([]SchemaConfigItem, len(*s))
+	i := 0
+	for _, v := range *s {
+		sci := SchemaConfigItem {
+			Name: v.name,
+			DataType: v.rawParams,
+			Position: v.dataIndex,
+		}
+		sc[i] = sci
+		i++
+	}
+	return sc
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   SCHEMA CHECKS   ////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // ValidSchema checks if a *Schema is valid format
 func (ts *Schema) ValidSchema() bool {
 	if ts == nil || len(*ts) == 0 {
@@ -239,25 +286,15 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 	if si.name == "" || si.typeName == "" || si.dataIndex < 0 {
 		return false
 	}
-	to := reflect.TypeOf(si.iType)
-	if to == itemTypeRefBool ||
-		to == itemTypeRefInt8 ||
-		to == itemTypeRefInt16 ||
-		to == itemTypeRefInt32 ||
-		to == itemTypeRefInt64 ||
-		to == itemTypeRefUint8 ||
-		to == itemTypeRefUint16 ||
-		to == itemTypeRefUint32 ||
-		to == itemTypeRefUint64 ||
-		to == itemTypeRefFloat32 ||
-		to == itemTypeRefFloat64 ||
-		to == itemTypeRefString ||
-		to == itemTypeRefArray ||
-		to == itemTypeRefMap ||
-		to == itemTypeRefObject ||
-		to == itemTypeRefTime {
+
+	switch reflect.TypeOf(si.iType) {
+	case itemTypeRefBool, itemTypeRefInt8, itemTypeRefInt16, itemTypeRefInt32,
+		itemTypeRefInt64, itemTypeRefUint8, itemTypeRefUint16, itemTypeRefUint32,
+		itemTypeRefUint64, itemTypeRefFloat32, itemTypeRefFloat64, itemTypeRefString,
+		itemTypeRefArray, itemTypeRefMap, itemTypeRefObject, itemTypeRefTime:
 		return true
 	}
+
 	return false
 }
 

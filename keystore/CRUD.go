@@ -8,16 +8,16 @@ import (
 	"encoding/json"
 )
 
-const (
-	JsonEntryKey     = "k"
-	JsonEntryData     = "d"
-)
+type jsonEntry struct {
+	K string
+	D []interface{}
+}
 
 func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 	var jErr error
-	*jBytes, jErr = json.Marshal(map[string]interface{}{
-		JsonEntryKey: key,
-		JsonEntryData: data,
+	*jBytes, jErr = json.Marshal(jsonEntry{
+		K: key,
+		D: data,
 	})
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
@@ -31,97 +31,97 @@ func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 //
 
 // Insert creates a new KeystoreEntry in the Keystore, as long as one doesnt already exist
-func (t *Keystore) Insert(key string, insertObj map[string]interface{}) int {
+func (k *Keystore) Insert(key string, insertObj map[string]interface{}) (*KeystoreEntry, int) {
 	// Name and password are required
 	if len(key) == 0 {
-		return helpers.ErrorKeyRequired
+		return nil, helpers.ErrorKeyRequired
 	}
 
 	// Create entry
 	e := KeystoreEntry{
-		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
+		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
 	}
 
 	uniqueVals := make(map[string]interface{})
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
-	for itemName, schemaItem := range *(t.schema) {
+	for itemName, schemaItem := range *(k.schema) {
 		// Item filter
 		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
 		if err != 0 {
-			return err
+			return nil, err
 		}
 	}
 
 	// Make JSON []byte for entry
 	var jBytes []byte
-	if !t.memOnly {
+	if !k.memOnly {
 		if jErr := makeJsonBytes(key, e.data, &jBytes); jErr != 0 {
-			return jErr
+			return nil, jErr
 		}
 	}
 
 	// Lock table, check for duplicate entry
-	maxEntries := t.maxEntries.Load().(uint64)
-	t.eMux.Lock()
-	if t.entries[key] != nil {
-		t.eMux.Unlock()
-		return helpers.ErrorKeyInUse
-	} else if maxEntries > 0 && len(t.entries) >= int(maxEntries) {
+	maxEntries := k.maxEntries.Load().(uint64)
+	k.eMux.Lock()
+	if k.entries[key] != nil {
+		k.eMux.Unlock()
+		return nil, helpers.ErrorKeyInUse
+	} else if maxEntries > 0 && len(k.entries) >= int(maxEntries) {
 		// Table is full
-		return helpers.ErrorTableFull
+		return nil, helpers.ErrorTableFull
 	}
-	t.uMux.Lock()
+	k.uMux.Lock()
 	// Check unique values
 	for itemName, itemVal := range uniqueVals {
-		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
-			t.uMux.Unlock()
-			t.eMux.Unlock()
-			return helpers.ErrorUniqueValueInUse
+		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
+			k.uMux.Unlock()
+			k.eMux.Unlock()
+			return nil, helpers.ErrorUniqueValueInUse
 		}/* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
 	}
 	// Append jBytes to fileOn and get the persistIndex
 	var lineOn uint16
-	if !t.memOnly {
+	if !k.memOnly {
 		var aErr int
-		lineOn, aErr = storage.Insert(t.persistName + "/" + strconv.Itoa(int(t.fileOn)) + storage.FileTypeStorage, jBytes)
+		lineOn, aErr = storage.Insert(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(k.fileOn)) + helpers.FileTypeStorage, jBytes)
 		if aErr != 0 {
-			t.uMux.Unlock()
-			t.eMux.Unlock()
-			return aErr
+			k.uMux.Unlock()
+			k.eMux.Unlock()
+			return nil, aErr
 		}
 	}
 
 	// Apply unique values
 	for itemName, itemVal := range uniqueVals {
-		if t.uniqueVals[itemName] == nil {
-			t.uniqueVals[itemName] = make(map[interface{}]bool)
+		if k.uniqueVals[itemName] == nil {
+			k.uniqueVals[itemName] = make(map[interface{}]bool)
 		}
-		t.uniqueVals[itemName][itemVal] = true
+		k.uniqueVals[itemName][itemVal] = true
 	}
-	t.uMux.Unlock()
+	k.uMux.Unlock()
 
 	//
 	e.persistIndex = lineOn
-	e.persistFile = t.fileOn
+	e.persistFile = k.fileOn
 
 	// Increase fileOn when the index has reached or surpassed partitionMax
-	if e.persistIndex >= t.partitionMax.Load().(uint16) {
-		t.fileOn++
+	if e.persistIndex >= k.partitionMax.Load().(uint16) {
+		k.fileOn++
 	}
 
 	// Remove data from memory if dataOnDrive is true
-	if t.dataOnDrive {
+	if k.dataOnDrive {
 		e.data = nil
 	}
 
 	// Insert item
-	t.entries[key] = &e
-	t.eMux.Unlock()
+	k.entries[key] = &e
+	k.eMux.Unlock()
 
-	return 0
+	return &e, 0
 }
 
 // Example JSON for get query:
@@ -130,8 +130,8 @@ func (t *Keystore) Insert(key string, insertObj map[string]interface{}) int {
 //
 
 // Get
-func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, int) {
-	e, err := t.Get(key)
+func (k *Keystore) GetData(key string, items []string) (map[string]interface{}, int) {
+	e, err := k.Get(key)
 	if err != 0 {
 		return nil, err
 	}
@@ -139,9 +139,9 @@ func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, 
 	var data []interface{}
 
 	// Get entry data
-	if t.dataOnDrive {
+	if k.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return nil, dErr
 		}
@@ -157,7 +157,7 @@ func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, 
 		for _, itemName := range items {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
-			si := (*(t.schema))[siName]
+			si := (*(k.schema))[siName]
 			if si == nil {
 				return nil, helpers.ErrorInvalidItem
 			}
@@ -170,7 +170,7 @@ func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, 
 			m[itemName] = i
 		}
 	} else {
-		for itemName, si := range *(t.schema) {
+		for itemName, si := range *(k.schema) {
 			// Item filter
 			var i interface{}
 			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true)
@@ -183,21 +183,21 @@ func (t *Keystore) GetData(key string, items []string) (map[string]interface{}, 
 	return m, 0
 }
 
-func (t *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int) {
+func (k *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int) {
 	// Read bytes from file
 	bytes, rErr := storage.Read(file, index)
 	if rErr != 0 {
 		return nil, rErr
 	}
-	jMap := make(map[string]interface{})
-	jErr := json.Unmarshal(bytes, &jMap)
+	var jEntry jsonEntry
+	jErr := json.Unmarshal(bytes, &jEntry)
 	if jErr != nil {
 		return nil, helpers.ErrorJsonDecoding
 	}
-	if jMap[JsonEntryData] == nil || len(jMap[JsonEntryData].([]interface{})) != len(*(t.schema)) {
-		return nil, helpers.ErrorJsonDataFormat
+	if jEntry.D == nil || len(jEntry.D) == 0 {
+		return nil, helpers.ErrorJsonDecoding
 	}
-	return jMap[JsonEntryData].([]interface{}), 0
+	return jEntry.D, 0
 }
 
 // Example JSON for update query:
@@ -234,12 +234,12 @@ func (t *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int)
 //
 
 // Update
-func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int {
+func (k *Keystore) UpdateData(key string, updateObj map[string]interface{}) int {
 	if updateObj == nil || len(updateObj) == 0 {
 		return helpers.ErrorQueryInvalidFormat
 	}
 
-	e, err := t.Get(key)
+	e, err := k.Get(key)
 	if err != 0 {
 		return err
 	}
@@ -247,9 +247,9 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 	var data []interface{}
 
 	// Get entry data
-	if t.dataOnDrive {
+	if k.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -266,7 +266,7 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 		updateName, itemMethods = schema.GetQueryItemMethods(updateName)
 
 		// Check if valid schema item
-		schemaItem := (*(*t).schema)[updateName]
+		schemaItem := (*(*k).schema)[updateName]
 		if schemaItem == nil {
 			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
@@ -284,17 +284,17 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 
 	// Make JSON []byte for entry
 	var jBytes []byte
-	if !t.memOnly {
+	if !k.memOnly {
 		if jErr := makeJsonBytes(key, data, &jBytes); jErr != 0 {
 			return jErr
 		}
 	}
-	t.uMux.Lock()
+	k.uMux.Lock()
 	// Check unique values
 	for itemName, itemVal := range uniqueVals {
 		// Local unique check
-		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
-			t.uMux.Unlock()
+		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
+			k.uMux.Unlock()
 			e.mux.Unlock()
 			return helpers.ErrorUniqueValueInUse
 		}
@@ -303,10 +303,10 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 	}
 
 	// Update entry on disk with jBytes
-	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex, jBytes)
+	if !k.memOnly {
+		uErr := storage.Update(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex, jBytes)
 		if uErr != 0 {
-			t.uMux.Unlock()
+			k.uMux.Unlock()
 			e.mux.Unlock()
 			return uErr
 		}
@@ -314,15 +314,15 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 
 	// Apply unique values
 	for itemName, itemVal := range uniqueVals {
-		if t.uniqueVals[itemName] == nil {
-			t.uniqueVals[itemName] = make(map[interface{}]bool)
+		if k.uniqueVals[itemName] == nil {
+			k.uniqueVals[itemName] = make(map[interface{}]bool)
 		}
-		t.uniqueVals[itemName][itemVal] = true
+		k.uniqueVals[itemName][itemVal] = true
 	}
-	t.uMux.Unlock()
+	k.uMux.Unlock()
 
 	//
-	if !t.dataOnDrive {
+	if !k.dataOnDrive {
 		e.data = data
 	}
 	e.mux.Unlock()
@@ -331,8 +331,8 @@ func (t *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 }
 
 // Delete
-func (t *Keystore) Delete(key string) int {
-	ue, err := t.Get(key)
+func (k *Keystore) DeleteKey(key string) int {
+	ue, err := k.Get(key)
 	if err != 0 {
 		return err
 	}
@@ -340,9 +340,9 @@ func (t *Keystore) Delete(key string) int {
 	var data []interface{}
 
 	// Get entry data
-	if t.dataOnDrive {
+	if k.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -352,17 +352,17 @@ func (t *Keystore) Delete(key string) int {
 		data = append([]interface{}{}, ue.data...)
 	}
 
-	t.uMux.Lock()
+	k.uMux.Lock()
 	uItems := []string{}
-	schema.GetUniqueItems(t.schema, &uItems, "")
+	schema.GetUniqueItems(k.schema, &uItems, "")
 	for _, itemName := range uItems {
 		// Get entry's unique value for this unique item
 		siName, itemMethods := schema.GetQueryItemMethods(itemName)
 		//
-		si := (*(t.schema))[siName]
+		si := (*(k.schema))[siName]
 		if si == nil {
 			ue.mux.Unlock()
-			t.uMux.Unlock()
+			k.uMux.Unlock()
 			return helpers.ErrorUnexpected
 		}
 		// Make filter
@@ -370,27 +370,89 @@ func (t *Keystore) Delete(key string) int {
 		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
 		if err != 0 {
 			ue.mux.Unlock()
-			t.uMux.Unlock()
+			k.uMux.Unlock()
 			return helpers.ErrorUnexpected
 		}
-		delete(t.uniqueVals[itemName], i)
+		delete(k.uniqueVals[itemName], i)
 	}
 	ue.mux.Unlock()
-	t.uMux.Unlock()
+	k.uMux.Unlock()
 
 	// Update entry on disk with []byte{}
-	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, []byte{})
+	if !k.memOnly {
+		uErr := storage.Update(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
 			return uErr
 		}
 	}
 
-	t.eMux.Lock()
+	k.eMux.Lock()
 	// Delete entry
-	delete(t.entries, key)
-	t.eMux.Unlock()
+	delete(k.entries, key)
+	k.eMux.Unlock()
 
 	//
+	return 0
+}
+
+// Restore is NOT concurrently safe! Only used for restoring databases.
+func (k *Keystore) Restore(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
+	// Name and password are required
+	if len(key) == 0 {
+		return helpers.ErrorKeyRequired
+	}
+
+	// Create entry
+	e := KeystoreEntry{
+		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
+	}
+
+	uniqueVals := make(map[string]interface{})
+
+	// Fill entry data with data
+	for _, schemaItem := range *(k.schema) {
+		if int(schemaItem.DataIndex()) > len(data)-1 {
+			return helpers.ErrorRestoreItemSchema
+		}
+
+		// Item filter
+		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		if err != 0 {
+			return err
+		}
+	}
+
+	// Check for duplicate entry
+	if k.entries[key] != nil {
+		return helpers.ErrorKeyInUse
+	}
+	// Check unique values
+	for itemName, itemVal := range uniqueVals {
+		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
+			return helpers.ErrorUniqueValueInUse
+		}/* else {
+			// DISTRIBUTED CHECKS HERE !!!
+		}*/
+	}
+
+	// Apply unique values
+	for itemName, itemVal := range uniqueVals {
+		if k.uniqueVals[itemName] == nil {
+			k.uniqueVals[itemName] = make(map[interface{}]bool)
+		}
+		k.uniqueVals[itemName][itemVal] = true
+	}
+
+	//
+	e.persistIndex = lineOn
+	e.persistFile = fileOn
+
+	// Remove data from memory if dataOnDrive is true
+	if k.dataOnDrive {
+		e.data = nil
+	}
+
+	// Insert item
+	k.entries[key] = &e
 	return 0
 }

@@ -21,7 +21,7 @@ const (
 	November = "November"
 	December = "December"
 
-	// Alias' (May doesn't need one ?)
+	// Alias names (May doesn't need one ?)
 	JanuaryAlias = "Jan"
 	FebruaryAlias = "Feb"
 	MarchAlias = "Mar"
@@ -60,8 +60,9 @@ const (
 )
 
 var (
-	listsMux      sync.Mutex
-	lists         map[string]*DateList = make(map[string]*DateList)
+	listsMux     sync.Mutex
+	lists        map[string]*DateList = make(map[string]*DateList)
+	timeLocation *time.Location = time.UTC
 )
 
 type DateList struct {
@@ -75,12 +76,14 @@ type DateList struct {
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
-	maxEntries    atomic.Value // *uint64* maximum amount of entries in the AuthTable
+	maxEntries    atomic.Value // *uint64* maximum amount of entries in the Datelist
 	encryptCost   atomic.Value // *int* encryption cost of encrypted items
+	updateTime    atomic.Value // *bool* when true, inserts as well as updates will set an entry's time stamp and database position
+	unixNano      atomic.Value // *bool* when true, time stamps will be stored in Unix Nano instead of the default Unix
 
 	// date list & entry counter
-	eMux       sync.Mutex // entries/altLogins map lock
-	datelist   map[int]Year // AuthTable uses a Map for storage since it's only look-up is with user name and password
+	eMux       sync.Mutex // entries lock
+	datelist   map[int]Year
 	entryCount uint64
 
 	// unique values
@@ -93,24 +96,22 @@ type Year struct {
 }
 
 type Month struct {
+	entryCount uin64
 	days []Day
 }
 
 type Day struct {
-	hours []Hour
-}
-
-type Hour struct {
-	entries []*DateListEntry
+	entryCount uint64
+	entries    []*DateListEntry
 }
 
 type DateListEntry struct {
 	persistFile  uint16
 	persistIndex uint16
-	date         string // RFC 3339 formatted string
 
-	mux  sync.Mutex
-	data []interface{}
+	mux   sync.Mutex
+	iTime time.Time
+	data  []interface{}
 }
 
 // New creates a new Datelist
@@ -152,6 +153,8 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 	d.partitionMax.Store(helpers.DefaultPartitionMax)
 	d.maxEntries.Store(helpers.DefaultMaxEntries)
 	d.encryptCost.Store(helpers.DefaultEncryptCost)
+	d.updateTime.Store(false)
+	d.unixNano.Store(false)
 
 	// push to stores map
 	listsMux.Lock()
@@ -185,26 +188,4 @@ func Get(name string) *DateList {
 	listsMux.Unlock()
 
 	return d
-}
-
-
-
-func (d *Datelist) Get(start time.Time, asc bool, limit int, offset int) ([]*DateListEntry, int) {
-	// key is required
-	if len(key) == 0 {
-		return nil, helpers.ErrorKeyRequired
-	}
-
-	var e []*DateListEntry
-
-	// Find entry
-	d.eMux.Lock()
-	e := d.entries[key]
-	d.eMux.Unlock()
-
-	if e == nil {
-		return nil, helpers.ErrorNoEntryFound
-	}
-
-	return e, 0
 }

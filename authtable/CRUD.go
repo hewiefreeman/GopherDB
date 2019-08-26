@@ -8,18 +8,18 @@ import (
 	"encoding/json"
 )
 
-const (
-	JsonEntryName     = "n"
-	JsonEntryPassword = "p"
-	JsonEntryData     = "d"
-)
+type jsonEntry struct {
+	N string
+	P []byte
+	D []interface{}
+}
 
 func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]byte) int {
 	var jErr error
-	*jBytes, jErr = json.Marshal(map[string]interface{}{
-		JsonEntryName: name,
-		JsonEntryPassword: password,
-		JsonEntryData: data,
+	*jBytes, jErr = json.Marshal(jsonEntry{
+		N: name,
+		P: password,
+		D: data,
 	})
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
@@ -104,7 +104,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	var lineOn uint16
 	if !t.memOnly {
 		var aErr int
-		lineOn, aErr = storage.Insert(t.persistName + "/" + strconv.Itoa(int(t.fileOn)) + storage.FileTypeStorage, jBytes)
+		lineOn, aErr = storage.Insert(t.persistName + "/" + strconv.Itoa(int(t.fileOn)) + helpers.FileTypeStorage, jBytes)
 		if aErr != 0 {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
@@ -153,7 +153,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 //
 
 // GetUserData
-func (t *AuthTable) GetUserData(userName string, password string, items []string) (map[string]interface{}, int) {
+func (t *AuthTable) GetUserData(userName string, password string, sel []string) (map[string]interface{}, int) {
 	e, err := t.Get(userName, password)
 	if err != 0 {
 		return nil, err
@@ -164,7 +164,7 @@ func (t *AuthTable) GetUserData(userName string, password string, items []string
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex)
+		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return nil, dErr
 		}
@@ -176,8 +176,8 @@ func (t *AuthTable) GetUserData(userName string, password string, items []string
 
 	// Check for specific items to get
 	m := make(map[string]interface{})
-	if items != nil {
-		for _, itemName := range items {
+	if sel != nil {
+		for _, itemName := range sel {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
 			si := (*(t.schema))[siName]
@@ -212,15 +212,15 @@ func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int
 	if rErr != 0 {
 		return nil, rErr
 	}
-	jMap := make(map[string]interface{})
-	jErr := json.Unmarshal(bytes, &jMap)
+	var jEntry jsonEntry
+	jErr := json.Unmarshal(bytes, &jEntry)
 	if jErr != nil {
 		return nil, helpers.ErrorJsonDecoding
 	}
-	if jMap[JsonEntryData] == nil || len(jMap[JsonEntryData].([]interface{})) != len(*(t.schema)) {
-		return nil, helpers.ErrorJsonDataFormat
+	if jEntry.D == nil || len(jEntry.D) == 0 {
+		return nil, helpers.ErrorJsonDecoding
 	}
-	return jMap[JsonEntryData].([]interface{}), 0
+	return jEntry.D, 0
 }
 
 // Example JSON for update query:
@@ -272,7 +272,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex)
+		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -335,7 +335,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 
 	// Update entry on disk with jBytes
 	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + storage.FileTypeStorage, e.persistIndex, jBytes)
+		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex, jBytes)
 		if uErr != 0 {
 			t.uMux.Unlock()
 			e.mux.Unlock()
@@ -390,7 +390,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -408,7 +408,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 		}
 
 		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes)
+		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
 			return uErr
 		}
@@ -448,7 +448,7 @@ func (t *AuthTable) ResetPassword(userName string) int {
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -482,7 +482,7 @@ func (t *AuthTable) ResetPassword(userName string) int {
 		}
 
 		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, jBytes)
+		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
 			return uErr
 		}
@@ -506,7 +506,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -550,7 +550,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 
 	// Update entry on disk with []byte{}
 	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + storage.FileTypeStorage, ue.persistIndex, []byte{})
+		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
 			return uErr
 		}

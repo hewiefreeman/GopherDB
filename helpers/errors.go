@@ -61,9 +61,13 @@ const (
 	ErrorFileAppend
 	ErrorFileUpdate
 	ErrorFileRead
+	ErrorFileWrite
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat
+
+	// Restoring Errors
+	ErrorRestoreItemSchema
 
 	// Unexpected error
 	ErrorUnexpected

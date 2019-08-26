@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 	//"strconv"
-	//"encoding/json"
+	"encoding/json"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -440,17 +440,7 @@ func onePassed(one *passOne) {
 //  map[int] vs map[string]  ////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-func BenchmarkMapInt(b *testing.B) {
-	b.ReportAllocs()
-	a := map[int]string{
-		0: "hello",
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = a[0]
-	}
-}
-
+/*
 func BenchmarkMapString(b *testing.B) {
 	b.ReportAllocs()
 	a := map[string]string{
@@ -461,6 +451,100 @@ func BenchmarkMapString(b *testing.B) {
 		_ = a["a"]
 	}
 }
+
+// Winner by a tiny margin
+func BenchmarkMapInt(b *testing.B) {
+	b.ReportAllocs()
+	a := map[int]string{
+		0: "hello",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a[0]
+	}
+}*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  JSON Marshal/Unmarshal map vs struct  ///////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+type testStruct struct {
+	Name string
+	ID   int
+	Data []interface{}
+	Save bool
+}
+
+var (
+	mData map[string]interface{} = map[string]interface{}{
+		"Name": "billy",
+		"ID": 2,
+		"Data": []interface{}{1, 2, 3},
+		"Save": false,
+	}
+	sData testStruct = testStruct{
+		Name: "billy",
+		ID: 2,
+		Data: []interface{}{1, 2, 3},
+		Save: false,
+	}
+
+	marshalMapData []byte
+	marshalStructData []byte
+	jErr error
+)
+
+func BenchmarkMarshalMap(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		// Test json storing with map
+		marshalMapData, jErr = json.Marshal(mData)
+		if jErr != nil {
+			b.Errorf("JSON error: %v", jErr)
+			return
+		}
+	}
+}
+
+// More than 2x faster, 15:2 (map:struct) alloc/op
+func BenchmarkMarshalStruct(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		// Test json storing with struct
+		marshalStructData, jErr = json.Marshal(sData)
+		if jErr != nil {
+			b.Errorf("JSON error: %v", jErr)
+			return
+		}
+	}
+}
+
+func BenchmarkUnmarshalMap(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		// Test json unmarshal with map
+		jErr := json.Unmarshal(marshalMapData, &mData)
+		if jErr != nil {
+			b.Errorf("JSON error: %v", jErr)
+			return
+		}
+	}
+}
+
+// About 900ns faster, 29:7 (map:struct) alloc/op
+func BenchmarkUnmarshalStruct(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		// Test json unmarshal with struct
+		jErr := json.Unmarshal(marshalStructData, &sData)
+		if jErr != nil {
+			b.Errorf("JSON error: %v", jErr)
+			return
+		}
+	}
+}
+*/
 
 // run with:
 // go test *filename* -bench=.

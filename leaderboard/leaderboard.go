@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// Potential memory leak problem? Reference: https://github.com/golang/go/wiki/SliceTricks#delete-without-preserving-order
+
 var (
 	leaderboardsMux sync.Mutex
 	leaderboards    map[string]*Leaderboard = make(map[string]*Leaderboard)

@@ -91,7 +91,8 @@ const (
 
 //	Example JSON query to make a new AuthTable:
 //
-//		{"NewAuthTable": [
+//		{"NewTable": [
+//			"authtable", /* or keystore, datelist, etc. */
 //			"users",
 //			{
 //				"email": ["String", "", 0, true, true],
@@ -102,7 +103,7 @@ const (
 //				"vCode": ["String", "", 0, true, false],
 //				"verified": ["Bool", false]
 //			},
-//			0, 0, 0, 0, false
+//			0, false, false
 //		]};
 //
 
