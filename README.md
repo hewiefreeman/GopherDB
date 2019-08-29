@@ -3,7 +3,7 @@ GopherDB aims at easing the creation, retrieval, and manipulation of data for se
 
 Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries and schemas easier, but they're also more readable than ever. On top of that, GDB has built-in number type arithmetic, and `String`, `Object`, `Array`, and `Map` manipulation methods (eg: append, prepend, delete, etc) using the same simple query format.
 
-:warning: **PROJECT UNDER CONSTRUCTION** :warning:
+:warning: **PROJECT IN DEVELOPMENT** :warning:
 <br>
 <br>
 ## Main Features
