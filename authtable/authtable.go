@@ -35,14 +35,16 @@ var (
 	tables         map[string]*AuthTable = make(map[string]*AuthTable)
 )
 
+// Authtable
 type AuthTable struct {
 	fileOn    uint16 // locked by eMux - placed for memory efficiency
 
 	// Settings and schema - read only
 	memOnly       bool // Store data in memory only (overrides dataOnDrive)
 	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing and password
-	persistName   string // table's logger/persist folder name
+	name          string // table's logger/persist folder name
 	schema        *schema.Schema // table's schema
+	configFile    *os.File // config file
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
@@ -55,15 +57,15 @@ type AuthTable struct {
 
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
-	entries   map[string]*AuthTableEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
-	altLogins map[string]*AuthTableEntry
+	entries   map[string]*authTableEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
+	altLogins map[string]*authTableEntry
 
 	// unique values
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
 }
 
-type AuthTableEntry struct {
+type authTableEntry struct {
 	persistFile  uint16
 	persistIndex uint16
 
@@ -71,6 +73,21 @@ type AuthTableEntry struct {
 
 	mux  sync.Mutex
 	data []interface{}
+}
+
+type authtableConfig struct {
+	Name string
+	Schema []schema.SchemaConfigItem
+	FileOn uint16
+	DataOnDrive bool
+	MemOnly bool
+	PartitionMax uint16
+	EncryptCost int
+	MaxEntries uint64
+	MinPass uint8
+	PassResetLen uint8
+	EmailItem string
+	AltLogin string
 }
 
 // File/folder prefixes
@@ -108,7 +125,7 @@ const (
 //
 
 // New creates a new AuthTable with the provided name, schema, and other parameters.
-func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
+func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
@@ -124,6 +141,36 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 
 	namePre := dataFolderPrefix + name
 
+	// Restoring if configFile is not nil
+	if configFile == nil {
+		// Make table storage folder
+		mkErr := storage.MakeDir(namePre)
+		if mkErr != nil {
+			return nil, helpers.ErrorCreatingFolder
+		}
+
+		// Create/open config file
+		var err error
+		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
+		if err != nil {
+			return nil, helpers.ErrorFileOpen
+		}
+
+		// Write config file
+		if wErr := writeConfigFile(configFile, authtableConfig{
+			Name: name,
+			Schema: s.MakeConfig(),
+			FileOn: fileOn,
+			DataOnDrive: dataOnDrive,
+			MemOnly: memOnly,
+			PartitionMax: helpers.DefaultPartitionMax,
+			EncryptCost: helpers.DefaultEncryptCost,
+			MaxEntries: helpers.DefaultMaxEntries,
+		}; wErr != 0) {
+			return nil, err
+		}
+	}
+
 	// Make table folder   & update config file !!!
 	mkErr := storage.MakeDir(namePre)
 	if mkErr != nil {
@@ -132,12 +179,13 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 
 	// make table
 	t := AuthTable{
-		persistName:   namePre,
+		name:          name,
 		memOnly:       memOnly,
 		dataOnDrive:   dataOnDrive,
 		schema:        s,
-		entries:       make(map[string]*AuthTableEntry),
-		altLogins:     make(map[string]*AuthTableEntry),
+		configFile:    configFile,
+		entries:       make(map[string]*authTableEntry),
+		altLogins:     make(map[string]*authTableEntry),
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 	}
@@ -159,19 +207,47 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 	return &t, 0
 }
 
-// Delete deletes a AuthTable with the given name.
-func Delete(name string) int {
-	if len(name) == 0 {
-		return helpers.ErrorTableNameRequired
-	} else if Get(name) == nil {
-		return helpers.ErrorTableDoesntExist
+func (t *AuthTable) Close(save bool) {
+	if save {
+		t.eMux.Lock()
+		fileOn := t.fileOn
+		t.eMux.Unlock()
+		writeConfigFile(t.configFile, authtableConfig{
+			Name: t.name,
+			Schema: t.schema.MakeConfig(),
+			FileOn: fileOn,
+			DataOnDrive: t.dataOnDrive,
+			MemOnly: t.memOnly,
+			PartitionMax: t.partitionMax.Load().(uint16),
+			EncryptCost: t.encryptCost.Load().(int),
+			MaxEntries: t.maxEntries.Load().(uint64),
+			MinPass: t.minPassword.Load().(uint8),
+			PassResetLen: t.passResetLen.Load().(uint8),
+			EmailItem: t.emailItem.Load().(string),
+			AltLogin: t.altLoginItem.Load().(string),
+		})
 	}
 
 	tablesMux.Lock()
-	delete(tables, name)
+	delete(tables, t.name)
 	tablesMux.Unlock()
 
-	// !!!!!! delete data folder from system & delete log file & update config file
+	t.configFile.Close()
+}
+
+// Delete deletes the AuthTable from memory and disk
+func (t *AuthTable) Delete() int {
+	t.Close(false)
+
+	// Delete data directory
+	if err := os.RemoveAll(dataFolderPrefix + k.name); err != nil {
+		return helpers.ErrorFileDelete
+	}
+
+	// Delete config file
+	if err := os.Remove(dataFolderPrefix + k.name + helpers.FileTypeConfig); err != nil {
+		return helpers.ErrorFileDelete
+	}
 
 	return 0
 }
@@ -185,7 +261,7 @@ func Get(name string) *AuthTable {
 	return t
 }
 
-func (t *AuthTable) Get(userName string, password string) (*AuthTableEntry, int) {
+func (t *AuthTable) Get(userName string, password string) (*authTableEntry, int) {
 	// Name and password are required
 	if len(userName) == 0 {
 		return nil, helpers.ErrorNameRequired
@@ -214,8 +290,8 @@ func (t *AuthTable) Get(userName string, password string) (*AuthTableEntry, int)
 	return ue, 0
 }
 
-// CheckPassword compares the AuthTableEntry's encrypted password with the given string password.
-func (e *AuthTableEntry) CheckPassword(pass string) bool {
+// CheckPassword compares the authTableEntry's encrypted password with the given string password.
+func (e *authTableEntry) CheckPassword(pass string) bool {
 	p := e.password.Load().([]byte)
 	return helpers.StringMatchesEncryption(pass, p)
 }
@@ -227,12 +303,37 @@ func (t *AuthTable) Size() int {
 	return s
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//   Authtable Setters   /////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
 func (t *AuthTable) SetEncryptionCost(cost int) {
 	if cost > helpers.EncryptCostMax {
 		cost = helpers.EncryptCostMax
 	} else if cost < helpers.EncryptCostMin {
 		cost = helpers.EncryptCostMin
 	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: cost,
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.encryptCost.Store(cost)
 }
 
@@ -240,6 +341,27 @@ func (t *AuthTable) SetMaxEntries(max uint64) {
 	if max < 0 {
 		max = 0
 	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: max,
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.maxEntries.Store(max)
 }
 
@@ -250,6 +372,27 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) {
 	if t.passResetLen.Load().(uint8) < min {
 		t.passResetLen.Store(min)
 	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: min,
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.minPassword.Store(min)
 }
 
@@ -258,6 +401,27 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) {
 	if len < mLen {
 		len = mLen
 	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: len,
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.passResetLen.Store(len)
 }
 
@@ -268,6 +432,26 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 		return helpers.ErrorInvalidItem
 	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() {
 		return helpers.ErrorInvalidItem
+	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: item,
+	}; err != 0) {
+		return err
 	}
 
 	t.altLoginItem.Store(item)
@@ -283,6 +467,26 @@ func (t *AuthTable) SetEmailItem(item string) int {
 		return helpers.ErrorInvalidItem
 	}
 
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: item,
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.emailItem.Store(item)
 	return 0
 }
@@ -291,5 +495,208 @@ func (t *AuthTable) SetPartitionMax(max uint16) {
 	if max < helpers.PartitionMin {
 		max = helpers.DefaultPartitionMax
 	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: max,
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		AltLogin: t.altLoginItem.Load().(string),
+	}; err != 0) {
+		return err
+	}
+
 	t.partitionMax.Store(max)
+}
+
+func writeConfigFile(f *os.File, k authtableConfig) int {
+	jBytes, jErr := json.Marshal(k)
+	if jErr != nil {
+		return helpers.ErrorJsonEncoding
+	}
+
+	// Write to config file
+	if _, wErr := f.WriteAt(jBytes, 0); wErr != nil {
+		return helpers.ErrorFileUpdate
+	}
+	k.configFile.Truncate(int64(len(jBytes)))
+	return 0
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//   AuthTable Restoring   ///////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Restore restores an AuthTable by name; requires a valid config file and data folder
+func Restore(name string) (*Authtable, int) {
+	namePre := dataFolderPrefix + name
+
+	// Open the File
+	f, err := os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR, 0755)
+	if err != nil {
+		return nil, helpers.ErrorFileOpen
+	}
+
+	// Get file stats
+	fs, fsErr := f.Stat()
+	if fsErr != nil {
+		f.Close()
+		return nil, helpers.ErrorFileOpen
+	}
+
+	// Get file bytes
+	bytes := make([]byte, fs.Size())
+	_, rErr := f.ReadAt(bytes, 0)
+	if rErr != nil && rErr != io.EOF {
+		f.Close()
+		return nil, helpers.ErrorFileRead
+	}
+
+	// Make confStruct from json bytes
+	var confStruct authtableConfig
+	mErr := json.Unmarshal(bytes, &confStruct)
+	if mErr != nil {
+		f.Close()
+		return nil, helpers.ErrorJsonDecoding
+	}
+
+	// Make schema with the schemaList
+	s, schemaErr := schema.Restore(confStruct.Schema)
+	if schemaErr != 0 {
+		f.Close()
+		return nil, schemaErr
+	}
+
+	t, tErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
+	if tErr != 0 {
+		f.Close()
+		return nil, tErr
+	}
+
+	t.eMux.Lock()
+	t.uMux.Lock()
+
+	// Set optional settings if different from defaults
+	if confStruct.EncryptCost != helpers.DefaultEncryptCost {
+		t.encryptCost.Store(confStruct.EncryptCost)
+	}
+
+	if confStruct.MaxEntries != helpers.DefaultMaxEntries {
+		t.maxEntries.Store(confStruct.MaxEntries)
+	}
+
+	if confStruct.PartitionMax != helpers.DefaultPartitionMax {
+		t.partitionMax.Store(confStruct.PartitionMax)
+	}
+
+	if confStruct.MinPass != defaultMinPassword {
+		t.minPassword.Store(confStruct.MinPass)
+	}
+
+	if confStruct.PassResetLen != defaultPassResetLen {
+		t.passResetLen.Store(confStruct.PassResetLen)
+	}
+
+	if confStruct.EmailItem != "" {
+		t.emailItem.Store(confStruct.EmailItem)
+	}
+
+	if confStruct.AltLogin != "" {
+		t.altLoginItem.Store(confStruct.AltLogin)
+	}
+
+	// Load data/indexing into memory...
+
+	// Open data folder
+	df, err := os.Open(namePre)
+	if err != nil {
+		t.eMux.Unlock()
+		t.uMux.Unlock()
+		df.Close()
+		t.Close()
+		return nil, helpers.ErrorFileOpen
+	}
+	files, err := df.Readdir(-1)
+	df.Close()
+	if err != nil {
+		t.eMux.Unlock()
+		t.uMux.Unlock()
+		t.Close()
+		return nil, helpers.ErrorFileRead
+	}
+
+	// Go through files
+	for _, fileStats := range files {
+		// Get file number
+		fileNameSplit := strings.Split(fileStats.Name(), ".")
+		fileNum, fnErr := strconv.Atoi(fileNameSplit[0])
+		if fnErr != nil || len(fileNameSplit) < 2 || "."+fileNameSplit[1] != helpers.FileTypeStorage {
+			fmt.Println("'"+fileStats.Name()+"' is not a valid storage file.")
+			continue
+		}
+
+		// Open data file
+		dataFile, err := os.OpenFile(namePre + "/" + fileStats.Name(), os.O_RDWR, 0755)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		// Get file bytes
+		fb := make([]byte, fileStats.Size())
+		_, rErr := dataFile.ReadAt(fb, 0)
+		if rErr != nil && rErr != io.EOF {
+			dataFile.Close()
+			fmt.Println(rErr)
+			continue
+		}
+
+		// Go through file bytes and restore entries
+		lineOn := 1
+		lineByteStart := 0
+		for i, b := range fb {
+			if b == 10 {
+				// Restore line
+				if eKey, ePass, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
+					if resErr := t.RestoreUser(eKey, ePass, eData, uint16(fileNum), uint16(lineOn), confStruct.AltLogin); resErr != 0 {
+						fmt.Println("Error restoring '"+eKey+"' on line", lineOn, "in file", fileStats.Name(), "with error:", resErr)
+					}
+				}
+
+				lineByteStart = i+1
+				lineOn++
+			}
+		}
+
+		//
+		dataFile.Close()
+	}
+	t.uMux.Unlock()
+	t.eMux.Unlock()
+
+	return t, 0
+}
+
+func restoreDataLine(line []byte) (string, []interface{}) {
+	var jEntry jsonEntry
+	mErr := json.Unmarshal(line, &jEntry)
+	if mErr != nil {
+		return "", nil
+	}
+
+	if jEntry.D == nil || jEntry.N == "" || len(jEntry.P) == 0 {
+		return "", nil
+	}
+
+	return jEntry.N, jEntry.P, jEntry.D
 }

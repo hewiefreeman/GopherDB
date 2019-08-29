@@ -22,7 +22,7 @@ func TestGetAfterRestore(t *testing.T) {
 		t.Errorf("Table wasn't made.")
 		return
 	}
-	data, iErr := k.GetData("test", []string{"subbed.*since.*sec"})
+	data, iErr := k.GetKeyData("test", []string{"subbed.*since.*sec"})
 	if iErr != 0 {
 		t.Errorf("Get error: %v", iErr)
 		return

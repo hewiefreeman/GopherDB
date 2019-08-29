@@ -32,17 +32,19 @@ func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]b
 //     {"NewUser": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
 //
 
-// NewUser creates a new AuthTableEntry in the AuthTable
+// NewUser creates a new authTableEntry in the AuthTable
 func (t *AuthTable) NewUser(name string, password string, insertObj map[string]interface{}) int {
 	// Name and password are required
 	if len(name) == 0 {
 		return helpers.ErrorNameRequired
+	} else if strings.ContainsAny(name, " \t\n\r"){
+		return nil, helpers.ErrorInvalidKeyCharacters
 	} else if len(password) < int(t.minPassword.Load().(uint8)) {
 		return helpers.ErrorPasswordLength
 	}
 
 	// Create entry
-	ute := AuthTableEntry{
+	ute := authTableEntry{
 		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
 	}
 
@@ -104,7 +106,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	var lineOn uint16
 	if !t.memOnly {
 		var aErr int
-		lineOn, aErr = storage.Insert(t.persistName + "/" + strconv.Itoa(int(t.fileOn)) + helpers.FileTypeStorage, jBytes)
+		lineOn, aErr = storage.Insert(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(t.fileOn)) + helpers.FileTypeStorage, jBytes)
 		if aErr != 0 {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
@@ -164,7 +166,7 @@ func (t *AuthTable) GetUserData(userName string, password string, sel []string) 
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
+		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return nil, dErr
 		}
@@ -272,7 +274,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
+		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -335,7 +337,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 
 	// Update entry on disk with jBytes
 	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex, jBytes)
+		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex, jBytes)
 		if uErr != 0 {
 			t.uMux.Unlock()
 			e.mux.Unlock()
@@ -369,7 +371,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 }
 
 // ChangePassword
-func (t *AuthTable) ChangePassword(userName string, password string, newPassword string) int {
+func (t *AuthTable) ChangeUserPassword(userName string, password string, newPassword string) int {
 	if len(newPassword) < int(t.minPassword.Load().(uint8)) {
 		return helpers.ErrorPasswordLength
 	}
@@ -390,7 +392,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -408,7 +410,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 		}
 
 		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
+		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
 			return uErr
 		}
@@ -421,7 +423,7 @@ func (t *AuthTable) ChangePassword(userName string, password string, newPassword
 }
 
 // ResetPassword
-func (t *AuthTable) ResetPassword(userName string) int {
+func (t *AuthTable) ResetUserPassword(userName string) int {
 	// Name and password are required
 	if len(userName) == 0 {
 		return helpers.ErrorNameRequired
@@ -448,7 +450,7 @@ func (t *AuthTable) ResetPassword(userName string) int {
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -482,7 +484,7 @@ func (t *AuthTable) ResetPassword(userName string) int {
 		}
 
 		// Update entry on disk with jBytes
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
+		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
 			return uErr
 		}
@@ -506,7 +508,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 	// Get entry data
 	if t.dataOnDrive {
 		var dErr int
-		data, dErr = t.dataFromDrive(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
+		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -526,16 +528,16 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		//
 		si := (*(t.schema))[siName]
 		if si == nil {
-			ue.mux.Unlock()
 			t.uMux.Unlock()
+			ue.mux.Unlock()
 			return helpers.ErrorUnexpected
 		}
 		// Make filter
 		var i interface{}
 		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
 		if err != 0 {
-			ue.mux.Unlock()
 			t.uMux.Unlock()
+			ue.mux.Unlock()
 			return helpers.ErrorUnexpected
 		}
 		if itemName == altLoginItem {
@@ -545,12 +547,12 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		}
 		delete(t.uniqueVals[itemName], i)
 	}
-	ue.mux.Unlock()
 	t.uMux.Unlock()
+	ue.mux.Unlock()
 
 	// Update entry on disk with []byte{}
 	if !t.memOnly {
-		uErr := storage.Update(t.persistName + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
+		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
 			return uErr
 		}
@@ -562,5 +564,66 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 	t.eMux.Unlock()
 
 	//
+	return 0
+}
+
+// Restore is NOT concurrently safe! Only used for restoring databases.
+func (t *AuthTable) RestoreUser(name string, pass []byte, data []interface{}, fileOn uint16, lineOn uint16, altLoginItem string) int {
+	// Check for duplicate entry
+	if t.entries[name] != nil {
+		return helpers.ErrorKeyInUse
+	}
+
+	// Create entry
+	e := authTableEntry{
+		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
+	}
+
+	uniqueVals := make(map[string]interface{})
+	altLogin := ""
+
+	// Fill entry data with data
+	for itemName, schemaItem := range *(t.schema) {
+		if int(schemaItem.DataIndex()) > len(data)-1 {
+			return helpers.ErrorRestoreItemSchema
+		}
+
+		// Item filter
+		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		if err != 0 {
+			return err
+		}
+
+		if itemName == altLoginItem {
+			altLogin = e.data[schemaItem.DataIndex()].(string)
+		}
+	}
+
+	e.password.Store(pass)
+
+	// Apply unique values
+	for itemName, itemVal := range uniqueVals {
+		if t.uniqueVals[itemName] == nil {
+			t.uniqueVals[itemName] = make(map[interface{}]bool)
+		}
+		t.uniqueVals[itemName][itemVal] = true
+	}
+
+	//
+	e.persistIndex = lineOn
+	e.persistFile = fileOn
+
+	// Remove data from memory if dataOnDrive is true
+	if t.dataOnDrive {
+		e.data = nil
+	}
+
+	// Apply altLogin
+	if altLogin != "" {
+		t.altLogins[altLogin] = &ute
+	}
+
+	// Insert item
+	t.entries[name] = &e
 	return 0
 }

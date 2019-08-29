@@ -19,6 +19,7 @@ var (
 	stores         map[string]*Keystore = make(map[string]*Keystore)
 )
 
+// Keystore
 type Keystore struct {
 	fileOn    uint16 // locked by eMux - placed for memory efficiency
 
@@ -27,6 +28,7 @@ type Keystore struct {
 	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing
 	name   string // table's logger/persist folder name
 	schema        *schema.Schema // table's schema
+	configFile *os.File // configuration file
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
@@ -35,15 +37,14 @@ type Keystore struct {
 
 	// entries
 	eMux       sync.Mutex // entries/configFile lock
-	configFile *os.File // configuration file
-	entries    map[string]*KeystoreEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
+	entries    map[string]*keystoreEntry // Keystore map
 
 	// unique values
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
 }
 
-type KeystoreEntry struct {
+type keystoreEntry struct {
 	persistFile  uint16
 	persistIndex uint16
 
@@ -66,6 +67,10 @@ type keystoreConfig struct {
 const (
 	dataFolderPrefix = "KS-"
 )
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//   Keystore   //////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new Keystore with the provided name, schema, and other parameters.
 func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*Keystore, int) {
@@ -93,8 +98,15 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 			return nil, helpers.ErrorCreatingFolder
 		}
 
-		// Make json bytes for config file
-		jBytes, jErr := json.Marshal(keystoreConfig{
+		// Create/open config file
+		var err error
+		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
+		if err != nil {
+			return nil, helpers.ErrorFileOpen
+		}
+
+		// Write config file
+		if wErr := writeConfigFile(configFile, keystoreConfig{
 			Name: name,
 			Schema: s.MakeConfig(),
 			FileOn: fileOn,
@@ -103,23 +115,9 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 			PartitionMax: helpers.DefaultPartitionMax,
 			EncryptCost: helpers.DefaultEncryptCost,
 			MaxEntries: helpers.DefaultMaxEntries,
-		})
-		if jErr != nil {
-			return nil, helpers.ErrorJsonEncoding
+		}; wErr != 0) {
+			return nil, err
 		}
-
-		// Save config file
-		var err error
-		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
-		if err != nil {
-			return nil, helpers.ErrorFileOpen
-		}
-
-		if _, err = configFile.Write(jBytes); err != nil {
-			return nil, helpers.ErrorFileWrite
-		}
-
-		configFile.Truncate(int64(len(jBytes)))
 	}
 
 	// make table
@@ -129,7 +127,7 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 		dataOnDrive:   dataOnDrive,
 		schema:        s,
 		configFile:    configFile,
-		entries:       make(map[string]*KeystoreEntry),
+		entries:       make(map[string]*keystoreEntry),
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 	}
@@ -156,32 +154,48 @@ func Get(name string) *Keystore {
 	return k
 }
 
-func (k *Keystore) Close() {
+func (k *Keystore) Close(save bool) {
+	if save {
+		k.eMux.Lock()
+		fileOn := k.fileOn
+		k.eMux.Unlock()
+		writeConfigFile(k.configFile, keystoreConfig{
+			Name: k.name,
+			Schema: k.schema.MakeConfig(),
+			FileOn: fileOn,
+			DataOnDrive: k.dataOnDrive,
+			MemOnly: k.memOnly,
+			PartitionMax: k.partitionMax.Load().(uint16),
+			EncryptCost: k.encryptCost.Load().(int),
+			MaxEntries: k.maxEntries.Load().(uint64),
+		})
+	}
+
 	storesMux.Lock()
 	stores[k.name] = nil
 	delete(stores, k.name)
 	storesMux.Unlock()
-
-	k.eMux.Lock()
-	k.uMux.Lock()
-	k.entries = nil
-	k.uniqueVals = nil
-	k.configFile.Close()
-	k.uMux.Unlock()
-	k.eMux.Unlock()
 }
 
 // Delete deletes a Keystore with the given name.
 func (k *Keystore) Delete() int {
-	k.Close()
+	k.Close(false)
 
-	// !!!!!! delete data folder & config file
+	// Delete data directory
+	if err := os.RemoveAll(dataFolderPrefix + k.name); err != nil {
+		return helpers.ErrorFileDelete
+	}
+
+	// Delete config file
+	if err := os.Remove(dataFolderPrefix + k.name + helpers.FileTypeConfig); err != nil {
+		return helpers.ErrorFileDelete
+	}
 
 	return 0
 }
 
-// Get retrieves a *KeystoreEntry by it's key from the Keystore
-func (k *Keystore) Get(key string) (*KeystoreEntry, int) {
+// Get retrieves a *keystoreEntry by it's key from the Keystore
+func (k *Keystore) Get(key string) (*keystoreEntry, int) {
 	// key is required
 	if len(key) == 0 {
 		return nil, helpers.ErrorKeyRequired
@@ -207,37 +221,105 @@ func (k *Keystore) Size() int {
 	return s
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//   Keystore Setters   //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // SetEncryptionCost sets the bcrypt encrytion cost
-func (k *Keystore) SetEncryptionCost(cost int) {
+func (k *Keystore) SetEncryptionCost(cost int) int {
 	if cost > helpers.EncryptCostMax {
 		cost = helpers.EncryptCostMax
 	} else if cost < helpers.EncryptCostMin {
 		cost = helpers.EncryptCostMin
 	}
 
-	// Save in config file !!!
+	// Write to configFile
+	k.eMux.Lock()
+	fileOn := k.fileOn
+	k.eMux.Unlock()
+	if err := writeConfigFile(k.configFile, keystoreConfig{
+		Name: k.name,
+		Schema: k.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: k.dataOnDrive,
+		MemOnly: k.memOnly,
+		PartitionMax: k.partitionMax.Load().(uint16),
+		EncryptCost: cost,
+		MaxEntries: k.maxEntries.Load().(uint64),
+	}; err != 0) {
+		return err
+	}
 
 	k.encryptCost.Store(cost)
 }
 
 // SetMaxEntries sets the maximum entries for the Keystore
-func (k *Keystore) SetMaxEntries(max uint64) {
+func (k *Keystore) SetMaxEntries(max uint64) int {
 
-	// Save in config file !!!
+	// Write to configFile
+	k.eMux.Lock()
+	fileOn := k.fileOn
+	k.eMux.Unlock()
+	if err := writeConfigFile(k.configFile, keystoreConfig{
+		Name: k.name,
+		Schema: k.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: k.dataOnDrive,
+		MemOnly: k.memOnly,
+		PartitionMax: k.partitionMax.Load().(uint16),
+		EncryptCost: k.encryptCost.Load().(int),
+		MaxEntries: max,
+	}; err != 0) {
+		return err
+	}
 
 	k.maxEntries.Store(max)
 }
 
 // SetPartitionMax sets the maximum entries stored in a data file
-func (k *Keystore) SetPartitionMax(max uint16) {
+func (k *Keystore) SetPartitionMax(max uint16) int {
 	if max < helpers.PartitionMin {
 		max = helpers.DefaultPartitionMax
 	}
 
-	// Save in config file !!!
+	// Write to configFile
+	k.eMux.Lock()
+	fileOn := k.fileOn
+	k.eMux.Unlock()
+	if err := writeConfigFile(k.configFile, keystoreConfig{
+		Name: k.name,
+		Schema: k.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: k.dataOnDrive,
+		MemOnly: k.memOnly,
+		PartitionMax: max,
+		EncryptCost: k.encryptCost.Load().(int),
+		MaxEntries: k.maxEntries.Load().(uint64),
+	}; err != 0) {
+		return err
+	}
 
 	k.partitionMax.Store(max)
 }
+
+// Writes k to f and truncates file
+func writeConfigFile(f *os.File, k keystoreConfig) int {
+	jBytes, jErr := json.Marshal(k)
+	if jErr != nil {
+		return helpers.ErrorJsonEncoding
+	}
+
+	// Write to config file
+	if _, wErr := f.WriteAt(jBytes, 0); wErr != nil {
+		return helpers.ErrorFileUpdate
+	}
+	k.configFile.Truncate(int64(len(jBytes)))
+	return 0
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//   Keystore Restoring   ////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores a Keystore by name; requires a valid config file and data folder
 func Restore(name string) (*Keystore, int) {
@@ -252,6 +334,7 @@ func Restore(name string) (*Keystore, int) {
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
+		f.Close()
 		return nil, helpers.ErrorFileOpen
 	}
 
@@ -259,6 +342,7 @@ func Restore(name string) (*Keystore, int) {
 	bytes := make([]byte, fs.Size())
 	_, rErr := f.ReadAt(bytes, 0)
 	if rErr != nil && rErr != io.EOF {
+		f.Close()
 		return nil, helpers.ErrorFileRead
 	}
 
@@ -266,17 +350,20 @@ func Restore(name string) (*Keystore, int) {
 	var confStruct keystoreConfig
 	mErr := json.Unmarshal(bytes, &confStruct)
 	if mErr != nil {
+		f.Close()
 		return nil, helpers.ErrorJsonDecoding
 	}
 
 	// Make schema with the schemaList
 	s, schemaErr := schema.Restore(confStruct.Schema)
 	if schemaErr != 0 {
+		f.Close()
 		return nil, schemaErr
 	}
 
 	ks, ksErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
 	if ksErr != 0 {
+		f.Close()
 		return nil, ksErr
 	}
 
@@ -303,6 +390,7 @@ func Restore(name string) (*Keystore, int) {
 	if err != nil {
 		ks.eMux.Unlock()
 		ks.uMux.Unlock()
+		df.Close()
 		ks.Close()
 		return nil, helpers.ErrorFileOpen
 	}
@@ -336,6 +424,7 @@ func Restore(name string) (*Keystore, int) {
 		fb := make([]byte, fileStats.Size())
 		_, rErr := dataFile.ReadAt(fb, 0)
 		if rErr != nil && rErr != io.EOF {
+			dataFile.Close()
 			fmt.Println(rErr)
 			continue
 		}
@@ -347,7 +436,7 @@ func Restore(name string) (*Keystore, int) {
 			if b == 10 {
 				// Restore line
 				if eKey, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
-					if resErr := ks.Restore(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
+					if resErr := ks.RestoreKey(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
 						fmt.Println("Error restoring '"+eKey+"' on line", lineOn, "in file", fileStats.Name(), "with error:", resErr)
 					}
 				}
@@ -356,6 +445,9 @@ func Restore(name string) (*Keystore, int) {
 				lineOn++
 			}
 		}
+
+		//
+		dataFile.Close()
 	}
 	ks.uMux.Unlock()
 	ks.eMux.Unlock()

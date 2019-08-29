@@ -8,7 +8,8 @@ import (
 	"errors"
 	"encoding/json"
 	"strconv"
-	//"fmt"
+	"time"
+	"fmt"
 )
 
 var (
@@ -25,10 +26,13 @@ func setup() (bool, error) {
 	if(!setupComplete) {
 		// Set-up
 
-		// Try to restore table
+		// Try to restore table & find out how long it took
 		var tableErr int
+		now := time.Now()
 		table, tableErr = keystore.Restore("test")
 		if tableErr == 0 {
+			since := time.Since(now).Seconds()
+			fmt.Printf("Restore success! Took %v seconds.", since)
 			setupComplete = true
 			return true, nil
 		}
@@ -76,7 +80,7 @@ func BenchmarkInsert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		is := strconv.Itoa(i)
-		if _, iErr := table.Insert("guest"+is, map[string]interface{}{"email": "dinospumoni"+is+"@yahoo.com", "mmr": 1674}); iErr != 0 && iErr != helpers.ErrorKeyInUse {
+		if _, iErr := table.InsertKey("guest"+is, map[string]interface{}{"email": "dinospumoni"+is+"@yahoo.com", "mmr": 1674}); iErr != 0 && iErr != helpers.ErrorKeyInUse {
 			b.Errorf("Insert error (%v): %v", i, iErr)
 			return
 		}
@@ -91,7 +95,7 @@ func BenchmarkUpdate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// 240 vs 1 to test file update efficiency (200 near default max partition)
-		if iErr := table.UpdateData("guest240", map[string]interface{}{"mmr.*add.*mul": []interface{}{6, 0.9}}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if iErr := table.UpdateKey("guest240", map[string]interface{}{"mmr.*add.*mul": []interface{}{6, 0.9}}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Update error (%v): %v", i, iErr)
 			return
 		}
@@ -106,7 +110,7 @@ func BenchmarkGet(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// 240 vs 1 to test file read efficiency (200 near default max partition)
-		if _, iErr := table.GetData("guest240", []string{"mmr"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if _, iErr := table.GetKeyData("guest240", []string{"mmr"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Get error (%v): %v", i, iErr)
 			return
 		}

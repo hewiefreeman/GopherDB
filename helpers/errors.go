@@ -17,6 +17,7 @@ const (
 
 	// Generic Table Query Errors
 	ErrorTableNameRequired
+	ErrorInvalidKeyCharacters
 	ErrorTableFull
 	ErrorQueryInvalidFormat
 	ErrorInvalidItem
@@ -28,8 +29,8 @@ const (
 	ErrorKeyInUse
 
 	// Auth Table Query Errors
-	ErrorNameRequired
-	ErrorPasswordLength // 1020
+	ErrorNameRequired // 1020
+	ErrorPasswordLength
 	ErrorPasswordEncryption
 	ErrorNoEmailItem
 	ErrorNoEntryFound
@@ -40,8 +41,8 @@ const (
 	ErrorStringTooLarge
 	ErrorStringRequired
 	ErrorArrayItemsRequired
-	ErrorArrayEmpty
-	ErrorMapItemsRequired // 1030
+	ErrorArrayEmpty // 1030
+	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
 
 	// Leaderboard errors
@@ -56,12 +57,13 @@ const (
 	ErrorLoggerExists
 	ErrorLoggerFileCreate
 	ErrorTableFolderCreate
-	ErrorCreatingFolder
-	ErrorFileOpen // 1040
+	ErrorCreatingFolder // 1040
+	ErrorFileOpen
 	ErrorFileAppend
 	ErrorFileUpdate
 	ErrorFileRead
 	ErrorFileWrite
+	ErrorFileDelete
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat

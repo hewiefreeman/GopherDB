@@ -5,6 +5,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
 	"strconv"
+	"strings"
 	"encoding/json"
 )
 
@@ -30,15 +31,17 @@ func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 //     {"InsertKey": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
 //
 
-// Insert creates a new KeystoreEntry in the Keystore, as long as one doesnt already exist
-func (k *Keystore) Insert(key string, insertObj map[string]interface{}) (*KeystoreEntry, int) {
-	// Name and password are required
+// Insert creates a new keystoreEntry in the Keystore, as long as one doesnt already exist
+func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*keystoreEntry, int) {
+	// Key is required
 	if len(key) == 0 {
 		return nil, helpers.ErrorKeyRequired
+	} else if strings.ContainsAny(key, " \t\n\r"){
+		return nil, helpers.ErrorInvalidKeyCharacters
 	}
 
 	// Create entry
-	e := KeystoreEntry{
+	e := keystoreEntry{
 		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
 	}
 
@@ -130,7 +133,7 @@ func (k *Keystore) Insert(key string, insertObj map[string]interface{}) (*Keysto
 //
 
 // Get
-func (k *Keystore) GetData(key string, items []string) (map[string]interface{}, int) {
+func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{}, int) {
 	e, err := k.Get(key)
 	if err != 0 {
 		return nil, err
@@ -234,7 +237,7 @@ func (k *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int)
 //
 
 // Update
-func (k *Keystore) UpdateData(key string, updateObj map[string]interface{}) int {
+func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	if updateObj == nil || len(updateObj) == 0 {
 		return helpers.ErrorQueryInvalidFormat
 	}
@@ -330,6 +333,21 @@ func (k *Keystore) UpdateData(key string, updateObj map[string]interface{}) int 
 	return 0
 }
 
+// UpsertKey
+func (k *Keystore) UpsertKey(key string, upsertObj map[string]interface{}) (*keystoreEntry, int) {
+	// Key is required
+	if len(key) == 0 {
+		return nil, helpers.ErrorKeyRequired
+	}
+
+	ke, err := k.Get(key)
+	if err != 0 {
+		// Insert
+		return k.InsertKey(key, upsertObj)
+	}
+	return ke, k.UpdateKey(key, upsertObj)
+}
+
 // Delete
 func (k *Keystore) DeleteKey(key string) int {
 	ue, err := k.Get(key)
@@ -396,14 +414,14 @@ func (k *Keystore) DeleteKey(key string) int {
 }
 
 // Restore is NOT concurrently safe! Only used for restoring databases.
-func (k *Keystore) Restore(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
-	// Name and password are required
-	if len(key) == 0 {
-		return helpers.ErrorKeyRequired
+func (k *Keystore) RestoreKey(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
+	// Check for duplicate entry
+	if k.entries[key] != nil {
+		return helpers.ErrorKeyInUse
 	}
 
 	// Create entry
-	e := KeystoreEntry{
+	e := keystoreEntry{
 		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
 	}
 
@@ -420,19 +438,6 @@ func (k *Keystore) Restore(key string, data []interface{}, fileOn uint16, lineOn
 		if err != 0 {
 			return err
 		}
-	}
-
-	// Check for duplicate entry
-	if k.entries[key] != nil {
-		return helpers.ErrorKeyInUse
-	}
-	// Check unique values
-	for itemName, itemVal := range uniqueVals {
-		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
-			return helpers.ErrorUniqueValueInUse
-		}/* else {
-			// DISTRIBUTED CHECKS HERE !!!
-		}*/
 	}
 
 	// Apply unique values
