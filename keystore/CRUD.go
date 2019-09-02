@@ -50,7 +50,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(k.schema) {
 		// Item filter
-		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 			}
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
+			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -176,7 +176,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 		for itemName, si := range *(k.schema) {
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true)
+			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -278,7 +278,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 		itemBefore := data[schemaItem.DataIndex()]
 
 		// Item filter
-		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
@@ -385,7 +385,7 @@ func (k *Keystore) DeleteKey(key string) int {
 		}
 		// Make filter
 		var i interface{}
-		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
+		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
 		if err != 0 {
 			ue.mux.Unlock()
 			k.uMux.Unlock()
@@ -434,7 +434,7 @@ func (k *Keystore) RestoreKey(key string, data []interface{}, fileOn uint16, lin
 		}
 
 		// Item filter
-		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, true)
 		if err != 0 {
 			return err
 		}

@@ -34,6 +34,7 @@ const (
 
 // Filter for queries
 type Filter struct {
+	restore bool
 	get bool // when true, output is for get queries
 	item interface{} // The item data to insert/get
 	destination *interface{} // Pointer to where the filtered/retrieved data must go
@@ -48,8 +49,9 @@ type Filter struct {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ItemFilter filters an item in a query against it's cooresponding SchemaItem.
-func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool) int {
+func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
 	filter := Filter{
+		restore: restore,
 		get: get,
 		item: item,
 		methods: methods,
@@ -1065,8 +1067,15 @@ func timeFilter(filter *Filter) int {
 			return 0
 		}
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(TimeItem)
-		t, tErr := time.Parse(it.format, i)
-		if tErr != nil {
+		var t time.Time
+		var err error
+		if filter.restore {
+			// Restoring from JSON file
+			t, err = time.Parse(TimeFormatRFC3339, i)
+		} else {
+			t, err = time.Parse(it.format, i)
+		}
+		if err != nil {
 			return helpers.ErrorInvalidTimeFormat
 		}
 		filter.item = t

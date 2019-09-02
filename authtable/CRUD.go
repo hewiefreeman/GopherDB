@@ -57,7 +57,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range *(t.schema) {
 		// Item filter
-		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
 			return err
 		}
@@ -189,7 +189,7 @@ func (t *AuthTable) GetUserData(userName string, password string, sel []string) 
 			}
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
+			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -199,7 +199,7 @@ func (t *AuthTable) GetUserData(userName string, password string, sel []string) 
 		for itemName, si := range *(t.schema) {
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true)
+			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -303,7 +303,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 		itemBefore := data[schemaItem.DataIndex()]
 
 		// Item filter
-		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
@@ -535,7 +535,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		}
 		// Make filter
 		var i interface{}
-		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true)
+		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
 		if err != 0 {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
@@ -585,12 +585,13 @@ func (t *AuthTable) RestoreUser(name string, pass []byte, data []interface{}, fi
 
 	// Fill entry data with data
 	for itemName, schemaItem := range *(t.schema) {
+		// Check for out of range item
 		if int(schemaItem.DataIndex()) > len(data)-1 {
 			return helpers.ErrorRestoreItemSchema
 		}
 
 		// Item filter
-		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false)
+		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, true)
 		if err != 0 {
 			return err
 		}
