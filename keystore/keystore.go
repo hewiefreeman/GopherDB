@@ -115,7 +115,7 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 			PartitionMax: helpers.DefaultPartitionMax,
 			EncryptCost: helpers.DefaultEncryptCost,
 			MaxEntries: helpers.DefaultMaxEntries,
-		}; wErr != 0) {
+		}); wErr != 0 {
 			return nil, err
 		}
 	}
@@ -246,7 +246,7 @@ func (k *Keystore) SetEncryptionCost(cost int) int {
 		PartitionMax: k.partitionMax.Load().(uint16),
 		EncryptCost: cost,
 		MaxEntries: k.maxEntries.Load().(uint64),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
@@ -269,7 +269,7 @@ func (k *Keystore) SetMaxEntries(max uint64) int {
 		PartitionMax: k.partitionMax.Load().(uint16),
 		EncryptCost: k.encryptCost.Load().(int),
 		MaxEntries: max,
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
@@ -295,7 +295,7 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 		PartitionMax: max,
 		EncryptCost: k.encryptCost.Load().(int),
 		MaxEntries: k.maxEntries.Load().(uint64),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
@@ -313,7 +313,7 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 	if _, wErr := f.WriteAt(jBytes, 0); wErr != nil {
 		return helpers.ErrorFileUpdate
 	}
-	k.configFile.Truncate(int64(len(jBytes)))
+	f.Truncate(int64(len(jBytes)))
 	return 0
 }
 

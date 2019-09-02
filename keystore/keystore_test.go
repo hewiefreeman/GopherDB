@@ -32,10 +32,12 @@ func setup() (bool, error) {
 		table, tableErr = keystore.Restore("test")
 		if tableErr == 0 {
 			since := time.Since(now).Seconds()
-			fmt.Printf("Restore success! Took %v seconds.", since)
+			fmt.Printf("Restore success! Took %v seconds to restore %v keys.", since, table.Size())
 			setupComplete = true
 			return true, nil
 		}
+
+		fmt.Printf("Fatal restore error: #%v", tableErr)
 
 		newTableJson := "{\"NewKeystore\": [\"test\", {\"mmr\": [\"Uint16\", 0, 0, 0, false, false], \"email\": [\"String\", \"\", 0, false, false], \"subbed\": [\"Time\", \"RFC3339\", false]}, 0, 0, 0, 0]}"
 		v := make(map[string]interface{})
@@ -115,4 +117,5 @@ func BenchmarkGet(b *testing.B) {
 			return
 		}
 	}
+	table.Close(true)
 }

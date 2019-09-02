@@ -8,7 +8,8 @@ import (
 	"errors"
 	"encoding/json"
 	"strconv"
-	//"fmt"
+	"time"
+	"fmt"
 )
 
 var (
@@ -19,14 +20,27 @@ var (
 // TO TEST:
 // go test authtable_test.go -bench=.
 
-func setup() error {
+func setup() (bool, error) {
 	if(!setupComplete) {
+		// Try to restore table & find out how long it took
+		var tableErr int
+		now := time.Now()
+		table, tableErr = authtable.Restore("test")
+		if tableErr == 0 {
+			since := time.Since(now).Seconds()
+			fmt.Printf("Restore success! Took %v seconds to restore %v keys.", since, table.Size())
+			setupComplete = true
+			return true, nil
+		}
+
+		fmt.Printf("Fatal restore error: #%v", tableErr)
+
 		// Set-up
 		newTableJson := "{\"NewAuthTable\": [\"users\",{\"email\": [\"String\", \"\", 0, true, true],\"friends\": [\"Array\", [\"Object\", {\"name\": [\"String\", \"\", 0, true, true],\"status\": [\"Uint8\", 0, 0, 2, false, false]}, false], 50, false],\"vCode\": [\"String\", \"\", 0, true, false],\"verified\": [\"Bool\", false], \"mmr\": [\"Uint16\", 1500, 1100, 2250, false, false], \"testMap\": [\"Map\", [\"Map\", [\"Int16\", 100, 0, 0, true, true, true], 0, false], 0, false], \"timeStamp\": [\"Time\", \"Kitchen\", false]}, 0, 0, 0, 0]}"
 		v := make(map[string]interface{})
 		err := json.Unmarshal([]byte(newTableJson), &v)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// Get the schema object from the query
@@ -35,34 +49,39 @@ func setup() error {
 		// Make a schema with the query's schema object
 		schemaObj, schemaErr := schema.New(s)
 		if schemaErr != 0 {
-			return errors.New("Schema error: " + strconv.Itoa(schemaErr))
+			return false, errors.New("Schema error: " + strconv.Itoa(schemaErr))
 		}
 
 		// Make a new AuthTable with the schema
-		var tableErr int
-		table, tableErr = authtable.New("users", schemaObj, 0, false, true)
+		table, tableErr = authtable.New("test", nil, schemaObj, 0, false, false)
 		if tableErr != 0 {
-			return errors.New("Table create error: " + strconv.Itoa(tableErr))
+			return false, errors.New("Table create error: " + strconv.Itoa(tableErr))
 		} else if table == nil {
-			return errors.New("Nil table?")
+			return false, errors.New("Nil table?")
 		}
 
 		// Table settings
 		alErr := table.SetAltLoginItem("email")
 		if alErr != 0 {
-			return errors.New("Set Login item error: " + strconv.Itoa(alErr))
+			return false, errors.New("Set Login item error: " + strconv.Itoa(alErr))
 		}
 
 		//
 		setupComplete = true
 	}
-	return nil
+	return false, nil
 }
 
 func BenchmarkInsert(b *testing.B) {
 	b.ReportAllocs()
-	if sErr := setup(); sErr != nil {
-		b.Errorf(sErr.Error())
+	var err error
+	var restored bool
+	if restored, err = setup(); err != nil {
+		b.Errorf(err.Error())
+		return
+	}
+	if restored {
+		b.Errorf("Restored table... Skipping BenchmarkInsert()!")
 		return
 	}
 	b.ResetTimer()

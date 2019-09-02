@@ -1,5 +1,10 @@
 package helpers
 
+type Error struct {
+	ID  int
+	Msg string
+}
+
 const (
 	// Table should or shouldn't exist
 	ErrorTableExists      = iota + 1001

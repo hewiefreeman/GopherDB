@@ -6,6 +6,12 @@ import (
 	"github.com/hewiefreeman/GopherDB/storage"
 	"sync"
 	"sync/atomic"
+	"os"
+	"io"
+	"encoding/json"
+	"strings"
+	"strconv"
+	"fmt"
 )
 
 ////////////////// TODOs
@@ -166,8 +172,8 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 			PartitionMax: helpers.DefaultPartitionMax,
 			EncryptCost: helpers.DefaultEncryptCost,
 			MaxEntries: helpers.DefaultMaxEntries,
-		}; wErr != 0) {
-			return nil, err
+		}); wErr != 0 {
+			return nil, wErr
 		}
 	}
 
@@ -240,12 +246,12 @@ func (t *AuthTable) Delete() int {
 	t.Close(false)
 
 	// Delete data directory
-	if err := os.RemoveAll(dataFolderPrefix + k.name); err != nil {
+	if err := os.RemoveAll(dataFolderPrefix + t.name); err != nil {
 		return helpers.ErrorFileDelete
 	}
 
 	// Delete config file
-	if err := os.Remove(dataFolderPrefix + k.name + helpers.FileTypeConfig); err != nil {
+	if err := os.Remove(dataFolderPrefix + t.name + helpers.FileTypeConfig); err != nil {
 		return helpers.ErrorFileDelete
 	}
 
@@ -307,7 +313,7 @@ func (t *AuthTable) Size() int {
 //   Authtable Setters   /////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (t *AuthTable) SetEncryptionCost(cost int) {
+func (t *AuthTable) SetEncryptionCost(cost int) int {
 	if cost > helpers.EncryptCostMax {
 		cost = helpers.EncryptCostMax
 	} else if cost < helpers.EncryptCostMin {
@@ -330,14 +336,15 @@ func (t *AuthTable) SetEncryptionCost(cost int) {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
 	t.encryptCost.Store(cost)
+	return 0
 }
 
-func (t *AuthTable) SetMaxEntries(max uint64) {
+func (t *AuthTable) SetMaxEntries(max uint64) int {
 	if max < 0 {
 		max = 0
 	}
@@ -358,14 +365,15 @@ func (t *AuthTable) SetMaxEntries(max uint64) {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
 	t.maxEntries.Store(max)
+	return 0
 }
 
-func (t *AuthTable) SetMinPasswordLength(min uint8) {
+func (t *AuthTable) SetMinPasswordLength(min uint8) int {
 	if min < 1 {
 		min = 1
 	}
@@ -389,14 +397,15 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
 	t.minPassword.Store(min)
+	return 0
 }
 
-func (t *AuthTable) SetPasswordResetLength(len uint8) {
+func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 	mLen := t.minPassword.Load().(uint8)
 	if len < mLen {
 		len = mLen
@@ -418,11 +427,12 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) {
 		PassResetLen: len,
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
 	t.passResetLen.Store(len)
+	return 0
 }
 
 // SetAltLoginItem sets the AuthTable's alternative login item. Item must be a string and unique.
@@ -450,7 +460,7 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: item,
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
@@ -483,7 +493,7 @@ func (t *AuthTable) SetEmailItem(item string) int {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: item,
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
@@ -491,7 +501,7 @@ func (t *AuthTable) SetEmailItem(item string) int {
 	return 0
 }
 
-func (t *AuthTable) SetPartitionMax(max uint16) {
+func (t *AuthTable) SetPartitionMax(max uint16) int {
 	if max < helpers.PartitionMin {
 		max = helpers.DefaultPartitionMax
 	}
@@ -512,15 +522,16 @@ func (t *AuthTable) SetPartitionMax(max uint16) {
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		AltLogin: t.altLoginItem.Load().(string),
-	}; err != 0) {
+	}); err != 0 {
 		return err
 	}
 
 	t.partitionMax.Store(max)
+	return 0
 }
 
-func writeConfigFile(f *os.File, k authtableConfig) int {
-	jBytes, jErr := json.Marshal(k)
+func writeConfigFile(f *os.File, c authtableConfig) int {
+	jBytes, jErr := json.Marshal(c)
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
@@ -529,7 +540,7 @@ func writeConfigFile(f *os.File, k authtableConfig) int {
 	if _, wErr := f.WriteAt(jBytes, 0); wErr != nil {
 		return helpers.ErrorFileUpdate
 	}
-	k.configFile.Truncate(int64(len(jBytes)))
+	f.Truncate(int64(len(jBytes)))
 	return 0
 }
 
@@ -538,7 +549,7 @@ func writeConfigFile(f *os.File, k authtableConfig) int {
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores an AuthTable by name; requires a valid config file and data folder
-func Restore(name string) (*Authtable, int) {
+func Restore(name string) (*AuthTable, int) {
 	namePre := dataFolderPrefix + name
 
 	// Open the File
@@ -623,7 +634,7 @@ func Restore(name string) (*Authtable, int) {
 		t.eMux.Unlock()
 		t.uMux.Unlock()
 		df.Close()
-		t.Close()
+		t.Close(false)
 		return nil, helpers.ErrorFileOpen
 	}
 	files, err := df.Readdir(-1)
@@ -631,7 +642,7 @@ func Restore(name string) (*Authtable, int) {
 	if err != nil {
 		t.eMux.Unlock()
 		t.uMux.Unlock()
-		t.Close()
+		t.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
 
@@ -687,15 +698,15 @@ func Restore(name string) (*Authtable, int) {
 	return t, 0
 }
 
-func restoreDataLine(line []byte) (string, []interface{}) {
+func restoreDataLine(line []byte) (string, []byte, []interface{}) {
 	var jEntry jsonEntry
 	mErr := json.Unmarshal(line, &jEntry)
 	if mErr != nil {
-		return "", nil
+		return "", nil, nil
 	}
 
 	if jEntry.D == nil || jEntry.N == "" || len(jEntry.P) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
 
 	return jEntry.N, jEntry.P, jEntry.D

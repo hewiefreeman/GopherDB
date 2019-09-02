@@ -28,4 +28,5 @@ func TestGetAfterRestore(t *testing.T) {
 		return
 	}
 	t.Logf("Got: %v", data)
+	k.Close(true)
 }

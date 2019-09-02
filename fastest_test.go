@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 	//"strconv"
-	"encoding/json"
+	//"encoding/json"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -545,6 +545,55 @@ func BenchmarkUnmarshalStruct(b *testing.B) {
 	}
 }
 */
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Map vs Struct alloc  ////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+type thing struct {
+	A string
+	B string
+	C string
+	D thing2
+}
+
+type thing2 struct {
+	A string
+	B string
+	C string
+}
+
+func BenchmarkAllocStruct(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = thing {
+			A: "hello",
+			B: "yo",
+			C: "sup",
+			D: thing2 {
+				A: "goodbye",
+				B: "peace",
+				C: "later",
+			},
+		}
+	}
+}
+
+func BenchmarkAllocMap(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = map[string]interface{}{
+			"A": "hello",
+			"B": "yo",
+			"C": "sup",
+			"D": map[string]interface{}{
+				"A": "goodbye",
+				"B": "peace",
+				"C": "later",
+			},
+		}
+	}
+}
 
 // run with:
 // go test *filename* -bench=.

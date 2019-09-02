@@ -5,6 +5,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
 	"strconv"
+	"strings"
 	"encoding/json"
 )
 
@@ -38,7 +39,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	if len(name) == 0 {
 		return helpers.ErrorNameRequired
 	} else if strings.ContainsAny(name, " \t\n\r"){
-		return nil, helpers.ErrorInvalidKeyCharacters
+		return helpers.ErrorInvalidKeyCharacters
 	} else if len(password) < int(t.minPassword.Load().(uint8)) {
 		return helpers.ErrorPasswordLength
 	}
@@ -620,7 +621,7 @@ func (t *AuthTable) RestoreUser(name string, pass []byte, data []interface{}, fi
 
 	// Apply altLogin
 	if altLogin != "" {
-		t.altLogins[altLogin] = &ute
+		t.altLogins[altLogin] = &e
 	}
 
 	// Insert item
