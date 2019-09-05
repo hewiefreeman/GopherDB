@@ -39,14 +39,15 @@ const (
 	ErrorPasswordEncryption
 	ErrorNoEmailItem
 	ErrorNoEntryFound
+	ErrorInvalidEmail
 
 	// Schema errors
 	ErrorInvalidItemValue
 	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
-	ErrorArrayItemsRequired
-	ErrorArrayEmpty // 1030
+	ErrorArrayItemsRequired // 1030
+	ErrorArrayEmpty
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
 
@@ -61,8 +62,8 @@ const (
 	// Storage errors
 	ErrorLoggerExists
 	ErrorLoggerFileCreate
-	ErrorTableFolderCreate
-	ErrorCreatingFolder // 1040
+	ErrorTableFolderCreate // 1040
+	ErrorCreatingFolder
 	ErrorFileOpen
 	ErrorFileAppend
 	ErrorFileUpdate
@@ -71,7 +72,7 @@ const (
 	ErrorFileDelete
 	ErrorJsonEncoding
 	ErrorJsonDecoding
-	ErrorJsonDataFormat
+	ErrorJsonDataFormat // 1050
 
 	// Restoring Errors
 	ErrorRestoreItemSchema

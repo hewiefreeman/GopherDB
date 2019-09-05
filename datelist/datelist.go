@@ -120,7 +120,7 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
 		return nil, helpers.ErrorTableExists
-	} else if !s.ValidSchema() {
+	} else if !s.Validate() {
 		return nil, helpers.ErrorTableExists
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"encoding/json"
+	"regexp"
 )
 
 type jsonEntry struct {
@@ -28,6 +29,10 @@ func makeJsonBytes(name string, password []byte, data []interface{}, jBytes *[]b
 	return 0
 }
 
+var (
+	emailExp = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+)
+
 // Example JSON for new user query:
 //
 //     {"NewUser": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
@@ -46,16 +51,17 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 
 	// Create entry
 	ute := authTableEntry{
-		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
+		data: make([]interface{}, len(t.schema), len(t.schema)),
 	}
 
 	// Alternative login name
-	altLogin := ""
+	var altLogin string
 	altLoginItem := t.altLoginItem.Load().(string)
+	emailItem := t.emailItem.Load().(string)
 	uniqueVals := make(map[string]interface{})
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
-	for itemName, schemaItem := range *(t.schema) {
+	for itemName, schemaItem := range t.schema {
 		// Item filter
 		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
@@ -64,6 +70,8 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 
 		if itemName == altLoginItem {
 			altLogin = ute.data[schemaItem.DataIndex()].(string)
+		} else if itemName == emailItem && !emailExp.MatchString(ute.data[schemaItem.DataIndex()].(string)) {
+			return helpers.ErrorInvalidEmail
 		}
 	}
 
@@ -183,8 +191,8 @@ func (t *AuthTable) GetUserData(userName string, password string, sel []string) 
 		for _, itemName := range sel {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
-			si := (*(t.schema))[siName]
-			if si == nil {
+			si := t.schema[siName]
+			if !si.QuickValidate() {
 				return nil, helpers.ErrorInvalidItem
 			}
 			// Item filter
@@ -196,7 +204,7 @@ func (t *AuthTable) GetUserData(userName string, password string, sel []string) 
 			m[itemName] = i
 		}
 	} else {
-		for itemName, si := range *(t.schema) {
+		for itemName, si := range t.schema {
 			// Item filter
 			var i interface{}
 			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true, false)
@@ -284,18 +292,20 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 		e.mux.Lock()
 		data = append([]interface{}{}, e.data...)
 	}
-	var altLoginBefore string
-	var altLoginAfter string
+
 	altLoginItem := t.altLoginItem.Load().(string)
+	emailItem := t.emailItem.Load().(string)
 	uniqueVals := make(map[string]interface{})
+	uniqueValsBefore := make(map[string]interface{})
+
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
 		var itemMethods []string
 		updateName, itemMethods = schema.GetQueryItemMethods(updateName)
 
 		// Check if valid schema item
-		schemaItem := (*(*t).schema)[updateName]
-		if schemaItem == nil {
+		schemaItem := t.schema[updateName]
+		if !schemaItem.QuickValidate() {
 			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
@@ -310,9 +320,11 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 		}
 
 		//
-		if updateName == altLoginItem {
-			altLoginBefore = itemBefore.(string)
-			altLoginAfter = data[schemaItem.DataIndex()].(string)
+		if uniqueVals[updateName] != nil && data[schemaItem.DataIndex()] != itemBefore {
+			uniqueValsBefore[updateName] = itemBefore
+		}
+		if updateName == emailItem && !emailExp.MatchString(data[schemaItem.DataIndex()].(string)) {
+			return helpers.ErrorInvalidEmail
 		}
 	}
 
@@ -352,16 +364,20 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 			t.uniqueVals[itemName] = make(map[interface{}]bool)
 		}
 		t.uniqueVals[itemName][itemVal] = true
+
+		// Remove old unique values   !!! NEEDS TESTING
+		if uniqueValsBefore[itemName] != nil {
+			delete(t.uniqueVals[itemName], uniqueValsBefore[itemName])
+			// Replace altLoginItem as well if that item changed
+			if itemName == altLoginItem {
+				t.eMux.Lock()
+				delete(t.altLogins, uniqueValsBefore[itemName].(string))
+				t.altLogins[itemVal.(string)] = e
+				t.eMux.Unlock()
+			}
+		}
 	}
 	t.uMux.Unlock()
-
-	// Apply alt login and remove old if changed
-	if altLoginBefore != "" {
-		t.eMux.Lock()
-		delete(t.altLogins, altLoginBefore)
-		t.altLogins[altLoginAfter] = e
-		t.eMux.Unlock()
-	}
 	//
 	if !t.dataOnDrive {
 		e.data = data
@@ -527,8 +543,8 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		// Get entry's unique value for this unique item
 		siName, itemMethods := schema.GetQueryItemMethods(itemName)
 		//
-		si := (*(t.schema))[siName]
-		if si == nil {
+		si := t.schema[siName]
+		if !si.QuickValidate() {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
 			return helpers.ErrorUnexpected
@@ -551,6 +567,11 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 	t.uMux.Unlock()
 	ue.mux.Unlock()
 
+	// Delete entry
+	t.eMux.Lock()
+	delete(t.entries, userName)
+	t.eMux.Unlock()
+
 	// Update entry on disk with []byte{}
 	if !t.memOnly {
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
@@ -559,16 +580,11 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		}
 	}
 
-	t.eMux.Lock()
-	// Delete entry
-	delete(t.entries, userName)
-	t.eMux.Unlock()
-
 	//
 	return 0
 }
 
-// Restore is NOT concurrently safe! Only used for restoring databases.
+// RestoreUser is NOT concurrently safe! Use authtable.Restore() instead.
 func (t *AuthTable) RestoreUser(name string, pass []byte, data []interface{}, fileOn uint16, lineOn uint16, altLoginItem string) int {
 	// Check for duplicate entry
 	if t.entries[name] != nil {
@@ -577,14 +593,14 @@ func (t *AuthTable) RestoreUser(name string, pass []byte, data []interface{}, fi
 
 	// Create entry
 	e := authTableEntry{
-		data: make([]interface{}, len(*(t.schema)), len(*(t.schema))),
+		data: make([]interface{}, len(t.schema), len(t.schema)),
 	}
 
 	uniqueVals := make(map[string]interface{})
 	altLogin := ""
 
 	// Fill entry data with data
-	for itemName, schemaItem := range *(t.schema) {
+	for itemName, schemaItem := range t.schema {
 		// Check for out of range item
 		if int(schemaItem.DataIndex()) > len(data)-1 {
 			return helpers.ErrorRestoreItemSchema

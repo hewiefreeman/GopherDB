@@ -26,9 +26,9 @@ type Keystore struct {
 	// Settings and schema - read only
 	memOnly       bool // Store data in memory only (overrides dataOnDrive)
 	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing
-	name   string // table's logger/persist folder name
-	schema        *schema.Schema // table's schema
-	configFile *os.File // configuration file
+	name          string // table's logger/persist folder name
+	schema        schema.Schema // table's schema
+	configFile    *os.File // configuration file
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
@@ -73,12 +73,12 @@ const (
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new Keystore with the provided name, schema, and other parameters.
-func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*Keystore, int) {
+func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*Keystore, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
 		return nil, helpers.ErrorTableExists
-	} else if !s.ValidSchema() {
+	} else if !s.Validate() {
 		return nil, helpers.ErrorTableExists
 	}
 
@@ -116,7 +116,7 @@ func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, data
 			EncryptCost: helpers.DefaultEncryptCost,
 			MaxEntries: helpers.DefaultMaxEntries,
 		}); wErr != 0 {
-			return nil, err
+			return nil, wErr
 		}
 	}
 
@@ -251,6 +251,8 @@ func (k *Keystore) SetEncryptionCost(cost int) int {
 	}
 
 	k.encryptCost.Store(cost)
+
+	return 0
 }
 
 // SetMaxEntries sets the maximum entries for the Keystore
@@ -274,6 +276,8 @@ func (k *Keystore) SetMaxEntries(max uint64) int {
 	}
 
 	k.maxEntries.Store(max)
+
+	return 0
 }
 
 // SetPartitionMax sets the maximum entries stored in a data file
@@ -300,6 +304,8 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 	}
 
 	k.partitionMax.Store(max)
+
+	return 0
 }
 
 // Writes k to f and truncates file
@@ -391,7 +397,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.eMux.Unlock()
 		ks.uMux.Unlock()
 		df.Close()
-		ks.Close()
+		ks.Close(false)
 		return nil, helpers.ErrorFileOpen
 	}
 	files, err := df.Readdir(-1)
@@ -399,7 +405,7 @@ func Restore(name string) (*Keystore, int) {
 	if err != nil {
 		ks.eMux.Unlock()
 		ks.uMux.Unlock()
-		ks.Close()
+		ks.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
 

@@ -97,7 +97,7 @@ func BenchmarkUpdate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// 240 vs 1 to test file update efficiency (200 near default max partition)
-		if iErr := table.UpdateKey("guest240", map[string]interface{}{"mmr.*add.*mul": []interface{}{6, 0.9}}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if iErr := table.UpdateKey("guest240", map[string]interface{}{"mmr": 78, "subbed": "*now"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Update error (%v): %v", i, iErr)
 			return
 		}

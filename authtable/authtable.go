@@ -49,7 +49,7 @@ type AuthTable struct {
 	memOnly       bool // Store data in memory only (overrides dataOnDrive)
 	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing and password
 	name          string // table's logger/persist folder name
-	schema        *schema.Schema // table's schema
+	schema        schema.Schema // table's schema
 	configFile    *os.File // config file
 
 	// Atomic changable settings values - 99% read
@@ -131,12 +131,12 @@ const (
 //
 
 // New creates a new AuthTable with the provided name, schema, and other parameters.
-func New(name string, configFile *os.File, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
+func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
 		return nil, helpers.ErrorTableExists
-	} else if !s.ValidSchema() {
+	} else if !s.Validate() {
 		return nil, helpers.ErrorTableExists
 	}
 
@@ -437,10 +437,10 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 
 // SetAltLoginItem sets the AuthTable's alternative login item. Item must be a string and unique.
 func (t *AuthTable) SetAltLoginItem(item string) int {
-	si := (*(t.schema))[item]
-	if si == nil {
+	si := t.schema[item]
+	if !si.QuickValidate() {
 		return helpers.ErrorInvalidItem
-	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() {
+	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() || !si.Required() {
 		return helpers.ErrorInvalidItem
 	}
 
@@ -470,8 +470,8 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 
 // SetAltLoginItem sets the AuthTable's email item. Item must be a string and unique.
 func (t *AuthTable) SetEmailItem(item string) int {
-	si := (*(t.schema))[item]
-	if si == nil {
+	si := t.schema[item]
+	if !si.QuickValidate() {
 		return helpers.ErrorInvalidItem
 	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() {
 		return helpers.ErrorInvalidItem

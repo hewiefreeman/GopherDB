@@ -186,19 +186,19 @@ type StringItem struct {
 }
 
 type ArrayItem struct {
-	dataType interface{}
+	dataType SchemaItem
 	maxItems uint32
 	required bool
 }
 
 type MapItem struct {
-	dataType interface{}
+	dataType SchemaItem
 	maxItems uint32
 	required bool
 }
 
 type ObjectItem struct {
-	schema   *Schema
+	schema   Schema
 	required bool
 }
 
@@ -211,7 +211,7 @@ type TimeItem struct {
 //   GET A DEFAULT VALUE   //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func defaultVal(si *SchemaItem) (interface{}, int) {
+func defaultVal(si SchemaItem) (interface{}, int) {
 	switch kind := si.iType.(type) {
 	// Bools
 	case BoolItem:

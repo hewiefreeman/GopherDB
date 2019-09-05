@@ -7,7 +7,7 @@ import (
 )
 
 // Schema represents a database schema that one or more tables must adhere to.
-type Schema map[string]*SchemaItem
+type Schema map[string]SchemaItem
 
 // SchemaItem represents one of the items in a Schema. SchemaItem also holds info about the data type and it's settings.
 type SchemaItem struct {
@@ -96,7 +96,7 @@ type SchemaConfigItem struct {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new schema from a JSON schema object
-func New(schema map[string]interface{}) (*Schema, int) {
+func New(schema map[string]interface{}) (Schema, int) {
 	s := make(Schema)
 	var i uint32
 	for itemName, itemParams := range schema {
@@ -121,111 +121,111 @@ func New(schema map[string]interface{}) (*Schema, int) {
 	}
 
 	//
-	return &s, 0
+	return s, 0
 }
 
-func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
+func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 	if len(params) <= 1 {
 		// Invalid format - requires at least a length of 2 for any item data type
-		return nil, helpers.ErrorSchemaInvalidItemParameters
+		return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
 	}
 
 	// Get data type
 	if t, ok := params[0].(string); ok {
 		if !checkTypeFormat(t)(params[1:]) {
-			return nil, helpers.ErrorSchemaInvalidItemParameters
+			return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
 		}
 		// Execute create for the type
 		si := SchemaItem{name: name, typeName: t}
 		switch t {
 		case ItemTypeBool:
 			si.iType = BoolItem{defaultValue: params[1].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeInt8:
 			si.iType = Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeInt16:
 			si.iType = Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeInt32:
 			si.iType = Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeInt64:
 			si.iType = Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeUint8:
 			si.iType = Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeUint16:
 			si.iType = Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeUint32:
 			si.iType = Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeUint64:
 			si.iType = Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeFloat32:
 			si.iType = Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeFloat64:
 			si.iType = Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeString:
 			si.iType = StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeArray:
 			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
 			if iErr != 0 {
-				return nil, iErr
+				return SchemaItem{}, iErr
 			}
 			si.iType = ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeMap:
 			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
 			if iErr != 0 {
-				return nil, iErr
+				return SchemaItem{}, iErr
 			}
 			si.iType = MapItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
-			return &si, 0
+			return si, 0
 
 		case ItemTypeObject:
 			if sObj, ok := params[1].(map[string]interface{}); ok {
 				schema, schemaErr := New(sObj)
 				if schemaErr != 0 {
-					return nil, schemaErr
+					return SchemaItem{}, schemaErr
 				}
 				si.iType = ObjectItem{schema: schema}
-				return &si, 0
+				return si, 0
 			}
-			return nil, helpers.ErrorSchemaInvalidItemParameters
+			return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
 
 		case ItemTypeTime:
 			var format string = timeFormatInitializor[params[1].(string)]
 			if format == "" {
-				return nil, helpers.ErrorSchemaInvalidTimeFormat
+				return SchemaItem{}, helpers.ErrorSchemaInvalidTimeFormat
 			}
 			si.iType = TimeItem{format: format, required: params[2].(bool)}
-			return &si, 0
+			return si, 0
 
 		default:
-			return nil, helpers.ErrorUnexpected
+			return SchemaItem{}, helpers.ErrorUnexpected
 		}
 	} else {
-		return nil, helpers.ErrorSchemaInvalidFormat
+		return SchemaItem{}, helpers.ErrorSchemaInvalidFormat
 	}
 }
 
@@ -234,7 +234,7 @@ func makeSchemaItem(name string, params []interface{}) (*SchemaItem, int) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores a schema from a config file with it's Schema array
-func Restore(schema []SchemaConfigItem) (*Schema, int) {
+func Restore(schema []SchemaConfigItem) (Schema, int) {
 	s := make(Schema)
 	for _, schemaConfItem := range schema {
 		si, iErr := makeSchemaItem(schemaConfItem.Name, schemaConfItem.DataType)
@@ -246,13 +246,13 @@ func Restore(schema []SchemaConfigItem) (*Schema, int) {
 		s[schemaConfItem.Name] = si
 	}
 
-	return &s, 0
+	return s, 0
 }
 
-func (s *Schema) MakeConfig() []SchemaConfigItem {
-	var sc []SchemaConfigItem = make([]SchemaConfigItem, len(*s))
+func (s Schema) MakeConfig() []SchemaConfigItem {
+	var sc []SchemaConfigItem = make([]SchemaConfigItem, len(s))
 	i := 0
-	for _, v := range *s {
+	for _, v := range s {
 		sci := SchemaConfigItem {
 			Name: v.name,
 			DataType: v.rawParams,
@@ -268,21 +268,21 @@ func (s *Schema) MakeConfig() []SchemaConfigItem {
 //   SCHEMA CHECKS   ////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ValidSchema checks if a *Schema is valid format
-func (ts *Schema) ValidSchema() bool {
-	if ts == nil || len(*ts) == 0 {
+// Validate returns true if Schema is valid
+func (ts Schema) Validate() bool {
+	if len(ts) == 0 {
 		return false
 	}
-	for _, v := range *ts {
-		if !v.ValidSchemaItem() {
+	for _, v := range ts {
+		if !v.Validate() {
 			return false
 		}
 	}
 	return true
 }
 
-// ValidSchemaItem checks if a *SchemaItem is valid format
-func (si *SchemaItem) ValidSchemaItem() bool {
+// Validate returns true if SchemaItem is valid
+func (si SchemaItem) Validate() bool {
 	if si.name == "" || si.typeName == "" || si.dataIndex < 0 {
 		return false
 	}
@@ -298,49 +298,91 @@ func (si *SchemaItem) ValidSchemaItem() bool {
 	return false
 }
 
+// QuickValidate returns true if SchemaItem is "valid"
+func (si SchemaItem) QuickValidate() bool {
+	return si.name != ""
+}
+
 // DataIndex gets the SchemaItem data index (table specific).
-func (si *SchemaItem) DataIndex() uint32 {
+func (si SchemaItem) DataIndex() uint32 {
 	return si.dataIndex
 }
 
 // TypeName gets the type name of the SchemaItem.
-func (si *SchemaItem) TypeName() string {
+func (si SchemaItem) TypeName() string {
 	return si.typeName
 }
 
 // Unique returns true if the SchemaItem is unique.
-func (si *SchemaItem) Unique() bool {
-	switch kind := si.iType.(type) {
-		case Int8Item:
-			return kind.unique
-		case Int16Item:
-			return kind.unique
-		case Int32Item:
-			return kind.unique
-		case Int64Item:
-			return kind.unique
-		case Uint8Item:
-			return kind.unique
-		case Uint16Item:
-			return kind.unique
-		case Uint32Item:
-			return kind.unique
-		case Uint64Item:
-			return kind.unique
-		case Float32Item:
-			return kind.unique
-		case Float64Item:
-			return kind.unique
-		case StringItem:
-			return kind.unique
+func (si SchemaItem) Unique() bool {
+	switch si.typeName {
+		case ItemTypeInt8:
+			return si.iType.(Int8Item).unique
+		case ItemTypeInt16:
+			return si.iType.(Int16Item).unique
+		case ItemTypeInt32:
+			return si.iType.(Int32Item).unique
+		case ItemTypeInt64:
+			return si.iType.(Int64Item).unique
+		case ItemTypeUint8:
+			return si.iType.(Uint8Item).unique
+		case ItemTypeUint16:
+			return si.iType.(Uint16Item).unique
+		case ItemTypeUint32:
+			return si.iType.(Uint32Item).unique
+		case ItemTypeUint64:
+			return si.iType.(Uint64Item).unique
+		case ItemTypeFloat32:
+			return si.iType.(Float32Item).unique
+		case ItemTypeFloat64:
+			return si.iType.(Float64Item).unique
+		case ItemTypeString:
+			return si.iType.(StringItem).unique
+	}
+	return false
+}
+
+// Unique returns true if the SchemaItem is unique.
+func (si SchemaItem) Required() bool {
+	switch si.typeName {
+		case ItemTypeInt8:
+			return si.iType.(Int8Item).required
+		case ItemTypeInt16:
+			return si.iType.(Int16Item).required
+		case ItemTypeInt32:
+			return si.iType.(Int32Item).required
+		case ItemTypeInt64:
+			return si.iType.(Int64Item).required
+		case ItemTypeUint8:
+			return si.iType.(Uint8Item).required
+		case ItemTypeUint16:
+			return si.iType.(Uint16Item).required
+		case ItemTypeUint32:
+			return si.iType.(Uint32Item).required
+		case ItemTypeUint64:
+			return si.iType.(Uint64Item).required
+		case ItemTypeFloat32:
+			return si.iType.(Float32Item).required
+		case ItemTypeFloat64:
+			return si.iType.(Float64Item).required
+		case ItemTypeString:
+			return si.iType.(StringItem).required
+		case ItemTypeArray:
+			return si.iType.(ArrayItem).required
+		case ItemTypeObject:
+			return si.iType.(ObjectItem).required
+		case ItemTypeMap:
+			return si.iType.(MapItem).required
+		case ItemTypeTime:
+			return si.iType.(TimeItem).required
 	}
 	return false
 }
 
 // GetUniqueItems gets the item name of all unique local table items and appends them to destination.
-func GetUniqueItems(schema *Schema, destination *[]string, outerItems string) {
+func GetUniqueItems(schema Schema, destination *[]string, outerItems string) {
 	// Loop through schema & find unique value names
-	for itemName, schemaItem := range *schema {
+	for itemName, schemaItem := range schema {
 		if schemaItem.typeName == ItemTypeObject {
 			if outerItems != "" {
 				outerItems = outerItems + "." + itemName

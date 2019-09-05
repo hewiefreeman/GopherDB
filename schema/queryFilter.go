@@ -40,7 +40,7 @@ type Filter struct {
 	destination *interface{} // Pointer to where the filtered/retrieved data must go
 	methods []string // Method list
 	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search in insert/updates)
-	schemaItems []*SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
+	schemaItems []SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
 	uniqueVals *map[string]interface{} // Pointer to map storing unique values to check & set
 }
 
@@ -49,7 +49,7 @@ type Filter struct {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ItemFilter filters an item in a query against it's cooresponding SchemaItem.
-func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem *SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
+func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
 	filter := Filter{
 		restore: restore,
 		get: get,
@@ -57,7 +57,7 @@ func ItemFilter(item interface{}, methods []string, destination *interface{}, in
 		methods: methods,
 		destination: destination,
 		innerData: []interface{}{innerData},
-		schemaItems: []*SchemaItem{schemaItem},
+		schemaItems: []SchemaItem{schemaItem},
 		uniqueVals: uniqueVals,
 	}
 	return queryItemFilter(&filter)
@@ -263,7 +263,7 @@ func applyArrayMethods(filter *Filter) int {
 		case MethodAppend:
 			filter.methods = []string{}
 			filter.innerData = append(filter.innerData, nil)
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
 			var index int
 			for index, filter.item = range item {
 				iTypeErr := queryItemFilter(filter)
@@ -273,15 +273,14 @@ func applyArrayMethods(filter *Filter) int {
 				item[index] = filter.item
 			}
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			// Safely delete pointer in list for GC
-			safeSchemaItemDelete(&filter.schemaItems)
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			filter.item = append(dbEntryData, item...)
 			return 0
 
 		case MethodPrepend:
 			filter.methods = []string{}
 			filter.innerData = append(filter.innerData, nil)
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
 			var index int
 			for index, filter.item = range item {
 				iTypeErr := queryItemFilter(filter)
@@ -291,7 +290,7 @@ func applyArrayMethods(filter *Filter) int {
 				item[index] = filter.item
 			}
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			safeSchemaItemDelete(&filter.schemaItems)
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			filter.item = append(item, dbEntryData...)
 			return 0
 
@@ -330,7 +329,7 @@ func applyArrayMethods(filter *Filter) int {
 			}
 			filter.methods = []string{}
 			filter.innerData = append(filter.innerData, nil)
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
 			var index int
 			for index, filter.item = range item {
 				iTypeErr := queryItemFilter(filter)
@@ -340,7 +339,7 @@ func applyArrayMethods(filter *Filter) int {
 				item[index] = filter.item
 			}
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			safeSchemaItemDelete(&filter.schemaItems)
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			// Merge slices (could possibly be done better?) !!!
 			entryStart := append([]interface{}{}, dbEntryData[:i]...)
 			entryStart = append(entryStart, item...)
@@ -364,7 +363,7 @@ func applyArrayMethods(filter *Filter) int {
 	}
 	// Check for more methods & filter
 	filter.methods = filter.methods[1:]
-	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType.(*SchemaItem))
+	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
 	if !filter.get {
 		filter.innerData = append(filter.innerData, dbEntryData[i])
 		iTypeErr := queryItemFilter(filter)
@@ -372,7 +371,7 @@ func applyArrayMethods(filter *Filter) int {
 			return iTypeErr
 		}
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		dbEntryData[i] = filter.item
 		filter.item = dbEntryData
 	} else {
@@ -381,7 +380,7 @@ func applyArrayMethods(filter *Filter) int {
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 	}
 	return 0
 }
@@ -412,7 +411,7 @@ func applyMapMethods(filter *Filter) int {
 			// Append method - eg: {"x": 27, "y": 43}
 			filter.methods = []string{}
 			filter.innerData = append(filter.innerData, nil)
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
+			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType)
 			var itemName string
 			for itemName, filter.item = range item {
 				iTypeErr := queryItemFilter(filter)
@@ -422,7 +421,7 @@ func applyMapMethods(filter *Filter) int {
 				dbEntryData[itemName] = filter.item
 			}
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			safeSchemaItemDelete(&filter.schemaItems)
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			filter.item = dbEntryData
 			return 0
 		}
@@ -431,7 +430,7 @@ func applyMapMethods(filter *Filter) int {
 	// Checking for item with the name method[0] (Items with * not accepted)
 	if !strings.Contains(method, "*") {
 		filter.methods = filter.methods[1:]
-		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType.(*SchemaItem))
+		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType)
 		if !filter.get {
 			filter.innerData = append(filter.innerData, dbEntryData[method])
 			iTypeErr := queryItemFilter(filter)
@@ -439,8 +438,7 @@ func applyMapMethods(filter *Filter) int {
 				return iTypeErr
 			}
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			safeSchemaItemDelete(&filter.schemaItems)
-
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			dbEntryData[method] = filter.item
 			filter.item = dbEntryData
 		} else {
@@ -449,7 +447,7 @@ func applyMapMethods(filter *Filter) int {
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
-			safeSchemaItemDelete(&filter.schemaItems)
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		}
 		return 0
 	}
@@ -464,8 +462,8 @@ func applyObjectMethods(filter *Filter) int {
 	} else {
 		dbEntryData = filter.innerData[len(filter.innerData)-1].(map[string]interface{})
 	}
-	si := (*(filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema))[method]
-	if si == nil {
+	si := (filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema)[method]
+	if !si.Validate() {
 		return helpers.ErrorInvalidMethod
 	}
 	// Run method on item
@@ -478,7 +476,7 @@ func applyObjectMethods(filter *Filter) int {
 			return iTypeErr
 		}
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		dbEntryData[method] = filter.item
 		filter.item = dbEntryData
 	} else {
@@ -487,7 +485,7 @@ func applyObjectMethods(filter *Filter) int {
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 	}
 	return 0
 }
@@ -956,7 +954,7 @@ func arrayFilter(filter *Filter) int {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
 		var iTypeErr int
 		// Check inner item type
-		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
+		filter.schemaItems = append(filter.schemaItems, it.dataType)
 		var index int
 		for index, filter.item = range i {
 			iTypeErr = queryItemFilter(filter)
@@ -965,7 +963,7 @@ func arrayFilter(filter *Filter) int {
 			}
 			i[index] = filter.item
 		}
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorArrayItemsRequired
 		}
@@ -988,7 +986,7 @@ func mapFilter(filter *Filter) int {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
 		var iTypeErr int
 		// Check inner item type
-		filter.schemaItems = append(filter.schemaItems, it.dataType.(*SchemaItem))
+		filter.schemaItems = append(filter.schemaItems, it.dataType)
 		var itemName string
 		for itemName, filter.item = range i {
 			iTypeErr = queryItemFilter(filter)
@@ -997,7 +995,7 @@ func mapFilter(filter *Filter) int {
 			}
 			i[itemName] = filter.item
 		}
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorMapItemsRequired
 		}
@@ -1018,9 +1016,9 @@ func objectFilter(filter *Filter) int {
 		return 0
 	} else if i, ok := filter.item.(map[string]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem)
-		filter.schemaItems = append(filter.schemaItems, &SchemaItem{})
+		filter.schemaItems = append(filter.schemaItems, SchemaItem{})
 		var itemName string
-		for itemName, filter.schemaItems[len(filter.schemaItems)-1] = range *(it.schema) {
+		for itemName, filter.schemaItems[len(filter.schemaItems)-1] = range it.schema {
 			filter.item = i[itemName]
 			filterErr := queryItemFilter(filter)
 			if filterErr != 0 {
@@ -1028,7 +1026,7 @@ func objectFilter(filter *Filter) int {
 			}
 			i[itemName] = filter.item
 		}
-		safeSchemaItemDelete(&filter.schemaItems)
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		filter.item = i
 		return 0
 	}
@@ -1070,7 +1068,7 @@ func timeFilter(filter *Filter) int {
 		var t time.Time
 		var err error
 		if filter.restore {
-			// Restoring from JSON file
+			// Restoring from JSON file using RFC3339
 			t, err = time.Parse(TimeFormatRFC3339, i)
 		} else {
 			t, err = time.Parse(it.format, i)
@@ -1162,12 +1160,4 @@ func makeInt(i interface{}) (int, bool) {
 		return int(t), true
 	}
 	return 0, false
-}
-
-/////////////////// SAFE POINTER DELETE ////////////////////////////////////
-
-func safeSchemaItemDelete(sil *[]*SchemaItem) {
-	// Safely delete pointer in list for GC
-	(*sil)[len(*sil)-1] = nil
-	*sil = (*sil)[:len(*sil)-1]
 }

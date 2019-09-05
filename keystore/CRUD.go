@@ -42,13 +42,13 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 
 	// Create entry
 	e := keystoreEntry{
-		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
+		data: make([]interface{}, len(k.schema), len(k.schema)),
 	}
 
 	uniqueVals := make(map[string]interface{})
 
 	// Fill entry data with insertObj - Loop through schema to also check for required items
-	for itemName, schemaItem := range *(k.schema) {
+	for itemName, schemaItem := range k.schema {
 		// Item filter
 		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, false)
 		if err != 0 {
@@ -160,8 +160,8 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 		for _, itemName := range items {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
-			si := (*(k.schema))[siName]
-			if si == nil {
+			si := (k.schema)[siName]
+			if !si.QuickValidate() {
 				return nil, helpers.ErrorInvalidItem
 			}
 			// Item filter
@@ -173,7 +173,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 			m[itemName] = i
 		}
 	} else {
-		for itemName, si := range *(k.schema) {
+		for itemName, si := range k.schema {
 			// Item filter
 			var i interface{}
 			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true, false)
@@ -269,8 +269,8 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 		updateName, itemMethods = schema.GetQueryItemMethods(updateName)
 
 		// Check if valid schema item
-		schemaItem := (*(*k).schema)[updateName]
-		if schemaItem == nil {
+		schemaItem := k.schema[updateName]
+		if !schemaItem.QuickValidate() {
 			e.mux.Unlock()
 			return helpers.ErrorSchemaInvalid
 		}
@@ -377,8 +377,8 @@ func (k *Keystore) DeleteKey(key string) int {
 		// Get entry's unique value for this unique item
 		siName, itemMethods := schema.GetQueryItemMethods(itemName)
 		//
-		si := (*(k.schema))[siName]
-		if si == nil {
+		si := k.schema[siName]
+		if !si.QuickValidate() {
 			ue.mux.Unlock()
 			k.uMux.Unlock()
 			return helpers.ErrorUnexpected
@@ -422,13 +422,13 @@ func (k *Keystore) RestoreKey(key string, data []interface{}, fileOn uint16, lin
 
 	// Create entry
 	e := keystoreEntry{
-		data: make([]interface{}, len(*(k.schema)), len(*(k.schema))),
+		data: make([]interface{}, len(k.schema), len(k.schema)),
 	}
 
 	uniqueVals := make(map[string]interface{})
 
 	// Fill entry data with data
-	for _, schemaItem := range *(k.schema) {
+	for _, schemaItem := range k.schema {
 		if int(schemaItem.DataIndex()) > len(data)-1 {
 			return helpers.ErrorRestoreItemSchema
 		}
