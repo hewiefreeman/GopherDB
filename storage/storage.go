@@ -25,7 +25,7 @@ const (
 var (
 	openFilesMux   sync.Mutex
 	openFiles map[string]*openFile = make(map[string]*openFile)
-	fileOpenTime time.Duration = 10 // in seconds
+	fileOpenTime time.Duration = 20 // *int64* in seconds
 )
 
 type openFile struct {

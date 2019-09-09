@@ -40,12 +40,13 @@ var (
 
 // NewUser creates a new authTableEntry in the AuthTable
 func (t *AuthTable) NewUser(name string, password string, insertObj map[string]interface{}) int {
+	minPass := t.minPassword.Load().(uint8)
 	// Name and password are required
 	if len(name) == 0 {
 		return helpers.ErrorNameRequired
 	} else if strings.ContainsAny(name, " \t\n\r"){
 		return helpers.ErrorInvalidKeyCharacters
-	} else if len(password) < int(t.minPassword.Load().(uint8)) {
+	} else if len(password) < int(minPass) {
 		return helpers.ErrorPasswordLength
 	}
 
@@ -76,7 +77,8 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	}
 
 	// Encrypt password and store in entry
-	ePass, ePassErr := helpers.EncryptString(password, t.encryptCost.Load().(int))
+	encryptCost := t.encryptCost.Load().(int)
+	ePass, ePassErr := helpers.EncryptString(password, encryptCost)
 	if ePassErr != nil {
 		return helpers.ErrorPasswordEncryption
 	}
@@ -137,8 +139,23 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	ute.persistFile = t.fileOn
 
 	// Increase fileOn when the index has reached or surpassed partitionMax
-	if ute.persistIndex >= t.partitionMax.Load().(uint16) {
+	pMax := t.partitionMax.Load().(uint16)
+	if ute.persistIndex >= pMax {
 		t.fileOn++
+		writeConfigFile(t.configFile, authtableConfig{
+			Name: t.name,
+			Schema: t.schema.MakeConfig(),
+			FileOn: t.fileOn,
+			DataOnDrive: t.dataOnDrive,
+			MemOnly: t.memOnly,
+			PartitionMax: pMax,
+			EncryptCost: encryptCost,
+			MaxEntries: maxEntries,
+			MinPass: minPass,
+			PassResetLen: t.passResetLen.Load().(uint8),
+			EmailItem: emailItem,
+			AltLogin: altLoginItem,
+		})
 	}
 
 	// Remove data from memory if dataOnDrive is true

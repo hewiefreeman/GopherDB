@@ -89,8 +89,8 @@ func (l *Leaderboard) GetPage(limit int, page int) []LeaderboardEntry {
 	return cp
 }
 
-// CheckAndPush checks the target against the leaderboard, and pushes worth entries into it.
-func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string]interface{}) {
+// CheckAndPush checks the target against the leaderboard, and pushes worthy entries into it. Returns true if entry was pushed to leaderboard.
+func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string]interface{}) bool {
 	l.mux.Lock()
 	// Check if Leaderboard is empty
 	entriesLen := len(l.entries)
@@ -100,7 +100,7 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 		l.least = target
 		l.most = target
 		l.mux.Unlock()
-		return
+		return true
 	}
 	// Check if entry is worthy and for previous entry by same name
 	previousPos := -1
@@ -151,6 +151,7 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 			break
 		}
 	}
+	var onList bool
 	// Apply any changes
 	if newPos >= 0 {
 		newEntry := LeaderboardEntry{name: name, target: target, extra: extra}
@@ -164,11 +165,13 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 				l.entries = append(l.entries[:newPos], append([]*LeaderboardEntry{&newEntry}, l.entries[newPos:]...)...)
 				l.least = l.entries[len(l.entries)-1].target
 				l.most = l.entries[0].target
+				onList = true
 			} else if previousPos == newPos && (previousTarget < target || l.alwaysReplace) {
 				// replace previousPos
 				l.entries[previousPos] = &newEntry
 				l.least = l.entries[len(l.entries)-1].target
 				l.most = l.entries[0].target
+				onList = true
 			}
 		} else {
 			// insert to newPos
@@ -179,6 +182,7 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 			}
 			l.least = l.entries[len(l.entries)-1].target
 			l.most = l.entries[0].target
+			onList = true
 		}
 	} else if previousPos >= 0 && l.alwaysReplace {
 		// move previousPos to end
@@ -186,8 +190,10 @@ func (l *Leaderboard) CheckAndPush(name string, target float64, extra map[string
 		l.entries = append(l.entries[:previousPos], l.entries[previousPos+1:]...)
 		l.entries = append(l.entries, &newEntry)
 		l.least = target
+		onList = true
 	}
 	l.mux.Unlock()
+	return onList
 }
 
 // Print prints the leaderboard to console.

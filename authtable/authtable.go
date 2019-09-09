@@ -9,6 +9,7 @@ import (
 	"os"
 	"io"
 	"encoding/json"
+	"net/smtp"
 	"strings"
 	"strconv"
 	"fmt"
@@ -59,16 +60,32 @@ type AuthTable struct {
 	encryptCost   atomic.Value // *int* encryption cost of passwords
 	passResetLen  atomic.Value // *uint8* the length of passwords created by the database
 	emailItem     atomic.Value // *string* item in schema that represents a user's email address
+	verifyItem    atomic.Value // *string* when set, the database will send a verified boolean for the User along with insert/update/get queries. The verified boolean is true if the User has successfully verified their account through email. Requires emailItem to be set
+	emailSettings atomic.Value // *EmailSettings* Settings for email server authentication, and verification emails
 	altLoginItem  atomic.Value // *string* item in schema that a user can log in with as if it's their user name (usually the emailItem)
 
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
 	entries   map[string]*authTableEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
 	altLogins map[string]*authTableEntry
+	vCodes    map[string]string
 
 	// unique values
 	uMux       sync.Mutex
 	uniqueVals map[string]map[interface{}]bool
+}
+
+type EmailSettings struct {
+	auth smtp.Auth
+	AuthType string // "CRAMMD5" or "Plain"
+	AuthName string // username
+	AuthPass string // password
+	AuthID   string // identity (for Plain)
+	AuthHost string // host (for Plain)
+
+	VerifyFrom string // Verification email sender
+	VerifySubj string // Verification email subject
+	VerifyBody string // Verification email body
 }
 
 type authTableEntry struct {
@@ -93,6 +110,8 @@ type authtableConfig struct {
 	MinPass uint8
 	PassResetLen uint8
 	EmailItem string
+	VerifyItem string
+	EmailSettings EmailSettings
 	AltLogin string
 }
 
@@ -172,6 +191,12 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 			PartitionMax: helpers.DefaultPartitionMax,
 			EncryptCost: helpers.DefaultEncryptCost,
 			MaxEntries: helpers.DefaultMaxEntries,
+			MinPass: defaultMinPassword,
+			PassResetLen: defaultPassResetLen,
+			EmailItem: "",
+			VerifyItem: "",
+			EmailSettings: EmailSettings{},
+			AltLogin: "",
 		}); wErr != 0 {
 			return nil, wErr
 		}
@@ -192,6 +217,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 		configFile:    configFile,
 		entries:       make(map[string]*authTableEntry),
 		altLogins:     make(map[string]*authTableEntry),
+		vCodes:        make(map[string]string),
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 	}
@@ -203,6 +229,8 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	t.encryptCost.Store(helpers.DefaultEncryptCost)
 	t.passResetLen.Store(defaultPassResetLen)
 	t.emailItem.Store("")
+	t.verifyItem.Store("")
+	t.emailSettings.Store(EmailSettings{})
 	t.altLoginItem.Store("")
 
 	// push to tables map
@@ -230,6 +258,8 @@ func (t *AuthTable) Close(save bool) {
 			MinPass: t.minPassword.Load().(uint8),
 			PassResetLen: t.passResetLen.Load().(uint8),
 			EmailItem: t.emailItem.Load().(string),
+			VerifyItem: t.verifyItem.Load().(string),
+			EmailSettings: e.emailSettings.Load().(EmailSettings),
 			AltLogin: t.altLoginItem.Load().(string),
 		})
 	}
@@ -335,6 +365,8 @@ func (t *AuthTable) SetEncryptionCost(cost int) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
@@ -364,6 +396,8 @@ func (t *AuthTable) SetMaxEntries(max uint64) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
@@ -396,6 +430,8 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) int {
 		MinPass: min,
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
@@ -426,6 +462,8 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: len,
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
@@ -459,6 +497,8 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: item,
 	}); err != 0 {
 		return err
@@ -492,12 +532,87 @@ func (t *AuthTable) SetEmailItem(item string) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: item,
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
 	}
 
 	t.emailItem.Store(item)
+	return 0
+}
+
+// SetVerifyItem sets the AuthTable's email verification item. Item must be a string.
+func (t *AuthTable) SetVerifyItem(item string) int {
+	si := t.schema[item]
+	if !si.QuickValidate() {
+		return helpers.ErrorInvalidItem
+	} else if si.TypeName() != schema.ItemTypeString {
+		return helpers.ErrorInvalidItem
+	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: item,
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
+		AltLogin: t.altLoginItem.Load().(string),
+	}); err != 0 {
+		return err
+	}
+
+	t.verifyItem.Store(item)
+	return 0
+}
+
+// SetVerifyItem sets the AuthTable's email verification item. Item must be a string.
+func (t *AuthTable) SetEmailSettings(settings EmailSettings) int {
+	//Build Auth for EmailSettings
+	switch settings.AuthType {
+	case "Plain":
+		settings.auth = smtp.PlainAuth(settings.AuthID, settings.AuthName, settings.AuthPass, settings.AuthHost)
+	case "CRAMMD5":
+		settings.auth = smtp.CRAMMD5Auth(setting.AuthName, settings.AuthPass)
+	default:
+		return helpers.ErrorIncorrectAuthType
+	}
+
+	t.eMux.Lock()
+	fileOn := t.fileOn
+	t.eMux.Unlock()
+	if err := writeConfigFile(t.configFile, authtableConfig{
+		Name: t.name,
+		Schema: t.schema.MakeConfig(),
+		FileOn: fileOn,
+		DataOnDrive: t.dataOnDrive,
+		MemOnly: t.memOnly,
+		PartitionMax: t.partitionMax.Load().(uint16),
+		EncryptCost: t.encryptCost.Load().(int),
+		MaxEntries: t.maxEntries.Load().(uint64),
+		MinPass: t.minPassword.Load().(uint8),
+		PassResetLen: t.passResetLen.Load().(uint8),
+		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: settings,
+		AltLogin: t.altLoginItem.Load().(string),
+	}); err != 0 {
+		return err
+	}
+
+	t.emailSettings.Store(settings)
 	return 0
 }
 
@@ -521,6 +636,8 @@ func (t *AuthTable) SetPartitionMax(max uint16) int {
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
+		VerifyItem: t.verifyItem.Load().(string),
+		EmailSettings: e.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
 	}); err != 0 {
 		return err
@@ -531,7 +648,7 @@ func (t *AuthTable) SetPartitionMax(max uint16) int {
 }
 
 func writeConfigFile(f *os.File, c authtableConfig) int {
-	jBytes, jErr := json.Marshal(c)
+	jBytes, jErr := json.MarshalIndent(c, "", "\t")
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
@@ -620,6 +737,10 @@ func Restore(name string) (*AuthTable, int) {
 
 	if confStruct.EmailItem != "" {
 		t.emailItem.Store(confStruct.EmailItem)
+	}
+
+	if confStruct.EmailVerify {
+		t.emailVerify.Store(confStruct.EmailVerify)
 	}
 
 	if confStruct.AltLogin != "" {

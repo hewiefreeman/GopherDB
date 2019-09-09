@@ -113,6 +113,16 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Increase fileOn when the index has reached or surpassed partitionMax
 	if e.persistIndex >= k.partitionMax.Load().(uint16) {
 		k.fileOn++
+		writeConfigFile(k.configFile, keystoreConfig{
+			Name: k.name,
+			Schema: k.schema.MakeConfig(),
+			FileOn: k.fileOn,
+			DataOnDrive: k.dataOnDrive,
+			MemOnly: k.memOnly,
+			PartitionMax: k.partitionMax.Load().(uint16),
+			EncryptCost: k.encryptCost.Load().(int),
+			MaxEntries: k.maxEntries.Load().(uint64),
+		})
 	}
 
 	// Remove data from memory if dataOnDrive is true
