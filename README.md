@@ -19,8 +19,8 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
 When creating a table in GopherDB, you will need to make a schema that describes what types of data the database will store, and how. These are all the data types available in GDB, and one or more must be used when creating a database schema:
 
   - Boolean
-  - Unsigned Integer (8 to 64 bit)
-  - Integer (8 to 64 bit)
+  - Unsigned Integer (8, 16, 32, and 64 bit)
+  - Integer (8, 16, 32, and 64 bit)
   - Float (32 & 64 bit)
   - String
   - Array
