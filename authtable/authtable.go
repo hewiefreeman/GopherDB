@@ -25,17 +25,16 @@ import (
 //////////////////         - Connection authentication
 //////////////////         - Connection privillages
 //////////////////
-//////////////////     - Rate limiting
+//////////////////     - Rate & connection limiting
 //////////////////
-//////////////////     - Query router
-//////////////////         - Connection authentication
-//////////////////         - Connection privillages
-//////////////////         - Sharding & Replication
-//////////////////         - Distributed queries
+//////////////////     - Clustering
+//////////////////         - Connect to cluster nodes & agree upon master node
+//////////////////         - Master assigns nodes key numbers and creates a keyspace unless valid ones have been created already
+//////////////////         - Master ensures all nodes contain the same table schemas
+//////////////////         -
+//////////////////         - Global unique values
 //////////////////
-//////////////////     - Distributed unique value checks
-//////////////////
-//////////////////     - Keystore & Datelist tables
+//////////////////     - Ordered tables
 
 var (
 	tablesMux      sync.Mutex
@@ -259,7 +258,7 @@ func (t *AuthTable) Close(save bool) {
 			PassResetLen: t.passResetLen.Load().(uint8),
 			EmailItem: t.emailItem.Load().(string),
 			VerifyItem: t.verifyItem.Load().(string),
-			EmailSettings: e.emailSettings.Load().(EmailSettings),
+			EmailSettings: t.emailSettings.Load().(EmailSettings),
 			AltLogin: t.altLoginItem.Load().(string),
 		})
 	}
@@ -353,22 +352,9 @@ func (t *AuthTable) SetEncryptionCost(cost int) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: cost,
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.EncryptCost = cost
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -384,22 +370,9 @@ func (t *AuthTable) SetMaxEntries(max uint64) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: max,
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.MaxEntries = max
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -418,22 +391,9 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: min,
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.MinPass = min
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -450,22 +410,9 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: len,
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.PassResetLen = len
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -485,22 +432,9 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: item,
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.AltLogin = item
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -520,22 +454,9 @@ func (t *AuthTable) SetEmailItem(item string) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: item,
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.EmailItem = item
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -555,22 +476,9 @@ func (t *AuthTable) SetVerifyItem(item string) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: item,
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.VerifyItem = item
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -585,7 +493,7 @@ func (t *AuthTable) SetEmailSettings(settings EmailSettings) int {
 	case "Plain":
 		settings.auth = smtp.PlainAuth(settings.AuthID, settings.AuthName, settings.AuthPass, settings.AuthHost)
 	case "CRAMMD5":
-		settings.auth = smtp.CRAMMD5Auth(setting.AuthName, settings.AuthPass)
+		settings.auth = smtp.CRAMMD5Auth(settings.AuthName, settings.AuthPass)
 	default:
 		return helpers.ErrorIncorrectAuthType
 	}
@@ -593,22 +501,9 @@ func (t *AuthTable) SetEmailSettings(settings EmailSettings) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
-		Name: t.name,
-		Schema: t.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: t.dataOnDrive,
-		MemOnly: t.memOnly,
-		PartitionMax: t.partitionMax.Load().(uint16),
-		EncryptCost: t.encryptCost.Load().(int),
-		MaxEntries: t.maxEntries.Load().(uint64),
-		MinPass: t.minPassword.Load().(uint8),
-		PassResetLen: t.passResetLen.Load().(uint8),
-		EmailItem: t.emailItem.Load().(string),
-		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: settings,
-		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
+	conf := t.makeDefaultConfig(fileOn)
+	conf.EmailSettings = settings
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
 
@@ -624,27 +519,33 @@ func (t *AuthTable) SetPartitionMax(max uint16) int {
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
-	if err := writeConfigFile(t.configFile, authtableConfig{
+	conf := t.makeDefaultConfig(fileOn)
+	conf.PartitionMax = max
+	if err := writeConfigFile(t.configFile, conf); err != 0 {
+		return err
+	}
+
+	t.partitionMax.Store(max)
+	return 0
+}
+
+func (t *AuthTable) makeDefaultConfig(fileOn uint16) authtableConfig {
+	return authtableConfig{
 		Name: t.name,
 		Schema: t.schema.MakeConfig(),
 		FileOn: fileOn,
 		DataOnDrive: t.dataOnDrive,
 		MemOnly: t.memOnly,
-		PartitionMax: max,
+		PartitionMax: t.partitionMax.Load().(uint16),
 		EncryptCost: t.encryptCost.Load().(int),
 		MaxEntries: t.maxEntries.Load().(uint64),
 		MinPass: t.minPassword.Load().(uint8),
 		PassResetLen: t.passResetLen.Load().(uint8),
 		EmailItem: t.emailItem.Load().(string),
 		VerifyItem: t.verifyItem.Load().(string),
-		EmailSettings: e.emailSettings.Load().(EmailSettings),
+		EmailSettings: t.emailSettings.Load().(EmailSettings),
 		AltLogin: t.altLoginItem.Load().(string),
-	}); err != 0 {
-		return err
 	}
-
-	t.partitionMax.Store(max)
-	return 0
 }
 
 func writeConfigFile(f *os.File, c authtableConfig) int {
@@ -739,8 +640,8 @@ func Restore(name string) (*AuthTable, int) {
 		t.emailItem.Store(confStruct.EmailItem)
 	}
 
-	if confStruct.EmailVerify {
-		t.emailVerify.Store(confStruct.EmailVerify)
+	if confStruct.EmailSettings.AuthType != "" {
+		t.emailSettings.Store(confStruct.EmailSettings)
 	}
 
 	if confStruct.AltLogin != "" {

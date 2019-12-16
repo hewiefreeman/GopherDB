@@ -1,121 +1,301 @@
 package keystore
 
 import (
-	"github.com/hewiefreeman/GopherDB/schema"
-	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/keystore"
+	"github.com/hewiefreeman/GopherDB/helpers"
+	"github.com/hewiefreeman/GopherDB/storage"
 	"testing"
 	"errors"
-	"encoding/json"
 	"strconv"
 	"time"
 	"fmt"
 )
 
 var (
+	// Test settings
+	tableName string = "test"
+	tablePartitionMax uint16 = 250
+	tableMaxEntries uint64 = 1000000
+	tableEncryptionCost int = 4;
+
+	// Test variables
 	setupComplete bool
 	table *keystore.Keystore
 )
 
 // TO TEST:
-// go test -v keystore_test.go -bench=.
+// go test -v keystore_test.go
 //
 // Use -v to display fmt output
 
-func setup() (bool, error) {
-	if(!setupComplete) {
-		// Set-up
+// NOTE: KS-test/0.gdbs must contain at least the first "Vokome" entry.
+// NOTE: All .gdbs files must have a new line at the end of the file to work properly.
 
-		// Try to restore table & find out how long it took
+func restore() (bool, error) {
+	if(!setupComplete) {
 		var tableErr int
 		now := time.Now()
-		table, tableErr = keystore.Restore("test")
-		if tableErr == 0 {
-			since := time.Since(now).Seconds()
-			fmt.Printf("Restore success! Took %v seconds to restore %v keys.", since, table.Size())
-			setupComplete = true
-			return true, nil
-		}
-
-		fmt.Printf("Fatal restore error: #%v", tableErr)
-
-		newTableJson := "{\"NewKeystore\": [\"test\", {\"mmr\": [\"Uint16\", 0, 0, 0, false, false], \"email\": [\"String\", \"\", 0, false, false], \"subbed\": [\"Time\", \"RFC3339\", false]}, 0, 0, 0, 0]}"
-		v := make(map[string]interface{})
-		err := json.Unmarshal([]byte(newTableJson), &v)
-		if err != nil {
-			return false, err
-		}
-
-		// Get the schema object from the query
-		s := v["NewKeystore"].([]interface{})[1].(map[string]interface{})
-
-		// Make a schema with the query's schema object
-		schemaObj, schemaErr := schema.New(s)
-		if schemaErr != 0 {
-			return false, errors.New("Schema error: " + strconv.Itoa(schemaErr))
-		}
-
-		// Make a new Keystore with the schema
-		table, tableErr = keystore.New("test", nil, schemaObj, 0, true, false)
+		table, tableErr = keystore.Restore(tableName)
+		since := time.Since(now).Seconds()
 		if tableErr != 0 {
-			return false, errors.New("Table create error: " + strconv.Itoa(tableErr))
+			return false, errors.New("Fatal restore error: " + strconv.Itoa(tableErr))
+		} else if table.Size() == 0 {
+			return false, errors.New("Restored 0 entries! Skipping tests...")
 		}
-
-		//
+		fmt.Printf("Restore success! Took %v seconds to restore %v keys.\n", since, table.Size())
 		setupComplete = true
+		return true, nil
 	}
 	return false, nil
 }
 
-func BenchmarkInsert(b *testing.B) {
-	b.ReportAllocs()
-	var restored bool
-	var sErr error
-	if restored, sErr = setup(); sErr != nil {
-		b.Errorf(sErr.Error())
-		return
+func TestRestore(t *testing.T) {
+	// Run restore() to restore "test" table
+	if ok, err := restore(); !ok {
+		t.Errorf("Error while restoring '%v' table: %v", tableName, err)
 	}
-	if restored {
-		b.Errorf("Restored table... Skipping BenchmarkInsert()!")
-		return
+}
+
+func TestChangeSettings(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip("Skipping tests...")
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		is := strconv.Itoa(i)
-		if _, iErr := table.InsertKey("guest"+is, map[string]interface{}{"email": "dinospumoni"+is+"@yahoo.com", "mmr": 1674}); iErr != 0 && iErr != helpers.ErrorKeyInUse {
-			b.Errorf("Insert error (%v): %v", i, iErr)
-			return
+
+	storage.SetFileOpenTime(3)
+
+	// Set max partition file size
+	err := table.SetPartitionMax(tablePartitionMax)
+	if err != 0 {
+		t.Errorf("Error while setting max partition file size: %v", err)
+	}
+
+	// Set max table entries
+	err = table.SetMaxEntries(tableMaxEntries)
+	if err != 0 {
+		t.Errorf("Error while setting max table entries: %v", err)
+	}
+
+	// Set table encryption cost
+	err = table.SetEncryptionCost(tableEncryptionCost)
+	if err != 0 {
+		t.Errorf("Error while setting table encryption cost: %v", err)
+	}
+}
+
+func TestInsert(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com"})
+	if (err != 0) {
+		t.Errorf("Error while inserting '%v': %v", guestName, err)
+	}
+}
+
+func TestInsertMissingRequiredItem(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	_, err := table.InsertKey("guest" + strconv.Itoa(table.Size() + 1), map[string]interface{}{"mmr": 1337})
+	if (err != helpers.ErrorMissingRequiredItem) {
+		t.Errorf("InsertDuplicateUniqueTableValue expected error %v, but got: %v", helpers.ErrorMissingRequiredItem, err)
+	}
+}
+
+func TestInsertDuplicateUniqueTableValue(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	_, err := table.InsertKey("guest" + strconv.Itoa(table.Size() + 1), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("InsertDuplicateUniqueTableValue expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestInsertMissingRequiredNestedItemArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"status": 0}}})
+	if (err != helpers.ErrorMissingRequiredItem) {
+		t.Errorf("TestInsertMissingRequiredNestedItemArray expected error %v, but got: %v", helpers.ErrorMissingRequiredItem, err)
+	}
+}
+
+func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Sir Smack", "status": 0}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+	// Test deeper nesting...
+	err = table.UpdateKey("Vokome", map[string]interface{}{"friends.0.labels.nickname": "H"})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+	// Testing Int8...
+	err = table.UpdateKey("Vokome", map[string]interface{}{"friends.2.labels.friendNum": 0})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0}, map[string]interface{}{"login": "Vokome", "status": 1}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Mary", "status": 0}, map[string]interface{}{"login": "Mary", "status": 1}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestInsertMissingRequiredNestedItemMap(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "actions": map[string]interface{}{"yo": map[string]interface{}{"type":"greeting"}}})
+	if (err != helpers.ErrorMissingRequiredItem) {
+		t.Errorf("TestInsertMissingRequiredNestedItemMap expected error %v, but got: %v", helpers.ErrorMissingRequiredItem, err)
+	}
+}
+
+func TestAppendDuplicateUniqueNestedValueMap(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"yo": map[string]interface{}{"type": "greeting", "id": 1}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendDuplicateUniqueNestedValueMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+	// Testing Uint16...
+	err = table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 0}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendDuplicateUniqueNestedValueMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestInsertWithUniqueValueDuplicatesMap(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "actions": map[string]interface{}{"hi": map[string]interface{}{"type": "greeting", "id": 0}, "yo": map[string]interface{}{"type": "greeting", "id": 1}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestInsertWithUniqueValueDuplicatesMap expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestAppendWithUniqueValueDuplicatesMap(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"hi": map[string]interface{}{"type": "greeting", "id": 0}, "yo": map[string]interface{}{"type": "greeting", "id": 1}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendWithUniqueValueDuplicatesMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+}
+
+func TestGet(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	data, err := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
+	if err != 0 {
+		t.Errorf("TestGet error: %v", err)
+	} else if data["mmr"] != float64(1337) {
+		t.Errorf("TestGet expected 1337, but got: %v", data["mmr"])
+	}
+}
+
+func TestGetArrayLength(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	data, err := table.GetKeyData("Vokome", []string{"friends.*len"})
+	if err != 0 {
+		t.Errorf("TestGetArrayLength error: %v", err)
+	} else if data["friends.*len"] != 3 {
+		t.Errorf("TestGetArrayLength expected 3, but got: %v", data["friends.*len"])
+	}
+}
+
+func TestGetMapLength(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	data, err := table.GetKeyData("Vokome", []string{"actions.*len"})
+	if err != 0 {
+		t.Errorf("TestGetMapLength error: %v", err)
+	} else if data["actions.*len"] != 1 {
+		t.Errorf("TestGetMapLength expected 1, but got: %v", data["actions.*len"])
+	}
+}
+
+func TestAppendToArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	for i := 0; i < 3; i++ {
+		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0}}})
+		if (err != 0) {
+			t.Errorf("TestAppendArray error: %v", err)
 		}
 	}
 }
 
-func BenchmarkUpdate(b *testing.B) {
-	b.ReportAllocs()
-	if table == nil {
-		return
+func TestAppendToMap(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// 240 vs 1 to test file update efficiency (200 near default max partition)
-		if iErr := table.UpdateKey("guest240", map[string]interface{}{"mmr": 78, "subbed": "*now"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
-			b.Errorf("Update error (%v): %v", i, iErr)
-			return
-		}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 1}}})
+	if (err != 0) {
+		t.Errorf("TestAppendMap error: %v", err)
+	}
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"hallo": map[string]interface{}{"type": "greeting", "id": 0}}})
+	if (err != 0) {
+		t.Errorf("TestAppendMap error: %v", err)
+	}
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"peace": map[string]interface{}{"type": "salutation", "id": 2}}})
+	if (err != 0) {
+		t.Errorf("TestAppendMap error: %v", err)
 	}
 }
 
-func BenchmarkGet(b *testing.B) {
-	b.ReportAllocs()
-	if table == nil {
-		return
+func TestArithmetic(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// 240 vs 1 to test file read efficiency (200 near default max partition)
-		if _, iErr := table.GetKeyData("guest240", []string{"mmr"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
-			b.Errorf("Get error (%v): %v", i, iErr)
-			return
-		}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*sub.*mul.*div.*mod": []interface{}{10, 7, 2, 3, 8}})
+	if err != 0 {
+		t.Errorf("TestArithmetic error: %v", err)
 	}
-	table.Close(true)
+	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
+	if data["mmr"] != float64(5) {
+		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
+	}
+}
+
+// Must be last test!!
+func TestLetFilesClose(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	time.Sleep(4 * time.Second)
 }

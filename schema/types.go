@@ -208,7 +208,7 @@ type TimeItem struct {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//   GET A DEFAULT VALUE   //////////////////////////////////////////////////
+//   Get a default value   //////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
 func defaultVal(si SchemaItem) (interface{}, int) {
@@ -225,7 +225,9 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		i := kind.defaultValue
+		// If min and max are the same, skip their checks
 		if kind.min < kind.max {
+			// Make sure the defaultValue isn't outside of min/max range
 			if i > kind.max {
 				i = kind.max
 			} else if i < kind.min {
@@ -427,7 +429,7 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//   ITEM TYPE FORMAT CHECKS   //////////////////////////////////////////////
+//   Item type format checks   //////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
 func checkTypeFormat(t string) func([]interface{})bool {
@@ -581,30 +583,4 @@ func checkTimeFormat(f []interface{}) bool {
 		return false
 	}
 	return true
-}
-
-/////////////////////////////////////////////////////////////////////////////
-//   GET TYPE FILTER   //////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-
-func getTypeFilter(typeName string) func(*Filter)(int) {
-	switch typeName {
-	case ItemTypeBool: return boolFilter
-	case ItemTypeInt8: return int8Filter
-	case ItemTypeInt16: return int16Filter
-	case ItemTypeInt32: return int32Filter
-	case ItemTypeInt64: return int64Filter
-	case ItemTypeUint8: return uint8Filter
-	case ItemTypeUint16: return uint16Filter
-	case ItemTypeUint32: return uint32Filter
-	case ItemTypeUint64: return uint64Filter
-	case ItemTypeFloat32: return float32Filter
-	case ItemTypeFloat64: return float64Filter
-	case ItemTypeString: return stringFilter
-	case ItemTypeArray: return arrayFilter
-	case ItemTypeMap: return mapFilter
-	case ItemTypeObject: return objectFilter
-	case ItemTypeTime: return timeFilter
-	default: return nil
-	}
 }

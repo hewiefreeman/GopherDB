@@ -1,5 +1,3 @@
-keystore/KS-test/
-keystore/KS-test.gdbconf
-authtable/AT-test/
-authtable/AT-test.gdbconf
+keystore/KS-test
+authtable/AT-test
 fastest_test.go

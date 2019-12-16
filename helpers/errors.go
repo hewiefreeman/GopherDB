@@ -6,8 +6,11 @@ type Error struct {
 }
 
 const (
+	// Unexpected error
+	ErrorUnexpected = iota + 1001
+
 	// Generic Table Query Errors
-	ErrorTableExists      = iota + 1001
+	ErrorTableExists
 	ErrorTableDoesntExist
 	ErrorTableNameRequired
 	ErrorInvalidKeyCharacters
@@ -15,10 +18,12 @@ const (
 	ErrorQueryInvalidFormat
 	ErrorNoEntryFound
 	ErrorInvalidItem
-	ErrorInvalidMethod
+	ErrorInvalidMethod // 1010
 	ErrorInvalidMethodParameters
+)
 
-	// Missing or invalid schema requirements for creation
+const (
+	// Schema creation errors
 	ErrorSchemaRequired = iota + 2001
 	ErrorSchemaItemsRequired
 	ErrorSchemaInvalidItemName
@@ -28,22 +33,27 @@ const (
 	ErrorSchemaInvalidTimeFormat
 	ErrorSchemaInvalid
 
-	// Schema errors
+	// Schema query errors
 	ErrorInvalidItemValue
-	ErrorMissingRequiredItem
+	ErrorMissingRequiredItem // 2010
 	ErrorStringTooLarge
 	ErrorStringRequired
 	ErrorArrayItemsRequired
 	ErrorArrayEmpty
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
-	ErrorUniqueValueInUse
+	ErrorUniqueValueDuplicate // Value already in database
+	ErrorUniqueValueDuplicates // Values in query
 	ErrorRestoreItemSchema
+)
 
+const (
 	// Keystore Errors
 	ErrorKeyRequired = iota + 3001
 	ErrorKeyInUse
+)
 
+const (
 	// Auth Table Query Errors
 	ErrorNameRequired = iota + 4001
 	ErrorEntryNameInUse
@@ -52,11 +62,15 @@ const (
 	ErrorNoEmailItem
 	ErrorIncorrectAuthType
 	ErrorInvalidEmail
+)
 
+const (
 	// Leaderboard errors
 	ErrorLeaderboardExists = iota + 5001
 	ErrorLeaderboardDoesntExist
+)
 
+const (
 	// Storage errors
 	ErrorLoggerExists = iota + 6001
 	ErrorLoggerFileCreate
@@ -67,11 +81,8 @@ const (
 	ErrorFileUpdate
 	ErrorFileRead
 	ErrorFileWrite
-	ErrorFileDelete
+	ErrorFileDelete // 6010
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat
-
-	// Unexpected error
-	ErrorUnexpected = 1000
 )

@@ -1,0 +1,125 @@
+{
+	"Name": "test",
+	"Schema": [
+		{
+			"Name": "actions",
+			"DataType": [
+				"Map",
+				[
+					"Object",
+					{
+						"id": [
+							"Uint16",
+							0,
+							0,
+							0,
+							false,
+							true
+						],
+						"type": [
+							"String",
+							"greeting",
+							0,
+							false,
+							true
+						]
+					},
+					false
+				],
+				0,
+				false
+			],
+			"Position": 4
+		},
+		{
+			"Name": "subbed",
+			"DataType": [
+				"Time",
+				"RFC3339",
+				false
+			],
+			"Position": 2
+		},
+		{
+			"Name": "mmr",
+			"DataType": [
+				"Uint16",
+				0,
+				0,
+				0,
+				false,
+				false
+			],
+			"Position": 0
+		},
+		{
+			"Name": "friends",
+			"DataType": [
+				"Array",
+				[
+					"Object",
+					{
+						"labels": [
+							"Object",
+							{
+								"friendNum": [
+									"Int8",
+									0,
+									0,
+									0,
+									false,
+									false,
+									true
+								],
+								"nickname": [
+									"String",
+									"",
+									16,
+									true,
+									true
+								]
+							},
+							false
+						],
+						"login": [
+							"String",
+							"",
+							16,
+							true,
+							true
+						],
+						"status": [
+							"Uint8",
+							0,
+							0,
+							2,
+							false,
+							false
+						]
+					},
+					false
+				],
+				30,
+				false
+			],
+			"Position": 3
+		},
+		{
+			"Name": "email",
+			"DataType": [
+				"String",
+				"",
+				30,
+				true,
+				true
+			],
+			"Position": 1
+		}
+	],
+	"FileOn": 0,
+	"DataOnDrive": true,
+	"MemOnly": false,
+	"PartitionMax": 250,
+	"EncryptCost": 4,
+	"MaxEntries": 1000000
+}

@@ -15,6 +15,17 @@ import (
 var (
 	setupComplete bool
 	table *authtable.AuthTable
+
+	defaultFriends []map[string]interface{} = []map[string]interface{}{
+		map[string]interface{}{
+			"name": "MountMoke",
+		},
+		map[string]interface{}{
+			"name": "LotrFTW",
+		},
+	}
+
+	got interface{}
 )
 
 // TO TEST:
@@ -87,7 +98,7 @@ func BenchmarkInsert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		is := strconv.Itoa(i)
-		if iErr := table.NewUser("guest"+is, "myPass", map[string]interface{}{"email": "dinospumoni"+is+"@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9"}); iErr != 0 && iErr != helpers.ErrorEntryNameInUse {
+		if iErr := table.NewUser("guest"+is, "myPass", map[string]interface{}{"email": "dinospumoni"+is+"@yahoo.com", "mmr": 1674, "vCode": "06AJ3T9", "friends": defaultFriends}); iErr != 0 && iErr != helpers.ErrorEntryNameInUse {
 			b.Errorf("Insert error (%v): %v", i, iErr)
 			return
 		}
@@ -115,11 +126,13 @@ func BenchmarkGet(b *testing.B) {
 		return
 	}
 	b.ResetTimer()
+	var iErr int
 	for i := 0; i < b.N; i++ {
 		is := strconv.Itoa(i)
-		if _, iErr := table.GetUserData("guest"+is, "myPass", []string{"mmr"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if got, iErr = table.GetUserData("guest"+is, "myPass", []string{"friends.*len"}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Get error (%v): %v", i, iErr)
 			return
 		}
 	}
+	fmt.Println(got)
 }

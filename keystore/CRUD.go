@@ -80,7 +80,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
 			k.uMux.Unlock()
 			k.eMux.Unlock()
-			return nil, helpers.ErrorUniqueValueInUse
+			return nil, helpers.ErrorUniqueValueDuplicate
 		}/* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
@@ -144,6 +144,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 
 // Get
 func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{}, int) {
+	// Get entry
 	e, err := k.Get(key)
 	if err != 0 {
 		return nil, err
@@ -193,6 +194,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 			m[itemName] = i
 		}
 	}
+
 	return m, 0
 }
 
@@ -309,7 +311,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
 			k.uMux.Unlock()
 			e.mux.Unlock()
-			return helpers.ErrorUniqueValueInUse
+			return helpers.ErrorUniqueValueDuplicate
 		}
 
 		// DISTRIBUTED UNIQUE CHECKS HERE !!!
@@ -448,6 +450,16 @@ func (k *Keystore) RestoreKey(key string, data []interface{}, fileOn uint16, lin
 		if err != 0 {
 			return err
 		}
+	}
+
+	// Check unique values
+	for itemName, itemVal := range uniqueVals {
+		// Local unique check
+		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
+			return helpers.ErrorUniqueValueDuplicate
+		}
+
+		// DISTRIBUTED UNIQUE CHECKS HERE !!!
 	}
 
 	// Apply unique values

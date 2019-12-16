@@ -147,6 +147,10 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 
 // Get retrieves a Keystore by name
 func Get(name string) *Keystore {
+	if (len(name) == 0) {
+		return nil;
+	}
+
 	storesMux.Lock()
 	k := stores[name]
 	storesMux.Unlock()
@@ -310,7 +314,7 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 
 // Writes k to f and truncates file
 func writeConfigFile(f *os.File, k keystoreConfig) int {
-	jBytes, jErr := json.Marshal(k)
+	jBytes, jErr := json.MarshalIndent(k, "", "\t")
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
@@ -451,7 +455,6 @@ func Restore(name string) (*Keystore, int) {
 				lineOn++
 			}
 		}
-
 		//
 		dataFile.Close()
 	}

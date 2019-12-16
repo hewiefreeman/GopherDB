@@ -108,7 +108,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
-			return helpers.ErrorUniqueValueInUse
+			return helpers.ErrorUniqueValueDuplicate
 		}/* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
@@ -359,7 +359,7 @@ func (t *AuthTable) UpdateUserData(userName string, password string, updateObj m
 		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
 			t.uMux.Unlock()
 			e.mux.Unlock()
-			return helpers.ErrorUniqueValueInUse
+			return helpers.ErrorUniqueValueDuplicate
 		}
 
 		// DISTRIBUTED UNIQUE CHECKS HERE !!!

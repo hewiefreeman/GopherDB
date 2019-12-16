@@ -23,9 +23,13 @@ const (
 )
 
 var (
-	openFilesMux   sync.Mutex
-	openFiles map[string]*openFile = make(map[string]*openFile)
+	// Open Files
+	openFilesMux sync.Mutex
+	openFiles    map[string]*openFile = make(map[string]*openFile)
+
+	// Settings
 	fileOpenTime time.Duration = 20 // *int64* in seconds
+	maxOpenFiles uint16 = 50
 )
 
 type openFile struct {
@@ -88,6 +92,14 @@ func getOpenFile(file string) (*openFile, int) {
 			return nil, fileErr
 		}
 		openFiles[file] = f
+		f.mux.Lock()
+	} else {
+		f.mux.Lock()
+		if !f.timer.Reset(fileOpenTime * time.Second) {
+			// Timer has ended, but has not cleared item. Remake timer & closer
+			f.timer = time.NewTimer(fileOpenTime * time.Second)
+			go fileCloseTimer(f.timer, file)
+		}
 	}
 	openFilesMux.Unlock()
 	return f, 0
@@ -130,13 +142,6 @@ func Read(file string, index uint16) ([]byte, int) {
 		return nil, fErr
 	}
 
-	f.mux.Lock()
-	if !f.timer.Reset(fileOpenTime * time.Second) {
-		// Timer has ended, but has not cleared item. Remake timer & closer
-		f.timer = time.NewTimer(fileOpenTime * time.Second)
-		go fileCloseTimer(f.timer, file)
-	}
-
 	// Get the start and end index of line
 	bStart := f.lineByteOn[index-1]
 	bEnd := 0
@@ -160,13 +165,6 @@ func Update(file string, index uint16, json []byte) int {
 	f, fErr := getOpenFile(file)
 	if fErr != 0 {
 		return fErr
-	}
-
-	f.mux.Lock()
-	if !f.timer.Reset(fileOpenTime * time.Second) {
-		// Timer has ended, but has not cleared item. Remake timer & closer
-		f.timer = time.NewTimer(fileOpenTime * time.Second)
-		go fileCloseTimer(f.timer, file)
 	}
 
 	// Get the start and end index of line
@@ -199,13 +197,6 @@ func Insert(file string, json []byte) (uint16, int) {
 	f, fErr := getOpenFile(file)
 	if fErr != 0 {
 		return 0, fErr
-	}
-
-	f.mux.Lock()
-	if !f.timer.Reset(fileOpenTime * time.Second) {
-		// Timer has ended, but has not cleared item. Remake timer & closer
-		f.timer = time.NewTimer(fileOpenTime * time.Second)
-		go fileCloseTimer(f.timer, file)
 	}
 
 	// Insert and get line on
