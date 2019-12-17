@@ -414,7 +414,15 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 		if kind.required {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
-		return make(map[string]interface{}), 0
+		m := make(map[string]interface{})
+		for itemName, nsi := range kind.schema {
+			var err int
+			m[itemName], err = defaultVal(nsi)
+			if err != 0 {
+				return nil, err
+			}
+		}
+		return m, 0
 
 	// Time
 	case TimeItem:

@@ -553,7 +553,7 @@ func BenchmarkUnmarshalStruct(b *testing.B) {
 //  Map vs Struct alloc  ////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-type thing struct {
+/*type thing struct {
 	A string
 	B string
 	C string
@@ -596,4 +596,50 @@ func BenchmarkAllocMap(b *testing.B) {
 			},
 		}
 	}
+}*/
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//  Function w/ pointer call vs Pointer method call  ////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////
+
+// Result: No difference!
+
+type thing struct {
+	A string
+	B string
+	C string
+	D string
+}
+
+func BenchmarkFuncWithPointer(b *testing.B) {
+	t := thing{}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pointerFunc(&t)
+	}
+}
+
+func BenchmarkPointerMethod(b *testing.B) {
+	t := thing{}
+	tp := &t
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tp.pointerMethod()
+	}
+}
+
+func pointerFunc(p *thing) {
+	p.A = "hello"
+	p.B = "yo"
+	p.C = "wassup"
+	p.D = "woah man"
+}
+
+func (p *thing) pointerMethod() {
+	p.A = "hello"
+	p.B = "yo"
+	p.C = "wassup"
+	p.D = "woah man"
 }

@@ -45,6 +45,7 @@ func GetQueryItemMethods(itemName string) (string, []string) {
 	return itemName, nil
 }
 
+// Run methods on numer type item
 func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData interface{}) (float64, int) {
 	var entryData float64
 	if cNumb, ok := makeFloat(dbEntryData); ok {
@@ -84,6 +85,7 @@ func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData inter
 	return entryData, 0
 }
 
+// Run methods on String item
 func applyStringMethods(strs []interface{}, methods []string, dbEntryData string) (string, int) {
 	// Must have same amount of strings in array as methods to use on them
 	if len(strs) != len(methods) {
@@ -129,6 +131,7 @@ func applyStringMethods(strs []interface{}, methods []string, dbEntryData string
 	return dbEntryData, 0
 }
 
+// Run get methods on String item
 func applyStringGetMethod(method string, dbEntryData string, filter *Filter) int {
 	switch method {
 	case MethodLength:
@@ -139,6 +142,7 @@ func applyStringGetMethod(method string, dbEntryData string, filter *Filter) int
 	return 0
 }
 
+// Run methods on Array item collection
 func applyArrayMethods(filter *Filter) int {
 	method := filter.methods[0]
 	var dbEntryData []interface{}
@@ -249,6 +253,7 @@ func applyArrayMethods(filter *Filter) int {
 	return 0
 }
 
+// Run filter on Array method item collection
 func filterArrayMethodItems(filter *Filter, item *[]interface{}) int {
 	filter.methods = []string{}
 	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
@@ -265,6 +270,7 @@ func filterArrayMethodItems(filter *Filter, item *[]interface{}) int {
 	return 0
 }
 
+// Run methods on Map item collection
 func applyMapMethods(filter *Filter) int {
 	method := filter.methods[0]
 	var dbEntryData map[string]interface{}
@@ -337,6 +343,7 @@ func applyMapMethods(filter *Filter) int {
 	return helpers.ErrorInvalidMethod
 }
 
+// Run methods on Object item
 func applyObjectMethods(filter *Filter) int {
 	method := filter.methods[0]
 	// Check if valid object item
@@ -375,6 +382,7 @@ func applyObjectMethods(filter *Filter) int {
 	return 0
 }
 
+// Run methods on Time item
 func applyTimeMethods(filter *Filter, t time.Time) int {
 	// Get method duration
 	var d time.Duration

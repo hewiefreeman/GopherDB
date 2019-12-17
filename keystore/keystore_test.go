@@ -32,6 +32,9 @@ var (
 // NOTE: All .gdbs files must have a new line at the end of the file to work properly.
 
 func restore() (bool, error) {
+	// Initialize storage engine
+	storage.Init()
+
 	if(!setupComplete) {
 		var tableErr int
 		now := time.Now()
@@ -61,7 +64,7 @@ func TestChangeSettings(t *testing.T) {
 		t.Skip("Skipping tests...")
 	}
 
-	storage.SetFileOpenTime(3)
+	storage.SetFileOpenTime(3 * time.Second)
 
 	// Set max partition file size
 	err := table.SetPartitionMax(tablePartitionMax)
@@ -128,7 +131,7 @@ func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Sir Smack", "status": 0}}})
+	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Sir Smackem", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -149,7 +152,12 @@ func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
 		t.Skip()
 	}
 	var guestName string = "guest" + strconv.Itoa(table.Size() + 1);
-	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0}, map[string]interface{}{"login": "Vokome", "status": 1}}})
+	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+	// Test nested unique Object item
+	_, err = table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -159,7 +167,12 @@ func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Mary", "status": 0}, map[string]interface{}{"login": "Mary", "status": 1}}})
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}})
+	if (err != helpers.ErrorUniqueValueDuplicate) {
+		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+	}
+	// Test nested unique Object item
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -253,7 +266,7 @@ func TestAppendToArray(t *testing.T) {
 		t.Skip()
 	}
 	for i := 0; i < 3; i++ {
-		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0}}})
+		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0, "labels": map[string]interface{}{"nickname": "G" + strconv.Itoa(7+i), "friendNum": i}}}})
 		if (err != 0) {
 			t.Errorf("TestAppendArray error: %v", err)
 		}
@@ -272,7 +285,7 @@ func TestAppendToMap(t *testing.T) {
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 	}
-	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"peace": map[string]interface{}{"type": "salutation", "id": 2}}})
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"peace": map[string]interface{}{"type": "farewell", "id": 2}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 	}
@@ -298,4 +311,7 @@ func TestLetFilesClose(t *testing.T) {
 		t.Skip()
 	}
 	time.Sleep(4 * time.Second)
+	if storage.GetNumOpenFiles() != 0 {
+		t.Errorf("Storage files did not close properly!")
+	}
 }

@@ -118,6 +118,7 @@ func New(schema map[string]interface{}) (Schema, int) {
 			// Invalid format
 			return nil, helpers.ErrorSchemaInvalidFormat
 		}
+
 	}
 
 	//

@@ -419,7 +419,7 @@ func Restore(name string) (*Keystore, int) {
 		fileNameSplit := strings.Split(fileStats.Name(), ".")
 		fileNum, fnErr := strconv.Atoi(fileNameSplit[0])
 		if fnErr != nil || len(fileNameSplit) < 2 || "."+fileNameSplit[1] != helpers.FileTypeStorage {
-			fmt.Println("'"+fileStats.Name()+"' is not a valid storage file.")
+			// Not a valid storage file
 			continue
 		}
 
@@ -447,7 +447,7 @@ func Restore(name string) (*Keystore, int) {
 				// Restore line
 				if eKey, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
 					if resErr := ks.RestoreKey(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
-						fmt.Println("Error restoring '"+eKey+"' on line", lineOn, "in file", fileStats.Name(), "with error:", resErr)
+						fmt.Printf("Error restoring '%v' on line %v in file %v with error: %v\n", eKey, lineOn, fileStats.Name(), resErr)
 					}
 				}
 

@@ -5,11 +5,15 @@ import (
 	"os"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
+	//"fmt"
 )
 
 const (
 	newLineIndicator byte = byte(10)
+	defaultFileOpenTime time.Duration = 20
+	defaultMaxOpenFiles uint16 = 50
 )
 
 // File actions
@@ -26,18 +30,24 @@ var (
 	// Open Files
 	openFilesMux sync.Mutex
 	openFiles    map[string]*openFile = make(map[string]*openFile)
+	openFileTimers map[string]*time.Timer = make(map[string]*time.Timer)
 
 	// Settings
-	fileOpenTime time.Duration = 20 // *int64* in seconds
-	maxOpenFiles uint16 = 50
+	fileOpenTime atomic.Value // time.Duration *int64* in seconds
+	maxOpenFiles atomic.Value // uint16
 )
 
 type openFile struct {
 	mux sync.Mutex
 	file *os.File
-	timer *time.Timer
 	bytes []byte
 	lineByteOn []int
+}
+
+// Init initializes the storage package. Must be called before using.
+func Init() {
+	fileOpenTime.Store(defaultFileOpenTime)
+	maxOpenFiles.Store(defaultMaxOpenFiles)
 }
 
 //
@@ -72,11 +82,13 @@ func newOpenFile(file string) (*openFile, int) {
 		}
 	}
 
-	// Start close timer
-	newOF.timer = time.NewTimer(fileOpenTime * time.Second)
-	go fileCloseTimer(newOF.timer, file)
+	newOFPointer := &newOF
 
-	return &newOF, 0
+	// Start close timer
+	openFileTimers[file] = time.NewTimer(fileOpenTime.Load().(time.Duration))
+	go fileCloseTimer(openFileTimers[file], newOFPointer)
+
+	return newOFPointer, 0
 }
 
 //
@@ -92,37 +104,35 @@ func getOpenFile(file string) (*openFile, int) {
 			return nil, fileErr
 		}
 		openFiles[file] = f
-		f.mux.Lock()
 	} else {
-		f.mux.Lock()
-		if !f.timer.Reset(fileOpenTime * time.Second) {
-			// Timer has ended, but has not cleared item. Remake timer & closer
-			f.timer = time.NewTimer(fileOpenTime * time.Second)
-			go fileCloseTimer(f.timer, file)
+		if !openFileTimers[file].Reset(fileOpenTime.Load().(time.Duration)) {
+			t := time.NewTimer(fileOpenTime.Load().(time.Duration))
+			openFileTimers[file] = t;
+			go fileCloseTimer(t, f)
 		}
 	}
 	openFilesMux.Unlock()
 	return f, 0
 }
 
-func fileCloseTimer(timer *time.Timer, file string) {
+func fileCloseTimer(timer *time.Timer, f *openFile) {
 	<-timer.C
 	openFilesMux.Lock()
-	f := openFiles[file]
 	f.mux.Lock()
-	if timer != f.timer {
+	if timer != openFileTimers[f.file.Name()] {
 		// The openFile has already been reset - don't close file
-		openFilesMux.Unlock()
 		f.mux.Unlock()
+		openFilesMux.Unlock()
 		return
 	}
+	delete(openFiles, f.file.Name())
+	delete(openFileTimers, f.file.Name())
+	openFilesMux.Unlock()
 	f.file.Truncate(int64(len(f.bytes)))
 	f.bytes = nil
 	f.lineByteOn = nil
 	f.file.Close()
 	f.mux.Unlock()
-	delete(openFiles, file)
-	openFilesMux.Unlock()
 }
 
 // MakeDir creates a directory path on the system
@@ -141,6 +151,8 @@ func Read(file string, index uint16) ([]byte, int) {
 	if fErr != 0 {
 		return nil, fErr
 	}
+
+	f.mux.Lock()
 
 	// Get the start and end index of line
 	bStart := f.lineByteOn[index-1]
@@ -166,6 +178,8 @@ func Update(file string, index uint16, json []byte) int {
 	if fErr != 0 {
 		return fErr
 	}
+
+	f.mux.Lock()
 
 	// Get the start and end index of line
 	iStart := f.lineByteOn[index-1]
@@ -199,6 +213,8 @@ func Insert(file string, json []byte) (uint16, int) {
 		return 0, fErr
 	}
 
+	f.mux.Lock()
+
 	// Insert and get line on
 	lineOn := uint16(len(f.lineByteOn)+1)
 	json = append(json, newLineIndicator)
@@ -213,7 +229,24 @@ func Insert(file string, json []byte) (uint16, int) {
 }
 
 func SetFileOpenTime(t time.Duration) {
+	if t <= 0 {
+		return
+	}
+	fileOpenTime.Store(t)
+}
+
+func SetMaxOpenFiles(max uint16) {
+	if max == 0 {
+		return
+	}
+	maxOpenFiles.Store(max)
+}
+
+// Get the number of open files in system
+func GetNumOpenFiles() int {
+	var i int
 	openFilesMux.Lock()
-	fileOpenTime = t
+	i = len(openFiles)
 	openFilesMux.Unlock()
+	return i
 }

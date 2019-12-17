@@ -32,10 +32,11 @@ const (
 	ErrorSchemaInvalidFormat
 	ErrorSchemaInvalidTimeFormat
 	ErrorSchemaInvalid
+	ErrorObjectItemNotRequired // Items inside Objects must be required!
 
 	// Schema query errors
-	ErrorInvalidItemValue
-	ErrorMissingRequiredItem // 2010
+	ErrorInvalidItemValue // 2010
+	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
 	ErrorArrayItemsRequired
