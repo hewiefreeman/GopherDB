@@ -145,6 +145,7 @@ func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
+	time.Sleep(time.Second * 1)
 }
 
 func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
@@ -161,6 +162,7 @@ func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
+	time.Sleep(time.Second * 1)
 }
 
 func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
@@ -235,6 +237,7 @@ func TestGet(t *testing.T) {
 	} else if data["mmr"] != float64(1337) {
 		t.Errorf("TestGet expected 1337, but got: %v", data["mmr"])
 	}
+	time.Sleep(time.Second * 3)
 }
 
 func TestGetArrayLength(t *testing.T) {
@@ -271,6 +274,7 @@ func TestAppendToArray(t *testing.T) {
 			t.Errorf("TestAppendArray error: %v", err)
 		}
 	}
+	time.Sleep(time.Second * 4)
 }
 
 func TestAppendToMap(t *testing.T) {

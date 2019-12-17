@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	//"fmt"
+	"fmt"
 )
 
 const (
@@ -38,6 +38,7 @@ var (
 )
 
 type openFile struct {
+	name string
 	mux sync.Mutex
 	file *os.File
 	bytes []byte
@@ -52,6 +53,11 @@ func Init() {
 
 //
 func newOpenFile(file string) (*openFile, int) {
+	// Check maximum open files
+	if len(openFiles) >= int(maxOpenFiles.Load().(uint16)) {
+
+	}
+
 	// Open the File
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
@@ -65,7 +71,7 @@ func newOpenFile(file string) (*openFile, int) {
 	}
 
 	// Make openFile object
-	newOF := openFile{file: f}
+	newOF := openFile{file: f, name: file}
 
 	// Get file bytes
 	newOF.bytes = make([]byte, fs.Size())
@@ -77,7 +83,7 @@ func newOpenFile(file string) (*openFile, int) {
 	// Make lineByteOn list
 	newOF.lineByteOn = []int{0}
 	for i, b := range newOF.bytes {
-		if b == newLineIndicator {
+		if b == newLineIndicator && len(newOF.bytes[i+1:]) > 0 {
 			newOF.lineByteOn = append(newOF.lineByteOn, i+1)
 		}
 	}
@@ -97,6 +103,7 @@ func getOpenFile(file string) (*openFile, int) {
 	openFilesMux.Lock()
 	f = openFiles[file]
 	if f == nil {
+		fmt.Println("opening new file...")
 		var fileErr int
 		f, fileErr = newOpenFile(file)
 		if fileErr != 0 {
@@ -110,6 +117,7 @@ func getOpenFile(file string) (*openFile, int) {
 			openFileTimers[file] = t;
 			go fileCloseTimer(t, f)
 		}
+
 	}
 	openFilesMux.Unlock()
 	return f, 0
@@ -119,14 +127,16 @@ func fileCloseTimer(timer *time.Timer, f *openFile) {
 	<-timer.C
 	openFilesMux.Lock()
 	f.mux.Lock()
-	if timer != openFileTimers[f.file.Name()] {
+	if timer != openFileTimers[f.name] {
 		// The openFile has already been reset - don't close file
 		f.mux.Unlock()
 		openFilesMux.Unlock()
+		fmt.Println("timer ended and isn't closing file...")
 		return
 	}
-	delete(openFiles, f.file.Name())
-	delete(openFileTimers, f.file.Name())
+	fmt.Println("timer closing file...", f.name)
+	delete(openFiles, f.name)
+	delete(openFileTimers, f.name)
 	openFilesMux.Unlock()
 	f.file.Truncate(int64(len(f.bytes)))
 	f.bytes = nil
@@ -206,7 +216,8 @@ func Update(file string, index uint16, json []byte) int {
 	return 0
 }
 
-// Insert appends a JSON encoded []byte at the end of given JSON file
+// Insert appends a JSON encoded []byte at the end of given JSON file and reports back the
+// line number that was written to
 func Insert(file string, json []byte) (uint16, int) {
 	f, fErr := getOpenFile(file)
 	if fErr != 0 {
