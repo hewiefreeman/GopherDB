@@ -14,7 +14,7 @@ const (
 	MethodOperatorMul = "*mul"
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
-	MethodLength      = "*len" // Testing...
+	MethodLength      = "*len"
 	MethodEquals      = "*eq" // TO-DO
 	MethodGreater     = "*gt" // TO-DO
 	MethodLess        = "*lt" // TO-DO

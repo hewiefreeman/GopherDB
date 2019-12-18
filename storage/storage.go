@@ -7,13 +7,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"fmt"
 )
 
 const (
-	newLineIndicator byte = byte(10)
-	defaultFileOpenTime time.Duration = 20
-	defaultMaxOpenFiles uint16 = 50
+	newLineIndicator    byte          = byte(10)
+	defaultFileOpenTime time.Duration = 20 * time.Second
+	defaultMaxOpenFiles uint16        = 50
 )
 
 // File actions
@@ -28,8 +27,8 @@ const (
 
 var (
 	// Open Files
-	openFilesMux sync.Mutex
-	openFiles    map[string]*openFile = make(map[string]*openFile)
+	openFilesMux   sync.Mutex
+	openFiles      map[string]*openFile   = make(map[string]*openFile)
 	openFileTimers map[string]*time.Timer = make(map[string]*time.Timer)
 
 	// Settings
@@ -38,10 +37,10 @@ var (
 )
 
 type openFile struct {
-	name string
-	mux sync.Mutex
-	file *os.File
-	bytes []byte
+	name       string
+	mux        sync.Mutex
+	file       *os.File
+	bytes      []byte
 	lineByteOn []int
 }
 
@@ -53,9 +52,20 @@ func Init() {
 
 //
 func newOpenFile(file string) (*openFile, int) {
-	// Check maximum open files
+	// Close the first found (random) openFile if max files are open
 	if len(openFiles) >= int(maxOpenFiles.Load().(uint16)) {
-
+		for fileName, f := range openFiles {
+			openFileTimers[fileName].Stop()
+			delete(openFiles, fileName)
+			delete(openFileTimers, fileName)
+			f.mux.Lock()
+			f.file.Truncate(int64(len(f.bytes)))
+			f.bytes = nil
+			f.lineByteOn = nil
+			f.file.Close()
+			f.mux.Unlock()
+			break
+		}
 	}
 
 	// Open the File
@@ -103,7 +113,6 @@ func getOpenFile(file string) (*openFile, int) {
 	openFilesMux.Lock()
 	f = openFiles[file]
 	if f == nil {
-		fmt.Println("opening new file...")
 		var fileErr int
 		f, fileErr = newOpenFile(file)
 		if fileErr != 0 {
@@ -117,7 +126,6 @@ func getOpenFile(file string) (*openFile, int) {
 			openFileTimers[file] = t;
 			go fileCloseTimer(t, f)
 		}
-
 	}
 	openFilesMux.Unlock()
 	return f, 0
@@ -131,10 +139,8 @@ func fileCloseTimer(timer *time.Timer, f *openFile) {
 		// The openFile has already been reset - don't close file
 		f.mux.Unlock()
 		openFilesMux.Unlock()
-		fmt.Println("timer ended and isn't closing file...")
 		return
 	}
-	fmt.Println("timer closing file...", f.name)
 	delete(openFiles, f.name)
 	delete(openFileTimers, f.name)
 	openFilesMux.Unlock()

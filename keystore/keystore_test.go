@@ -65,6 +65,7 @@ func TestChangeSettings(t *testing.T) {
 	}
 
 	storage.SetFileOpenTime(3 * time.Second)
+	storage.SetMaxOpenFiles(2)
 
 	// Set max partition file size
 	err := table.SetPartitionMax(tablePartitionMax)
@@ -145,7 +146,6 @@ func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
-	time.Sleep(time.Second * 1)
 }
 
 func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
@@ -162,7 +162,6 @@ func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
-	time.Sleep(time.Second * 1)
 }
 
 func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
@@ -231,20 +230,19 @@ func TestGet(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
+	data, err := table.GetKeyData("Harry Potter", nil)
 	if err != 0 {
 		t.Errorf("TestGet error: %v", err)
-	} else if data["mmr"] != float64(1337) {
-		t.Errorf("TestGet expected 1337, but got: %v", data["mmr"])
+	} else if data["mmr"] != float64(1612) {
+		t.Errorf("TestGet expected 1612, but got: %v", data["mmr"])
 	}
-	time.Sleep(time.Second * 3)
 }
 
 func TestGetArrayLength(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("Vokome", []string{"friends.*len"})
+	data, err := table.GetKeyData("Mary", []string{"friends.*len"})
 	if err != 0 {
 		t.Errorf("TestGetArrayLength error: %v", err)
 	} else if data["friends.*len"] != 3 {
@@ -262,6 +260,7 @@ func TestGetMapLength(t *testing.T) {
 	} else if data["actions.*len"] != 1 {
 		t.Errorf("TestGetMapLength expected 1, but got: %v", data["actions.*len"])
 	}
+	time.Sleep(time.Second * 2)
 }
 
 func TestAppendToArray(t *testing.T) {
@@ -274,7 +273,7 @@ func TestAppendToArray(t *testing.T) {
 			t.Errorf("TestAppendArray error: %v", err)
 		}
 	}
-	time.Sleep(time.Second * 4)
+	time.Sleep(time.Second * 2)
 }
 
 func TestAppendToMap(t *testing.T) {
@@ -293,6 +292,7 @@ func TestAppendToMap(t *testing.T) {
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 	}
+	time.Sleep(time.Second * 2)
 }
 
 func TestArithmetic(t *testing.T) {
@@ -316,6 +316,6 @@ func TestLetFilesClose(t *testing.T) {
 	}
 	time.Sleep(4 * time.Second)
 	if storage.GetNumOpenFiles() != 0 {
-		t.Errorf("Storage files did not close properly!")
+		t.Errorf("Error: Storage files did not close properly")
 	}
 }

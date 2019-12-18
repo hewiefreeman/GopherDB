@@ -2,6 +2,58 @@
 	"Name": "test",
 	"Schema": [
 		{
+			"Name": "friends",
+			"DataType": [
+				"Array",
+				[
+					"Object",
+					{
+						"labels": [
+							"Object",
+							{
+								"friendNum": [
+									"Int8",
+									0,
+									0,
+									0,
+									false,
+									false,
+									true
+								],
+								"nickname": [
+									"String",
+									"",
+									16,
+									false,
+									true
+								]
+							},
+							false
+						],
+						"login": [
+							"String",
+							"",
+							16,
+							true,
+							true
+						],
+						"status": [
+							"Uint8",
+							0,
+							0,
+							2,
+							false,
+							false
+						]
+					},
+					false
+				],
+				30,
+				false
+			],
+			"Position": 3
+		},
+		{
 			"Name": "email",
 			"DataType": [
 				"String",
@@ -62,58 +114,6 @@
 				false
 			],
 			"Position": 0
-		},
-		{
-			"Name": "friends",
-			"DataType": [
-				"Array",
-				[
-					"Object",
-					{
-						"labels": [
-							"Object",
-							{
-								"friendNum": [
-									"Int8",
-									0,
-									0,
-									0,
-									false,
-									false,
-									true
-								],
-								"nickname": [
-									"String",
-									"",
-									16,
-									false,
-									true
-								]
-							},
-							false
-						],
-						"login": [
-							"String",
-							"",
-							16,
-							true,
-							true
-						],
-						"status": [
-							"Uint8",
-							0,
-							0,
-							2,
-							false,
-							false
-						]
-					},
-					false
-				],
-				30,
-				false
-			],
-			"Position": 3
 		}
 	],
 	"FileOn": 0,

@@ -14,6 +14,11 @@ import (
 	"fmt"
 )
 
+// File/folder prefixes
+const (
+	dataFolderPrefix = "KS-"
+)
+
 var (
 	storesMux      sync.Mutex
 	stores         map[string]*Keystore = make(map[string]*Keystore)
@@ -24,11 +29,11 @@ type Keystore struct {
 	fileOn    uint16 // locked by eMux - placed for memory efficiency
 
 	// Settings and schema - read only
-	memOnly       bool // Store data in memory only (overrides dataOnDrive)
-	dataOnDrive   bool // when true, entry data is not stored in memory, only indexing
-	name          string // table's logger/persist folder name
+	memOnly       bool          // Store data in memory only (overrides dataOnDrive)
+	dataOnDrive   bool          // when true, entry data is not stored in memory, only indexing
+	name          string        // table's logger/persist folder name
 	schema        schema.Schema // table's schema
-	configFile    *os.File // configuration file
+	configFile    *os.File      // configuration file
 
 	// Atomic changable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
@@ -36,7 +41,7 @@ type Keystore struct {
 	encryptCost   atomic.Value // *int* encryption cost of encrypted items
 
 	// entries
-	eMux       sync.Mutex // entries/configFile lock
+	eMux       sync.Mutex                // entries/configFile lock
 	entries    map[string]*keystoreEntry // Keystore map
 
 	// unique values
@@ -62,11 +67,6 @@ type keystoreConfig struct {
 	EncryptCost int
 	MaxEntries uint64
 }
-
-// File/folder prefixes
-const (
-	dataFolderPrefix = "KS-"
-)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //   Keystore   //////////////////////////////////////////////////////////////////////////////////////
