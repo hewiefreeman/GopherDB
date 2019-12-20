@@ -38,20 +38,20 @@ func ItemFilter(item interface{}, methods []string, destination *interface{}, in
 
 // queryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
 func queryItemFilter(filter *Filter) int {
-	if filter.item == nil {
+	if !filter.get && filter.item == nil {
 		// No methods allowed on a nil item
 		if len(filter.methods) > 0 {
 			return helpers.ErrorInvalidMethodParameters
 		}
 		// Get default value
-		defaultVal, defaultErr := defaultVal(filter.schemaItems[len(filter.schemaItems)-1])
+		dVal, defaultErr := defaultVal(filter.schemaItems[len(filter.schemaItems)-1])
 		if defaultErr != 0 {
 			return defaultErr
 		}
 		if len(filter.schemaItems) == 1 {
-			(*(*filter).destination) = defaultVal
+			(*(*filter).destination) = dVal
 		} else {
-			filter.item = defaultVal
+			filter.item = dVal
 		}
 		return 0
 	}
@@ -62,7 +62,7 @@ func queryItemFilter(filter *Filter) int {
 		return iTypeErr
 	}
 	// Check if this is the last filter itteration, and apply item to destination
-	if (filter.get && len(filter.methods) == 0) || (!filter.get && len(filter.schemaItems) == 1) {
+	if len(filter.schemaItems) == 1 {
 		(*(*filter).destination) = filter.item
 	}
 	return 0
@@ -113,14 +113,16 @@ func int8Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic int8
-	if i, ok := makeInt(filter.item); ok {
-		ic = int8(i)
-	} else {
+	var ok bool
+	if ic, ok = makeInt8(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int8Item)
@@ -149,14 +151,16 @@ func int16Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic int16
-	if i, ok := makeFloat(filter.item); ok {
-		ic = int16(i)
-	} else {
+	var ok bool
+	if ic, ok = makeInt16(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int16Item)
@@ -185,14 +189,16 @@ func int32Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic int32
-	if i, ok := makeFloat(filter.item); ok {
-		ic = int32(i)
-	} else {
+	var ok bool
+	if ic, ok = makeInt32(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int32Item)
@@ -221,14 +227,16 @@ func int64Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic int64
-	if i, ok := makeFloat(filter.item); ok {
-		ic = int64(i)
-	} else {
+	var ok bool
+	if ic, ok = makeInt64(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Int64Item)
@@ -257,14 +265,16 @@ func uint8Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic uint8
-	if i, ok := makeFloat(filter.item); ok {
-		ic = uint8(i)
-	} else {
+	var ok bool
+	if ic, ok = makeUint8(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint8Item)
@@ -290,14 +300,16 @@ func uint16Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic uint16
-	if i, ok := makeFloat(filter.item); ok {
-		ic = uint16(i)
-	} else {
+	var ok bool
+	if ic, ok = makeUint16(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint16Item)
@@ -323,14 +335,16 @@ func uint32Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic uint32
-	if i, ok := makeFloat(filter.item); ok {
-		ic = uint32(i)
-	} else {
+	var ok bool
+	if ic, ok = makeUint32(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint32Item)
@@ -356,14 +370,16 @@ func uint64Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic uint64
-	if i, ok := makeFloat(filter.item); ok {
-		ic = uint64(i)
-	} else {
+	var ok bool
+	if ic, ok = makeUint64(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint64Item)
@@ -389,14 +405,16 @@ func float32Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic float32
-	if i, ok := makeFloat(filter.item); ok {
-		ic = float32(i)
-	} else {
+	var ok bool
+	if ic, ok = makeFloat32(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Float32Item)
@@ -425,13 +443,16 @@ func float64Filter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic float64
 	var ok bool
-	if ic, ok = makeFloat(filter.item); !ok {
+	if ic, ok = makeFloat64(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Float64Item)
@@ -493,6 +514,7 @@ func arrayFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData) - 1]
 		return 0
 	} else if i, ok := filter.item.([]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
@@ -530,6 +552,7 @@ func mapFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData) - 1]
 		return 0
 	} else if i, ok := filter.item.(map[string]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
@@ -567,6 +590,7 @@ func objectFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData) - 1]
 		return 0
 	} else if i, ok := filter.item.(map[string]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem)
@@ -596,14 +620,14 @@ func timeFilter(filter *Filter) int {
 	if filter.get {
 		var t time.Time
 		// If the item is a string, was retrieved from disk - convert to time.Time
-		if i, ok := filter.item.(string); ok {
+		if i, ok := filter.innerData[len(filter.innerData) - 1].(string); ok {
 			var tErr error
 			t, tErr = time.Parse(TimeFormatRFC3339, i) // JSON uses RFC3339
 			if tErr != nil {
 				return helpers.ErrorInvalidTimeFormat
 			}
 		} else {
-			t = filter.item.(time.Time)
+			t = filter.innerData[len(filter.innerData) - 1].(time.Time)
 		}
 		if len(filter.methods) > 0 {
 			if mErr := applyTimeMethods(filter, t); mErr != 0 {
@@ -639,64 +663,4 @@ func timeFilter(filter *Filter) int {
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//   Data type converters   /////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func makeFloat(i interface{}) (float64, bool) {
-	switch t := i.(type) {
-	case float64:
-		return t, true
-	case int:
-		return float64(t), true
-	case int8:
-		return float64(t), true
-	case int16:
-		return float64(t), true
-	case int32:
-		return float64(t), true
-	case int64:
-		return float64(t), true
-	case uint8:
-		return float64(t), true
-	case uint16:
-		return float64(t), true
-	case uint32:
-		return float64(t), true
-	case uint64:
-		return float64(t), true
-	case float32:
-		return float64(t), true
-	}
-	return 0, false
-}
-
-func makeInt(i interface{}) (int, bool) {
-	switch t := i.(type) {
-	case float64:
-		return int(t), true
-	case int:
-		return t, true
-	case int8:
-		return int(t), true
-	case int16:
-		return int(t), true
-	case int32:
-		return int(t), true
-	case int64:
-		return int(t), true
-	case uint8:
-		return int(t), true
-	case uint16:
-		return int(t), true
-	case uint32:
-		return int(t), true
-	case uint64:
-		return int(t), true
-	case float32:
-		return int(t), true
-	}
-	return 0, false
 }

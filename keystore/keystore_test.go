@@ -236,7 +236,8 @@ func TestGet(t *testing.T) {
 	if err != 0 {
 		t.Errorf("TestGet error: %v", err)
 	} else if data["mmr"] != float64(1612) {
-		t.Errorf("TestGet expected 1612, but got: %v", data["mmr"])
+		t.Errorf("TestGet expected 1612, but got: %v\n", data["mmr"])
+		t.Errorf("TestGet recieved: %v\n", data)
 	}
 }
 
@@ -311,23 +312,55 @@ func TestArithmetic(t *testing.T) {
 	}
 }
 
-/*func TestComparisons(t *testing.T) {
+func TestComparisons(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*eq": []interface{}{15, 20}})
-	if err != 0 {
-		t.Errorf("TestComparisons error: %v", err)
+	// Number comparisons
+	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*eq": []interface{}{10, 15}})
+	if data["mmr.*add.*eq"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["mmr.*add.*eq"])
 	}
-	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lt": []interface{}{15, 21}})
-	if err != 0 {
-		t.Errorf("TestComparisons error: %v", err)
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*eq": []interface{}{10, 43}})
+	if data["mmr.*add.*eq"] != false {
+		t.Errorf("TestArithmetic expected false, but got: %v", data["mmr.*add.*eq"])
 	}
-	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
-	if data["mmr"] != float64(5) {
-		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lt": []interface{}{10, 15}})
+	if data["mmr.*add.*lt"] != false {
+		t.Errorf("TestArithmetic expected false, but got: %v", data["mmr.*add.*lt"])
 	}
-}*/
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lte": []interface{}{10, 15}})
+	if data["mmr.*add.*lte"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["mmr.*add.*lte"])
+	}
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*gt": []interface{}{10, 14}})
+	if data["mmr.*add.*gt"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["mmr.*add.*gt"])
+	}
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*gte": []interface{}{10, 15}})
+	if data["mmr.*add.*gte"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["mmr.*add.*gte"])
+	}
+	// combining array methods with number comparisons
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*len.*gte": []interface{}{5}})
+	if data["friends.*len.*gte"] != false {
+		t.Errorf("TestArithmetic expected false, but got: %v", data["friends.*len.*gte"])
+	}
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*len.*gte": []interface{}{2}})
+	if data["friends.*len.*gte"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["friends.*len.*gte"])
+	}
+	// combining map methods with number comparisons
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*len.*gte": []interface{}{5}})
+	if data["actions.*len.*gte"] != false {
+		t.Errorf("TestArithmetic expected false, but got: %v", data["actions.*len.*gte"])
+	}
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*len.*gte": []interface{}{2}})
+	if data["actions.*len.*gte"] != true {
+		t.Errorf("TestArithmetic expected true, but got: %v", data["actions.*len.*gte"])
+	}
+	// String comparisons
+}
 
 // Must be last test!!
 func TestLetFilesClose(t *testing.T) {

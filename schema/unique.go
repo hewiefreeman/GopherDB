@@ -83,8 +83,8 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 		case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
 			ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
 			ItemTypeFloat32, ItemTypeFloat64:
-			filter.item, _ = makeFloat(filter.item)
-			item, _ := makeFloat(item)
+			filter.item, _ = makeFloat64(filter.item)
+			item, _ := makeFloat64(item)
 			return item
 
 		case ItemTypeObject:

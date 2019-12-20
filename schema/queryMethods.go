@@ -50,11 +50,11 @@ func applyNumberMethods(filter *Filter) int {
 	var entryData float64
 	var err int
 	var brk bool
-	entryData, _ = makeFloat(filter.innerData[len(filter.innerData)-1])
+	entryData, _ = makeFloat64(filter.innerData[len(filter.innerData)-1])
 	if fList, ok := filter.item.([]interface{}); ok {
 		for _, methodParam := range fList {
 			// Check methodParam type
-			if cNumb, ok := makeFloat(methodParam); ok {
+			if cNumb, ok := makeFloat64(methodParam); ok {
 				brk, err = getNumberMethodResult(filter, &entryData, cNumb)
 				if err != 0 {
 					return err
@@ -69,7 +69,7 @@ func applyNumberMethods(filter *Filter) int {
 			// Remove this method
 			filter.methods = filter.methods[1:]
 		}
-	} else if num, ok := makeFloat(filter.item); ok {
+	} else if num, ok := makeFloat64(filter.item); ok {
 		// Check methodParam type
 		brk, err = getNumberMethodResult(filter, &entryData, num)
 		if err != 0 {
