@@ -28,7 +28,6 @@ var (
 //
 // Use -v to display fmt output
 
-// NOTE: KS-test/0.gdbs must contain at least the first "Vokome" entry.
 // NOTE: All .gdbs files must have a new line at the end of the file to work properly.
 
 func restore() (bool, error) {
@@ -64,8 +63,11 @@ func TestChangeSettings(t *testing.T) {
 		t.Skip("Skipping tests...")
 	}
 
+	// Set fileOpenTime to 3 seconds (needed for testing file closing)
 	storage.SetFileOpenTime(3 * time.Second)
-	storage.SetMaxOpenFiles(2)
+
+	// Set maxOpenFiles to 2 (to test manual close when max has been reached) - PASSED
+	//storage.SetMaxOpenFiles(2)
 
 	// Set max partition file size
 	err := table.SetPartitionMax(tablePartitionMax)
@@ -242,7 +244,7 @@ func TestGetArrayLength(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("Mary", []string{"friends.*len"})
+	data, err := table.GetKeyData("Mary", map[string]interface{}{"friends.*len": nil})
 	if err != 0 {
 		t.Errorf("TestGetArrayLength error: %v", err)
 	} else if data["friends.*len"] != 3 {
@@ -254,7 +256,7 @@ func TestGetMapLength(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("Vokome", []string{"actions.*len"})
+	data, err := table.GetKeyData("Vokome", map[string]interface{}{"actions.*len": nil})
 	if err != 0 {
 		t.Errorf("TestGetMapLength error: %v", err)
 	} else if data["actions.*len"] != 1 {
@@ -303,11 +305,29 @@ func TestArithmetic(t *testing.T) {
 	if err != 0 {
 		t.Errorf("TestArithmetic error: %v", err)
 	}
-	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
+	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr": nil})
 	if data["mmr"] != float64(5) {
 		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
 	}
 }
+
+/*func TestComparisons(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*eq": []interface{}{15, 20}})
+	if err != 0 {
+		t.Errorf("TestComparisons error: %v", err)
+	}
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lt": []interface{}{15, 21}})
+	if err != 0 {
+		t.Errorf("TestComparisons error: %v", err)
+	}
+	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), []string{"mmr"})
+	if data["mmr"] != float64(5) {
+		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
+	}
+}*/
 
 // Must be last test!!
 func TestLetFilesClose(t *testing.T) {

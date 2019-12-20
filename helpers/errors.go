@@ -7,7 +7,7 @@ type Error struct {
 
 const (
 	// Unexpected error
-	ErrorUnexpected = iota + 1001
+	ErrorUnexpected = iota + 1000
 
 	// Generic Table Query Errors
 	ErrorTableExists
@@ -17,9 +17,6 @@ const (
 	ErrorTableFull
 	ErrorQueryInvalidFormat
 	ErrorNoEntryFound
-	ErrorInvalidItem
-	ErrorInvalidMethod // 1010
-	ErrorInvalidMethodParameters
 )
 
 const (
@@ -34,17 +31,21 @@ const (
 	ErrorSchemaInvalid
 	ErrorObjectItemNotRequired // Items inside Objects must be required!
 
-	// Schema query errors
-	ErrorInvalidItemValue // 2010
+	// SQuery Schema errors
+	ErrorInvalidItem // 2010
+	ErrorInvalidItemValue
+	ErrorInvalidMethod
+	ErrorInvalidMethodParameters
+	ErrorTooManyMethodParameters
+	ErrorNotEnoughMethodParameters
 	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
 	ErrorArrayItemsRequired
-	ErrorArrayEmpty
+	ErrorArrayEmpty // 2020
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
-	ErrorUniqueValueDuplicate // Value already in database
-	ErrorUniqueValueDuplicates // Values in query
+	ErrorUniqueValueDuplicate
 	ErrorRestoreItemSchema
 )
 
@@ -73,7 +74,7 @@ const (
 
 const (
 	// Storage errors
-	ErrorLoggerExists = iota + 6001
+	ErrorLoggerExists = iota + 9001
 	ErrorLoggerFileCreate
 	ErrorTableFolderCreate
 	ErrorCreatingFolder

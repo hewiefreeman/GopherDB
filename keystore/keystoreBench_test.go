@@ -22,6 +22,12 @@ var (
 //
 // Use -v to display fmt output
 
+// NOTE: All .gdbs files must have a new line at the end of the file to work properly.
+//
+// WARNING: This benchmark could potentially permanently damage SSD/flash space!
+//          Please use with caution, review the code, and run these benchmarks on disk storage.
+//          GopherDB and it's creators are not liable for any damages these benchmarks may cause.
+
 func setup() (bool, error) {
 	if(!setupComplete) {
 		// Set-up

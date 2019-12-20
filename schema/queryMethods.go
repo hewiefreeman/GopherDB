@@ -15,13 +15,13 @@ const (
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
 	MethodLength      = "*len"
-	MethodEquals      = "*eq" // TO-DO
-	MethodGreater     = "*gt" // TO-DO
-	MethodLess        = "*lt" // TO-DO
-	MethodGreaterOE   = "*gte" // TO-DO
-	MethodLessOE      = "*lte" // TO-DO
-	MethodContains    = "*contains" // TO-DO
-	MethodIndexOf     = "*indexOf" // TO-DO
+	MethodEquals      = "*eq" // Testing...
+	MethodGreater     = "*gt" // Testing...
+	MethodLess        = "*lt" // Testing...
+	MethodGreaterOE   = "*gte" // Testing...
+	MethodLessOE      = "*lte" // Testing...
+	MethodContains    = "*contains" // Testing strings... TO-DO: arrays, maps
+	MethodIndexOf     = "*indexOf" // Testing strings... TO-DO: arrays, maps
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -45,99 +45,252 @@ func GetQueryItemMethods(itemName string) (string, []string) {
 	return itemName, nil
 }
 
-// Run methods on numer type item
-func applyNumberMethods(numbs []interface{}, methods []string, dbEntryData interface{}) (float64, int) {
+// Run methods on number type item
+func applyNumberMethods(filter *Filter) int {
 	var entryData float64
-	if cNumb, ok := makeFloat(dbEntryData); ok {
-		entryData = cNumb
-	}
-	// Must have same amount of numbers in array as methods to use on them
-	if len(numbs) != len(methods) {
-		return 0, helpers.ErrorInvalidMethodParameters
-	}
-	for i, numb := range numbs {
-		// Check numb type
-		if cNumb, ok := makeFloat(numb); ok {
-			op := methods[i]
-			switch op {
-			case MethodOperatorAdd:
-				entryData = entryData + cNumb
-
-			case MethodOperatorSub:
-				entryData = entryData - cNumb
-
-			case MethodOperatorMul:
-				entryData = entryData * cNumb
-
-			case MethodOperatorDiv:
-				entryData = entryData / cNumb
-
-			case MethodOperatorMod:
-				entryData = float64(int(entryData) % int(cNumb))
-
-			default:
-				return 0, helpers.ErrorInvalidMethod
+	var err int
+	var brk bool
+	entryData, _ = makeFloat(filter.innerData[len(filter.innerData)-1])
+	if fList, ok := filter.item.([]interface{}); ok {
+		for _, methodParam := range fList {
+			// Check methodParam type
+			if cNumb, ok := makeFloat(methodParam); ok {
+				brk, err = getNumberMethodResult(filter, &entryData, cNumb)
+				if err != 0 {
+					return err
+				}
+			} else {
+				return helpers.ErrorInvalidMethodParameters
 			}
-		} else {
-			return 0, helpers.ErrorInvalidMethodParameters
+			// Break when requested
+			if brk {
+				break
+			}
+			// Remove this method
+			filter.methods = filter.methods[1:]
 		}
+	} else if num, ok := makeFloat(filter.item); ok {
+		// Check methodParam type
+		brk, err = getNumberMethodResult(filter, &entryData, num)
+		if err != 0 {
+			return err
+		}
+	} else {
+		return helpers.ErrorInvalidMethodParameters
 	}
-	return entryData, 0
+	filter.methods = []string{}
+	if !brk {
+		filter.item = entryData
+	}
+	return 0
 }
 
-// Run methods on String item
-func applyStringMethods(strs []interface{}, methods []string, dbEntryData string) (string, int) {
-	// Must have same amount of strings in array as methods to use on them
-	if len(strs) != len(methods) {
-		return "", helpers.ErrorInvalidMethodParameters
+func getNumberMethodResult(filter *Filter, entryData *float64, num float64) (bool, int) {
+	if len(filter.methods) == 0 {
+		return false, helpers.ErrorTooManyMethodParameters
 	}
-	for i, str := range strs {
-		// Check string type
-		if cStr, ok := str.(string); ok {
-			op := methods[i]
-			switch op {
-			case MethodOperatorAdd, MethodAppend:
-				dbEntryData = dbEntryData + cStr
-				continue
+	method := filter.methods[0]
+	var brk bool
+	if filter.get {
+		switch method {
+			case MethodEquals:
+				filter.item = (*entryData == num)
+				brk = true
 
-			case MethodPrepend:
-				dbEntryData = cStr + dbEntryData
-				continue
+			case MethodGreater:
+				filter.item = (*entryData > num)
+				brk = true
+
+			case MethodGreaterOE:
+				filter.item = (*entryData >= num)
+				brk = true
+
+			case MethodLess:
+				filter.item = (*entryData < num)
+				brk = true
+
+			case MethodLessOE:
+				filter.item = (*entryData <= num)
+				brk = true
+
+			default:
+				if err := checkGeneralNumberMethods(method, entryData, num); err != 0 {
+					return false, err
+				}
+		}
+	} else {
+		if err := checkGeneralNumberMethods(method, entryData, num); err != 0 {
+			return false, err
+		}
+	}
+	return brk, 0
+}
+
+func checkGeneralNumberMethods(method string, entryData *float64, num float64) int {
+	switch method {
+		case MethodOperatorAdd:
+			*entryData = *entryData + num
+
+		case MethodOperatorSub:
+			*entryData = *entryData - num
+
+		case MethodOperatorMul:
+			*entryData = *entryData * num
+
+		case MethodOperatorDiv:
+			*entryData = *entryData / num
+
+		case MethodOperatorMod:
+			*entryData = float64(int(*entryData) % int(num))
+
+		default:
+			return helpers.ErrorInvalidMethod
+	}
+	return 0
+}
+
+func applyStringMethods(filter *Filter) int {
+	var entryData string
+	var err int
+	var brk bool
+	var typeName string
+	entryData, _ = filter.innerData[len(filter.innerData)-1].(string)
+	if fList, ok := filter.item.([]interface{}); ok {
+		for _, methodParam := range fList {
+			// Check methodParam type
+			if cString, ok := methodParam.(string); ok {
+				brk, typeName, err = getStringMethodResult(filter, &entryData, cString)
+				if err != 0 {
+					return err
+				}
+			} else {
+				return helpers.ErrorInvalidMethodParameters
 			}
+			filter.item = filter.item.([]interface{})[1:]
+			filter.methods = filter.methods[1:]
+			if brk {
+				break
+			}
+		}
+	} else if str, ok := filter.item.(string); ok {
+		// Check methodParam type
+		brk, typeName, err = getStringMethodResult(filter, &entryData, str)
+		if err != 0 {
+			return err
+		}
+		filter.methods = []string{}
+	} else {
+		return helpers.ErrorInvalidMethodParameters
+	}
+	if brk {
+		if len(filter.methods) > 0 {
+			// More methods to run...
+			switch typeName {
+				case ItemTypeFloat64:
+					if err = applyNumberMethods(filter); err != 0 {
+						return err
+					}
+			}
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
+		}
+	} else {
+		filter.methods = []string{}
+		filter.item = entryData
+	}
+	return 0
+}
+
+func getStringMethodResult(filter *Filter, entryData *string, str string) (bool, string, int) {
+	if len(filter.methods) == 0 {
+		return false, "", helpers.ErrorTooManyMethodParameters
+	}
+	method := filter.methods[0]
+	var brk bool
+	var typeName string
+	if filter.get {
+		switch method {
+			case MethodLength:
+				if len(filter.methods) > 1 {
+					filter.innerData = append(filter.innerData, float64(len(*entryData)))
+					typeName = ItemTypeFloat64
+				} else {
+					filter.item = len(*entryData)
+				}
+				brk = true
+
+			case MethodIndexOf:
+				var indexOf float64 = -1
+				for i := 0; i < len(*entryData) - (len(str) - 1); i++ {
+					if (*entryData)[i:i + len(str)] == str {
+						indexOf = float64(i)
+						break
+					}
+				}
+				if len(filter.methods) > 1 {
+					filter.innerData = append(filter.innerData, indexOf)
+					typeName = ItemTypeFloat64
+				} else {
+					filter.item = indexOf
+				}
+				brk = true
+
+			case MethodContains:
+				var contains bool
+				for i := 0; i < len(*entryData) - (len(str) - 1); i++ {
+					if (*entryData)[i:i + len(str)] == str {
+						contains = true
+						break
+					}
+				}
+				filter.item = contains
+				brk = true
+
+			case MethodEquals:
+				filter.item = (*entryData == str)
+				brk = true
+
+			default:
+				if err := checkGeneralStringMethods(method, entryData, str); err != 0 {
+					return false, "", err
+				}
+		}
+	} else {
+		if err := checkGeneralStringMethods(method, entryData, str); err != 0 {
+			return false, "", err
+		}
+	}
+	return brk, typeName, 0
+}
+
+func checkGeneralStringMethods(method string, entryData *string, str string) int {
+	switch method {
+		case MethodOperatorAdd, MethodAppend:
+			*entryData = *entryData + str
+
+		case MethodPrepend:
+			*entryData = str + *entryData
+
+		default:
 			// Check for append at index method
-			if len(methods[i]) >= 10 && methods[i][:8] == MethodAppendAt && methods[i][len(methods[i])-1:len(methods[i])] == MethodAppendAtFin {
+			if len(method) >= 10 && method[:8] == MethodAppendAt && method[len(method)-1:len(method)] == MethodAppendAtFin {
 				// Convert the text inside brackets to int
-				j, jErr := strconv.Atoi(methods[i][8 : len(methods[i])-1])
+				j, jErr := strconv.Atoi(method[8 : len(method)-1])
 				if jErr != nil {
-					return "", helpers.ErrorInvalidMethod
+					return helpers.ErrorInvalidMethod
 				}
 				// Prevent out of range error
 				if j < 0 {
 					j = 0
-				} else if j > len(dbEntryData)-1 {
-					j = len(dbEntryData) - 1
+				} else if j > len(*entryData) - 1 {
+					j = len(*entryData) - 1
 				}
 				// Merge slices (could possibly be done better?) !!!
-				entryStart := dbEntryData[:j]
-				entryStart = entryStart + cStr
-				dbEntryData = entryStart + dbEntryData[j:]
-				continue
+				entryStart := (*entryData)[:j]
+				entryStart = entryStart + str
+				*entryData = entryStart + (*entryData)[j:]
+			} else {
+				return helpers.ErrorInvalidMethod
 			}
-			return "", helpers.ErrorInvalidMethod
-		} else {
-			return "", helpers.ErrorInvalidMethodParameters
-		}
-	}
-	return dbEntryData, 0
-}
-
-// Run get methods on String item
-func applyStringGetMethod(method string, dbEntryData string, filter *Filter) int {
-	switch method {
-	case MethodLength:
-		filter.item = len(dbEntryData)
-	default:
-		return helpers.ErrorInvalidMethod
 	}
 	return 0
 }
@@ -145,17 +298,32 @@ func applyStringGetMethod(method string, dbEntryData string, filter *Filter) int
 // Run methods on Array item collection
 func applyArrayMethods(filter *Filter) int {
 	method := filter.methods[0]
-	var dbEntryData []interface{}
+	dbEntryData := filter.innerData[len(filter.innerData)-1].([]interface{})
 	if filter.get {
-		dbEntryData = filter.item.([]interface{})
 		switch method {
 		case MethodLength:
-			filter.methods = []string{}
-			filter.item = len(dbEntryData)
-			return 0
+			filter.methods = filter.methods[1:]
+			if len(filter.methods) > 0 {
+				// run methods as float64
+				filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
+				if err := applyNumberMethods(filter); err != 0 {
+					return err
+				}
+				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			} else {
+				filter.item = len(dbEntryData)
+			}
+
+		case MethodIndexOf:
+			// TO-DO
+			filter.item = -1
+
+		case MethodContains:
+			// TO-DO
+			filter.item = false
 		}
+		return 0
 	} else {
-		dbEntryData = filter.innerData[len(filter.innerData)-1].([]interface{})
 		if item, ok := filter.item.([]interface{}); ok {
 			// Basic array methods
 			switch method {
@@ -273,17 +441,32 @@ func filterArrayMethodItems(filter *Filter, item *[]interface{}) int {
 // Run methods on Map item collection
 func applyMapMethods(filter *Filter) int {
 	method := filter.methods[0]
-	var dbEntryData map[string]interface{}
+	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
 	if filter.get {
-		dbEntryData = filter.item.(map[string]interface{})
 		switch method {
 		case MethodLength:
-			filter.methods = []string{}
-			filter.item = len(dbEntryData)
-			return 0
+			filter.methods = filter.methods[1:]
+			if len(filter.methods) > 0 {
+				// run methods as float64
+				filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
+				if err := applyNumberMethods(filter); err != 0 {
+					return err
+				}
+				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			} else {
+				filter.item = len(dbEntryData)
+			}
+
+		case MethodIndexOf:
+			// TO-DO
+			filter.item = -1
+
+		case MethodContains:
+			// TO-DO
+			filter.item = false
 		}
+		return 0
 	} else {
-		dbEntryData = filter.innerData[len(filter.innerData)-1].(map[string]interface{})
 		if item, ok := filter.item.([]interface{}); ok && method == MethodDelete {
 			// Delete method - eg: ["Mary", "Joe", "Vokome"]
 			for _, n := range item {
@@ -353,23 +536,8 @@ func applyObjectMethods(filter *Filter) int {
 	}
 	// Remove this method and add new schemaItem
 	filter.methods = filter.methods[1:]
-	filter.schemaItems = append(filter.schemaItems, si)
-	// Run method on item
-	if filter.get {
-		switch method {
-		case MethodLength:
-			filter.item = len(filter.item.(map[string]interface{}))
-			return 0
-		}
-		filter.item = filter.item.(map[string]interface{})[method]
-		iTypeErr := queryItemFilter(filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-		return 0
-	}
 	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
+	filter.schemaItems = append(filter.schemaItems, si)
 	filter.innerData = append(filter.innerData, dbEntryData[method])
 	iTypeErr := queryItemFilter(filter)
 	if iTypeErr != 0 {
@@ -377,8 +545,10 @@ func applyObjectMethods(filter *Filter) int {
 	}
 	filter.innerData = filter.innerData[:len(filter.innerData)-1]
 	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-	dbEntryData[method] = filter.item
-	filter.item = dbEntryData
+	if !filter.get {
+		dbEntryData[method] = filter.item
+		filter.item = dbEntryData
+	}
 	return 0
 }
 

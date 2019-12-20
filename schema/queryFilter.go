@@ -96,6 +96,8 @@ func getTypeFilter(typeName string) func(*Filter)(int) {
 
 func boolFilter(filter *Filter) int {
 	if filter.get {
+		filter.methods = []string{}
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	} else if i, ok := filter.item.(bool); ok {
 		filter.item = i
@@ -105,20 +107,19 @@ func boolFilter(filter *Filter) int {
 }
 
 func int8Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic int8
 	if i, ok := makeInt(filter.item); ok {
 		ic = int8(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = int8(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -142,20 +143,19 @@ func int8Filter(filter *Filter) int {
 }
 
 func int16Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic int16
 	if i, ok := makeFloat(filter.item); ok {
 		ic = int16(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = int16(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -179,20 +179,19 @@ func int16Filter(filter *Filter) int {
 }
 
 func int32Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic int32
 	if i, ok := makeFloat(filter.item); ok {
 		ic = int32(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = int32(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -216,20 +215,19 @@ func int32Filter(filter *Filter) int {
 }
 
 func int64Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic int64
 	if i, ok := makeFloat(filter.item); ok {
 		ic = int64(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = int64(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -253,20 +251,19 @@ func int64Filter(filter *Filter) int {
 }
 
 func uint8Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic uint8
 	if i, ok := makeFloat(filter.item); ok {
 		ic = uint8(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = uint8(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -287,20 +284,19 @@ func uint8Filter(filter *Filter) int {
 }
 
 func uint16Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic uint16
 	if i, ok := makeFloat(filter.item); ok {
 		ic = uint16(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = uint16(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -321,20 +317,19 @@ func uint16Filter(filter *Filter) int {
 }
 
 func uint32Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic uint32
 	if i, ok := makeFloat(filter.item); ok {
 		ic = uint32(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = uint32(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -355,20 +350,19 @@ func uint32Filter(filter *Filter) int {
 }
 
 func uint64Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic uint64
 	if i, ok := makeFloat(filter.item); ok {
 		ic = uint64(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = uint64(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -389,20 +383,19 @@ func uint64Filter(filter *Filter) int {
 }
 
 func float32Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic float32
 	if i, ok := makeFloat(filter.item); ok {
 		ic = float32(i)
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = float32(mRes)
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidItemValue
 	}
@@ -426,21 +419,19 @@ func float32Filter(filter *Filter) int {
 }
 
 func float64Filter(filter *Filter) int {
+	if len(filter.methods) > 0 {
+		// Apply number methods
+		mErr := applyNumberMethods(filter)
+		if mErr != 0 {
+			return mErr
+		}
+	}
 	if filter.get {
 		return 0
 	}
 	var ic float64
-	if i, ok := makeFloat(filter.item); ok {
-		ic = i
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
-		// Apply arithmetic methods
-		mRes, mErr := applyNumberMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1])
-		if mErr != 0 {
-			return mErr
-		}
-		ic = mRes
-		filter.methods = []string{}
-	} else {
+	var ok bool
+	if ic, ok = makeFloat(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Float64Item)
@@ -463,24 +454,19 @@ func float64Filter(filter *Filter) int {
 }
 
 func stringFilter(filter *Filter) int {
-	if filter.get {
-		if len(filter.methods) > 0 {
-			return applyStringGetMethod(filter.methods[0], filter.item.(string), filter)
-		}
-		return 0
-	}
-	var ic string
-	if i, ok := filter.item.(string); ok {
-		ic = i
-	} else if i, ok := filter.item.([]interface{}); ok && len(filter.methods) > 0 {
+	if len(filter.methods) > 0 {
 		// Apply string methods
-		mRes, mErr := applyStringMethods(i, filter.methods, filter.innerData[len(filter.innerData)-1].(string))
+		mErr := applyStringMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
-		ic = mRes
-		filter.methods = []string{}
-	} else {
+	}
+	if filter.get {
+		return 0
+	}
+	var ic string
+	var ok bool
+	if ic, ok = filter.item.(string); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(StringItem)
@@ -689,6 +675,8 @@ func makeFloat(i interface{}) (float64, bool) {
 
 func makeInt(i interface{}) (int, bool) {
 	switch t := i.(type) {
+	case float64:
+		return int(t), true
 	case int:
 		return t, true
 	case int8:
@@ -708,8 +696,6 @@ func makeInt(i interface{}) (int, bool) {
 	case uint64:
 		return int(t), true
 	case float32:
-		return int(t), true
-	case float64:
 		return int(t), true
 	}
 	return 0, false

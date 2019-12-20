@@ -143,7 +143,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 //
 
 // Get
-func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{}, int) {
+func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[string]interface{}, int) {
 	// Get entry
 	e, err := k.Get(key)
 	if err != 0 {
@@ -167,8 +167,8 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 
 	// Check for specific items to get
 	m := make(map[string]interface{})
-	if items != nil {
-		for _, itemName := range items {
+	if items != nil && len(items) > 0 {
+		for itemName, methodParams := range items {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
 			//
 			si := (k.schema)[siName]
@@ -177,7 +177,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 			}
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
+			err := schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -187,7 +187,7 @@ func (k *Keystore) GetKeyData(key string, items []string) (map[string]interface{
 		for itemName, si := range k.schema {
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(data[si.DataIndex()], nil, &i, nil, si, nil, true, false)
+			err := schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
