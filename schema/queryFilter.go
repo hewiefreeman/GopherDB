@@ -481,8 +481,11 @@ func stringFilter(filter *Filter) int {
 		if mErr != 0 {
 			return mErr
 		}
-	}
-	if filter.get {
+		if filter.get {
+			return 0
+		}
+	} else if filter.get {
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
 	var ic string

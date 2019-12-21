@@ -2,56 +2,6 @@
 	"Name": "test",
 	"Schema": [
 		{
-			"Name": "email",
-			"DataType": [
-				"String",
-				"",
-				30,
-				true,
-				true
-			],
-			"Position": 1
-		},
-		{
-			"Name": "actions",
-			"DataType": [
-				"Map",
-				[
-					"Object",
-					{
-						"id": [
-							"Uint16",
-							0,
-							0,
-							0,
-							false,
-							true
-						],
-						"type": [
-							"String",
-							"greeting",
-							0,
-							false,
-							true
-						]
-					},
-					false
-				],
-				0,
-				false
-			],
-			"Position": 4
-		},
-		{
-			"Name": "subbed",
-			"DataType": [
-				"Time",
-				"RFC3339",
-				false
-			],
-			"Position": 2
-		},
-		{
 			"Name": "mmr",
 			"DataType": [
 				"Uint16",
@@ -114,6 +64,56 @@
 				false
 			],
 			"Position": 3
+		},
+		{
+			"Name": "email",
+			"DataType": [
+				"String",
+				"",
+				30,
+				true,
+				true
+			],
+			"Position": 1
+		},
+		{
+			"Name": "actions",
+			"DataType": [
+				"Map",
+				[
+					"Object",
+					{
+						"id": [
+							"Uint16",
+							0,
+							0,
+							0,
+							false,
+							true
+						],
+						"type": [
+							"String",
+							"greeting",
+							0,
+							false,
+							true
+						]
+					},
+					false
+				],
+				0,
+				false
+			],
+			"Position": 4
+		},
+		{
+			"Name": "subbed",
+			"DataType": [
+				"Time",
+				"RFC3339",
+				false
+			],
+			"Position": 2
 		}
 	],
 	"FileOn": 0,

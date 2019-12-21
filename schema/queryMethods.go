@@ -69,12 +69,6 @@ func applyNumberMethods(filter *Filter) int {
 			// Remove this method
 			filter.methods = filter.methods[1:]
 		}
-	} else if num, ok := makeFloat64(filter.item); ok {
-		// Check methodParam type
-		brk, err = getNumberMethodResult(filter, &entryData, num)
-		if err != 0 {
-			return err
-		}
 	} else {
 		return helpers.ErrorInvalidMethodParameters
 	}
@@ -164,21 +158,16 @@ func applyStringMethods(filter *Filter) int {
 					return err
 				}
 			} else {
-				return helpers.ErrorInvalidMethodParameters
+				brk, typeName, err = getStringMethodResult(filter, &entryData, "")
+				if err != 0 {
+					return err
+				}
 			}
-			filter.item = filter.item.([]interface{})[1:]
 			filter.methods = filter.methods[1:]
 			if brk {
 				break
 			}
 		}
-	} else if str, ok := filter.item.(string); ok {
-		// Check methodParam type
-		brk, typeName, err = getStringMethodResult(filter, &entryData, str)
-		if err != 0 {
-			return err
-		}
-		filter.methods = []string{}
 	} else {
 		return helpers.ErrorInvalidMethodParameters
 	}
@@ -191,6 +180,9 @@ func applyStringMethods(filter *Filter) int {
 						return err
 					}
 			}
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
+		} else {
+			filter.item = filter.innerData[len(filter.innerData)-1]
 			filter.innerData = filter.innerData[:len(filter.innerData)-1]
 		}
 	} else {
@@ -210,12 +202,8 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 	if filter.get {
 		switch method {
 			case MethodLength:
-				if len(filter.methods) > 1 {
-					filter.innerData = append(filter.innerData, float64(len(*entryData)))
-					typeName = ItemTypeFloat64
-				} else {
-					filter.item = len(*entryData)
-				}
+				filter.innerData = append(filter.innerData, float64(len(*entryData)))
+				typeName = ItemTypeFloat64
 				brk = true
 
 			case MethodIndexOf:
@@ -226,12 +214,9 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 						break
 					}
 				}
-				if len(filter.methods) > 1 {
-					filter.innerData = append(filter.innerData, indexOf)
-					typeName = ItemTypeFloat64
-				} else {
-					filter.item = indexOf
-				}
+				filter.item = filter.item.([]interface{})[1:]
+				filter.innerData = append(filter.innerData, indexOf)
+				typeName = ItemTypeFloat64
 				brk = true
 
 			case MethodContains:
@@ -242,27 +227,29 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 						break
 					}
 				}
-				filter.item = contains
+				filter.innerData = append(filter.innerData, contains)
+				typeName = ItemTypeBool
 				brk = true
 
 			case MethodEquals:
-				filter.item = (*entryData == str)
+				filter.innerData = append(filter.innerData, (*entryData == str))
+				typeName = ItemTypeBool
 				brk = true
 
 			default:
-				if err := checkGeneralStringMethods(method, entryData, str); err != 0 {
+				if err := checkGeneralStringMethods(filter, method, entryData, str); err != 0 {
 					return false, "", err
 				}
 		}
 	} else {
-		if err := checkGeneralStringMethods(method, entryData, str); err != 0 {
+		if err := checkGeneralStringMethods(filter, method, entryData, str); err != 0 {
 			return false, "", err
 		}
 	}
 	return brk, typeName, 0
 }
 
-func checkGeneralStringMethods(method string, entryData *string, str string) int {
+func checkGeneralStringMethods(filter *Filter, method string, entryData *string, str string) int {
 	switch method {
 		case MethodOperatorAdd, MethodAppend:
 			*entryData = *entryData + str
@@ -292,6 +279,7 @@ func checkGeneralStringMethods(method string, entryData *string, str string) int
 				return helpers.ErrorInvalidMethod
 			}
 	}
+	filter.item = filter.item.([]interface{})[1:]
 	return 0
 }
 
