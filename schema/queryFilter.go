@@ -3,7 +3,6 @@ package schema
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"time"
-	//"fmt"
 )
 
 // Filter for queries

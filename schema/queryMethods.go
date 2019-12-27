@@ -26,9 +26,9 @@ const (
 	MethodLess        = "*lt"
 	MethodGreaterOE   = "*gte"
 	MethodLessOE      = "*lte"
-	MethodContains    = "*contains" // TO-DO: arrays, maps
-	MethodIndexOf     = "*indexOf" // TO-DO: arrays
-	MethodKeyOf       = "*keyOf" // TO_DO: maps
+	MethodContains    = "*contains" // For Array and Map
+	MethodIndexOf     = "*indexOf"  // For Array
+	MethodKeyOf       = "*keyOf"    // For Map
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -316,12 +316,38 @@ func applyArrayMethods(filter *Filter) int {
 				return 0
 
 			case MethodIndexOf:
-				// TO-DO ...
-				return helpers.ErrorInvalidMethod
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
+				}
+				var indexOf float64
+				var err int
+				if indexOf, err = arrayIndexOf(filter, item[0], &dbEntryData); err != 0 {
+					return err
+				}
+				if len(filter.methods) > 0 {
+					// run methods as float64
+					filter.innerData = append(filter.innerData, indexOf)
+					if err = applyNumberMethods(filter); err != 0 {
+						return err
+					}
+					filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+				} else {
+					filter.item = indexOf
+				}
+				return 0
 
 			case MethodContains:
-				// TO-DO ...
-				return helpers.ErrorInvalidMethod
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
+				}
+				var indexOf float64
+				var err int
+				if indexOf, err = arrayIndexOf(filter, item[0], &dbEntryData); err != 0 {
+					return err
+				}
+				filter.methods = []string{}
+				filter.item = (indexOf != -1)
+				return 0
 			}
 		} else {
 			// Insert/Update query array methods
@@ -412,6 +438,40 @@ func applyArrayMethods(filter *Filter) int {
 	return 0
 }
 
+func arrayIndexOf(filter *Filter, searchItem interface{}, dbEntryData *[]interface{}) (float64, int) {
+	// Get inner data type
+	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
+	var indexOf float64 = -1
+	if si.IsNumeric() {
+		var searchF float64
+		var ok bool
+		if searchF, ok = makeFloat64(searchItem); !ok {
+			return 0, helpers.ErrorInvalidMethodParameters
+		}
+		for i, innerItem := range *dbEntryData {
+			if innerItem, ok = makeFloat64(innerItem); !ok {
+				return 0, helpers.ErrorUnexpected
+			}
+			if searchF == innerItem {
+				indexOf = float64(i)
+				break
+			}
+		}
+	} else if si.typeName == ItemTypeString || si.typeName == ItemTypeBool {
+		for i, innerItem := range *dbEntryData {
+			if searchItem == innerItem {
+				indexOf = float64(i)
+				break
+			}
+		}
+	} else {
+		return 0, helpers.ErrorInvalidMethod
+	}
+	filter.item = filter.item.([]interface{})[1:]
+	filter.methods = filter.methods[1:]
+	return indexOf, 0
+}
+
 // Run filter on Array method item collection
 func filterArrayMethodItems(filter *Filter, item *[]interface{}) int {
 	filter.methods = []string{}
@@ -436,63 +496,87 @@ func applyMapMethods(filter *Filter) int {
 	}
 	method := filter.methods[0]
 	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
-	if filter.get {
-		switch method {
-		case MethodLength:
-			filter.methods = filter.methods[1:]
-			if len(filter.methods) > 0 {
-				// run methods as float64
-				filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
-				if err := applyNumberMethods(filter); err != 0 {
+	if item, ok := filter.item.([]interface{}); ok {
+		if filter.get {
+			switch method {
+			case MethodLength:
+				filter.methods = filter.methods[1:]
+				if len(filter.methods) > 0 {
+					// run methods as float64
+					filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
+					if err := applyNumberMethods(filter); err != 0 {
+						return err
+					}
+					filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+				} else {
+					filter.item = len(dbEntryData)
+				}
+				return 0
+
+			case MethodKeyOf:
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
+				}
+				var keyOf string
+				var err int
+				if keyOf, err = mapKeyOf(filter, item[0], &dbEntryData); err != 0 {
 					return err
 				}
-				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-			} else {
-				filter.item = len(dbEntryData)
-			}
-			return 0
-
-		case MethodKeyOf:
-			// TO-DO
-			filter.item = -1
-			return 0
-
-		case MethodContains:
-			// TO-DO
-			filter.item = false
-			return 0
-		}
-	} else {
-		if item, ok := filter.item.([]interface{}); ok && method == MethodDelete {
-			// Delete method - eg: ["Mary", "Joe", "Vokome"]
-			for _, n := range item {
-				if itemName, ok := n.(string); ok {
-					delete(dbEntryData, itemName)
-					continue
+				if len(filter.methods) > 0 {
+					// run methods as string
+					filter.innerData = append(filter.innerData, keyOf)
+					if err := applyStringMethods(filter); err != 0 {
+						return err
+					}
+					filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+				} else {
+					filter.item = keyOf
 				}
-				return helpers.ErrorInvalidMethodParameters
-			}
-			filter.methods = []string{}
-			filter.item = dbEntryData
-			return 0
-		} else if item, ok := filter.item.(map[string]interface{}); ok && method == MethodAppend {
-			// Append method - eg: {"x": 27, "y": 43}
-			filter.methods = []string{}
-			//filter.innerData = append(filter.innerData, nil)
-			filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType)
-			var itemName string
-			for itemName, filter.item = range item {
-				if iTypeErr := queryItemFilter(filter); iTypeErr != 0 {
-					return iTypeErr
+				return 0
+
+			case MethodContains:
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
 				}
-				dbEntryData[itemName] = filter.item
-				filter.innerData[len(filter.innerData)-1].(map[string]interface{})[itemName] = filter.item
+				var keyOf string
+				var err int
+				if keyOf, err = mapKeyOf(filter, item[0], &dbEntryData); err != 0 {
+					return err
+				}
+				filter.methods = []string{}
+				filter.item = (keyOf != "")
+				return 0
 			}
-			//filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-			filter.item = dbEntryData
-			return 0
+		} else {
+			if method == MethodDelete {
+				// Delete method - eg: ["Mary", "Joe", "Vokome"]
+				for _, n := range item {
+					if itemName, ok := n.(string); ok {
+						delete(dbEntryData, itemName)
+						continue
+					}
+					return helpers.ErrorInvalidMethodParameters
+				}
+				filter.methods = []string{}
+				filter.item = dbEntryData
+				return 0
+			}
 		}
+	} else if item, ok := filter.item.(map[string]interface{}); ok && method == MethodAppend {
+		// Append method - eg: {"x": 27, "y": 43}
+		filter.methods = []string{}
+		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType)
+		var itemName string
+		for itemName, filter.item = range item {
+			if iTypeErr := queryItemFilter(filter); iTypeErr != 0 {
+				return iTypeErr
+			}
+			dbEntryData[itemName] = filter.item
+			filter.innerData[len(filter.innerData)-1].(map[string]interface{})[itemName] = filter.item
+		}
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.item = dbEntryData
+		return 0
 	}
 
 	// Checking for item with the name method[0] (Items with * not accepted)
@@ -513,6 +597,40 @@ func applyMapMethods(filter *Filter) int {
 		return 0
 	}
 	return helpers.ErrorInvalidMethod
+}
+
+func mapKeyOf(filter *Filter, searchItem interface{}, dbEntryData *map[string]interface{}) (string, int) {
+	// Get inner data type
+	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(MapItem).dataType
+	var keyOf string
+	if si.IsNumeric() {
+		var searchF float64
+		var ok bool
+		if searchF, ok = makeFloat64(searchItem); !ok {
+			return "", helpers.ErrorInvalidMethodParameters
+		}
+		for key, innerItem := range *dbEntryData {
+			if innerItem, ok = makeFloat64(innerItem); !ok {
+				return "", helpers.ErrorUnexpected
+			}
+			if searchF == innerItem {
+				keyOf = key
+				break
+			}
+		}
+	} else if si.typeName == ItemTypeString || si.typeName == ItemTypeBool {
+		for key, innerItem := range *dbEntryData {
+			if searchItem == innerItem {
+				keyOf = key
+				break
+			}
+		}
+	} else {
+		return "", helpers.ErrorInvalidMethod
+	}
+	filter.item = filter.item.([]interface{})[1:]
+	filter.methods = filter.methods[1:]
+	return keyOf, 0
 }
 
 // Run methods on Object item

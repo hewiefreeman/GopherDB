@@ -75,18 +75,21 @@ func TestChangeSettings(t *testing.T) {
 	err := table.SetPartitionMax(tablePartitionMax)
 	if err != 0 {
 		t.Errorf("Error while setting max partition file size: %v", err)
+		return
 	}
 
 	// Set max table entries
 	err = table.SetMaxEntries(tableMaxEntries)
 	if err != 0 {
 		t.Errorf("Error while setting max table entries: %v", err)
+		return
 	}
 
 	// Set table encryption cost
 	err = table.SetEncryptionCost(tableEncryptionCost)
 	if err != 0 {
 		t.Errorf("Error while setting table encryption cost: %v", err)
+		return
 	}
 }
 
@@ -118,6 +121,7 @@ func TestInsertDuplicateUniqueTableValue(t *testing.T) {
 	_, err := table.InsertKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
 	if (err != helpers.ErrorKeyInUse) {
 		t.Errorf("InsertDuplicateUniqueTableValue expected error %v, but got: %v", helpers.ErrorKeyInUse, err)
+		return
 	}
 	// Test duplicate key
 	_, err = table.InsertKey("guest" + strconv.Itoa(table.Size() + 1), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
@@ -144,11 +148,13 @@ func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
 	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Sir Smackem", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+		return
 	}
 	// Test deeper nesting...
 	err = table.UpdateKey("Vokome", map[string]interface{}{"friends.0.labels.nickname": "H"})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+		return
 	}
 	// Testing Int8...
 	err = table.UpdateKey("Vokome", map[string]interface{}{"friends.2.labels.friendNum": 0})
@@ -165,6 +171,7 @@ func TestInsertWithUniqueValueDuplicatesArray(t *testing.T) {
 	_, err := table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestInsertWithUniqueValueDuplicatesArray expected error %v but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+		return
 	}
 	// Test nested unique Object item
 	_, err = table.InsertKey(guestName, map[string]interface{}{"mmr": 1337, "email": guestName + "@gmail.com", "friends": []interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}})
@@ -180,6 +187,7 @@ func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
 	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+		return
 	}
 	// Test nested unique Object item
 	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}})
@@ -206,6 +214,7 @@ func TestAppendDuplicateUniqueNestedValueMap(t *testing.T) {
 	err := table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"yo": map[string]interface{}{"type": "greeting", "id": 1}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
+		return
 	}
 	// Testing Uint16...
 	err = table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 0}}})
@@ -280,6 +289,7 @@ func TestAppendToArray(t *testing.T) {
 		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0, "labels": map[string]interface{}{"nickname": "G" + strconv.Itoa(7+i), "friendNum": i}}}})
 		if (err != 0) {
 			t.Errorf("TestAppendArray error: %v", err)
+			return
 		}
 	}
 }
@@ -292,6 +302,7 @@ func TestChangeValueInnerArray(t *testing.T) {
 		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends." + strconv.Itoa(i) + ".status": 2})
 		if (err != 0) {
 			t.Errorf("TestAppendArray error: %v", err)
+			return
 		}
 	}
 }
@@ -303,10 +314,12 @@ func TestAppendToMap(t *testing.T) {
 	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 1}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
+		return
 	}
 	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"hallo": map[string]interface{}{"type": "greeting", "id": 0}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
+		return
 	}
 	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"peace": map[string]interface{}{"type": "farewell", "id": 2}}})
 	if (err != 0) {
@@ -321,10 +334,12 @@ func TestArithmetic(t *testing.T) {
 	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*sub.*mul.*div.*mod": []interface{}{10, 7, 2, 3, 8}})
 	if err != 0 {
 		t.Errorf("TestArithmetic error: %v", err)
+		return
 	}
 	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr": nil})
 	if data["mmr"] != float64(5) {
 		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
+		return
 	}
 }
 
@@ -340,61 +355,75 @@ func TestComparisons(t *testing.T) {
 	}
 	if data["mmr.*add.*eq"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["mmr.*add.*eq"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*eq": []interface{}{10, 43}})
 	if data["mmr.*add.*eq"] != false {
 		t.Errorf("TestComparisons expected false, but got: %v", data["mmr.*add.*eq"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lt": []interface{}{10, 15}})
 	if data["mmr.*add.*lt"] != false {
 		t.Errorf("TestComparisons expected false, but got: %v", data["mmr.*add.*lt"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*lte": []interface{}{10, 15}})
 	if data["mmr.*add.*lte"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["mmr.*add.*lte"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*gt": []interface{}{10, 14}})
 	if data["mmr.*add.*gt"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["mmr.*add.*gt"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*add.*gte": []interface{}{10, 15}})
 	if data["mmr.*add.*gte"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["mmr.*add.*gte"])
+		return
 	}
 	// combining array methods with number comparisons
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*len.*gte": []interface{}{5}})
 	if data["friends.*len.*gte"] != false {
 		t.Errorf("TestComparisons expected false, but got: %v", data["friends.*len.*gte"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*len.*gte": []interface{}{2}})
 	if data["friends.*len.*gte"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["friends.*len.*gte"])
+		return
 	}
 	// combining map methods with number comparisons
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*len.*gte": []interface{}{5}})
 	if data["actions.*len.*gte"] != false {
 		t.Errorf("TestComparisons expected false, but got: %v", data["actions.*len.*gte"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*len.*gte": []interface{}{2}})
 	if data["actions.*len.*gte"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["actions.*len.*gte"])
+		return
 	}
 	// String comparisons
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email.*eq": []interface{}{"guest" + strconv.Itoa(table.Size()) + "@gmail.com"}})
 	if data["email.*eq"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["email.*eq"])
+		return
 	}
 	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email.*len.*gt": []interface{}{30}})
 	if data["email.*len.*gt"] != false {
 		t.Errorf("TestComparisons expected false, but got: %v", data["email.*len.*gt"])
+		return
 	}
 	// friends.0.login = "guest1337"
 	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.0.login.*len.*eq": []interface{}{9}})
 	if err != 0 {
 		t.Errorf("TestComparisons error: %v", err)
+		return
 	}
 	if data["friends.0.login.*len.*eq"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["friends.0.login.*len.*eq"])
+		return
 	}
 	// actions.fek off.type = "insult"
 	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.fek off.type.*len.*add.*eq": []interface{}{3, 9}})
@@ -403,13 +432,70 @@ func TestComparisons(t *testing.T) {
 	}
 	if data["actions.fek off.type.*len.*add.*eq"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["actions.fek off.type.*len.*add.*eq"])
+		return
 	}
 	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.fek off.id.*gte": []interface{}{1}})
 	if err != 0 {
 		t.Errorf("TestComparisons error: %v", err)
+		return
 	}
 	if data["actions.fek off.id.*gte"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["actions.fek off.id.*gte"])
+	}
+}
+
+// Testing Array *indexOf and *contains
+func TestArrayIndexOfAndContains(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	// Array of String
+	data, err := table.GetKeyData("Vokome", map[string]interface{}{"testStringArray.*indexOf": []interface{}{"c"}, "testStringArray.*contains": []interface{}{"h"}})
+	if err != 0 {
+		t.Errorf("TestArrayIndexOfAndContains error: %v", err)
+		return
+	}
+	if data["testStringArray.*indexOf"] != float64(2) {
+		t.Errorf("TestArrayIndexOfAndContains expected 2, but got: %v", data["testStringArray.*indexOf"])
+		return
+	}
+	if data["testStringArray.*contains"] != false {
+		t.Errorf("TestArrayIndexOfAndContains expected false, but got: %v", data["testStringArray.*contains"])
+		return
+	}
+	// Array of Float32
+	data, err = table.GetKeyData("Vokome", map[string]interface{}{"testFloatArray.*indexOf": []interface{}{5.5}, "testFloatArray.*contains": []interface{}{45}})
+	if err != 0 {
+		t.Errorf("TestArrayIndexOfAndContains error: %v", err)
+		return
+	}
+	if data["testFloatArray.*indexOf"] != float64(3) {
+		t.Errorf("TestArrayIndexOfAndContains expected 3, but got: %v", data["testFloatArray.*indexOf"])
+		return
+	}
+	if data["testFloatArray.*contains"] != false {
+		t.Errorf("TestArrayIndexOfAndContains expected false, but got: %v", data["testFloatArray.*contains"])
+	}
+}
+
+// Testing Array *indexOf and *contains
+func TestMapKeyOfAndContains(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	// Map of Float32
+	data, err := table.GetKeyData("Vokome", map[string]interface{}{"testFloatMap.*keyOf": []interface{}{3.45}, "testFloatMap.*contains": []interface{}{7}})
+	if err != 0 {
+		t.Errorf("TestMapKeyOfAndContains error: %v", err)
+		return
+	}
+	if data["testFloatMap.*keyOf"] != "three point 45" {
+		t.Errorf("TestMapKeyOfAndContains expected 'three point 45', but got: '%v'", data["testFloatMap.*keyOf"])
+		return
+	}
+	if data["testFloatMap.*contains"] != false {
+		t.Errorf("TestMapKeyOfAndContains expected false, but got: %v", data["testFloatMap.*contains"])
+		return
 	}
 }
 
