@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+/*  **** RULES ****
+
+	- Query methods must always be paired with a ([]interface{}) list!
+
+*/
+
 // Method names
 const (
 	MethodOperatorAdd = "*add"
@@ -15,13 +21,14 @@ const (
 	MethodOperatorDiv = "*div"
 	MethodOperatorMod = "*mod"
 	MethodLength      = "*len"
-	MethodEquals      = "*eq" // Testing...
-	MethodGreater     = "*gt" // Testing...
-	MethodLess        = "*lt" // Testing...
-	MethodGreaterOE   = "*gte" // Testing...
-	MethodLessOE      = "*lte" // Testing...
-	MethodContains    = "*contains" // Testing strings... TO-DO: arrays, maps
-	MethodIndexOf     = "*indexOf" // Testing strings... TO-DO: arrays, maps
+	MethodEquals      = "*eq"
+	MethodGreater     = "*gt"
+	MethodLess        = "*lt"
+	MethodGreaterOE   = "*gte"
+	MethodLessOE      = "*lte"
+	MethodContains    = "*contains" // TO-DO: arrays, maps
+	MethodIndexOf     = "*indexOf" // TO-DO: arrays
+	MethodKeyOf       = "*keyOf" // TO_DO: maps
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -285,35 +292,39 @@ func checkGeneralStringMethods(filter *Filter, method string, entryData *string,
 
 // Run methods on Array item collection
 func applyArrayMethods(filter *Filter) int {
+	if filter.item == nil {
+		return helpers.ErrorInvalidMethodParameters
+	}
 	method := filter.methods[0]
 	dbEntryData := filter.innerData[len(filter.innerData)-1].([]interface{})
-	if filter.get {
-		switch method {
-		case MethodLength:
-			filter.methods = filter.methods[1:]
-			if len(filter.methods) > 0 {
-				// run methods as float64
-				filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
-				if err := applyNumberMethods(filter); err != 0 {
-					return err
+	if item, ok := filter.item.([]interface{}); ok {
+		if filter.get {
+			// Check get query array methods
+			switch method {
+			case MethodLength:
+				filter.methods = filter.methods[1:]
+				if len(filter.methods) > 0 {
+					// run methods as float64
+					filter.innerData = append(filter.innerData, float64(len(dbEntryData)))
+					if err := applyNumberMethods(filter); err != 0 {
+						return err
+					}
+					filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+				} else {
+					filter.item = len(dbEntryData)
 				}
-				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-			} else {
-				filter.item = len(dbEntryData)
+				return 0
+
+			case MethodIndexOf:
+				// TO-DO ...
+				return helpers.ErrorInvalidMethod
+
+			case MethodContains:
+				// TO-DO ...
+				return helpers.ErrorInvalidMethod
 			}
-
-		case MethodIndexOf:
-			// TO-DO
-			filter.item = -1
-
-		case MethodContains:
-			// TO-DO
-			filter.item = false
-		}
-		return 0
-	} else {
-		if item, ok := filter.item.([]interface{}); ok {
-			// Basic array methods
+		} else {
+			// Insert/Update query array methods
 			switch method {
 			case MethodAppend:
 				if err := filterArrayMethodItems(filter, &item); err != 0 {
@@ -348,9 +359,10 @@ func applyArrayMethods(filter *Filter) int {
 			}
 
 			// Check for append at index method
-			if len(method) >= 10 && method[:8] == MethodAppendAt && method[len(method)-1:len(method)] == MethodAppendAtFin {
+			mLen := len(method)
+			if mLen >= 10 && method[:8] == MethodAppendAt && method[mLen-1:mLen] == MethodAppendAtFin {
 				// Convert the text inside brackets to int
-				i, iErr := strconv.Atoi(method[8 : len(method)-1])
+				i, iErr := strconv.Atoi(method[8 : mLen-1])
 				if iErr != nil {
 					return helpers.ErrorInvalidMethod
 				}
@@ -380,31 +392,22 @@ func applyArrayMethods(filter *Filter) int {
 	// Prevent out of range error
 	if len(dbEntryData) == 0 {
 		return helpers.ErrorArrayEmpty
-	} else if i < 0 {
-		i = 0
-	} else if i > len(dbEntryData)-1 {
-		i = len(dbEntryData) - 1
+	} else if i < 0 || i > len(dbEntryData) - 1 {
+		return helpers.ErrorIndexOutOfBounds
 	}
 	// Check for more methods & filter
 	filter.methods = filter.methods[1:]
-	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
+	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType)
+	filter.innerData = append(filter.innerData, dbEntryData[i])
+	iTypeErr := queryItemFilter(filter)
+	if iTypeErr != 0 {
+		return iTypeErr
+	}
+	filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 	if !filter.get {
-		filter.innerData = append(filter.innerData, dbEntryData[i])
-		iTypeErr := queryItemFilter(filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		dbEntryData[i] = filter.item
 		filter.item = dbEntryData
-	} else {
-		filter.item = dbEntryData[i]
-		iTypeErr := queryItemFilter(filter)
-		if iTypeErr != 0 {
-			return iTypeErr
-		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 	}
 	return 0
 }
@@ -428,6 +431,9 @@ func filterArrayMethodItems(filter *Filter, item *[]interface{}) int {
 
 // Run methods on Map item collection
 func applyMapMethods(filter *Filter) int {
+	if filter.item == nil {
+		return helpers.ErrorInvalidMethodParameters
+	}
 	method := filter.methods[0]
 	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
 	if filter.get {
@@ -444,16 +450,18 @@ func applyMapMethods(filter *Filter) int {
 			} else {
 				filter.item = len(dbEntryData)
 			}
+			return 0
 
-		case MethodIndexOf:
+		case MethodKeyOf:
 			// TO-DO
 			filter.item = -1
+			return 0
 
 		case MethodContains:
 			// TO-DO
 			filter.item = false
+			return 0
 		}
-		return 0
 	} else {
 		if item, ok := filter.item.([]interface{}); ok && method == MethodDelete {
 			// Delete method - eg: ["Mary", "Joe", "Vokome"]
@@ -491,24 +499,17 @@ func applyMapMethods(filter *Filter) int {
 	if !strings.Contains(method, "*") {
 		filter.methods = filter.methods[1:]
 		filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType)
-
+		filter.innerData = append(filter.innerData, dbEntryData[method])
+		if iTypeErr := queryItemFilter(filter); iTypeErr != 0 {
+			return iTypeErr
+		}
+		filter.innerData = filter.innerData[:len(filter.innerData)-1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		if !filter.get {
-			filter.innerData = append(filter.innerData, dbEntryData[method])
-			if iTypeErr := queryItemFilter(filter); iTypeErr != 0 {
-				return iTypeErr
-			}
-			filter.innerData = filter.innerData[:len(filter.innerData)-1]
-			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 			dbEntryData[method] = filter.item
 			filter.item = dbEntryData
 			return 0
 		}
-
-		filter.item = dbEntryData[method]
-		if iTypeErr := queryItemFilter(filter); iTypeErr != 0 {
-			return iTypeErr
-		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 		return 0
 	}
 	return helpers.ErrorInvalidMethod
@@ -524,9 +525,9 @@ func applyObjectMethods(filter *Filter) int {
 	}
 	// Remove this method and add new schemaItem
 	filter.methods = filter.methods[1:]
-	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
+	dbEntryData := filter.innerData[len(filter.innerData)-1].([]interface{})
 	filter.schemaItems = append(filter.schemaItems, si)
-	filter.innerData = append(filter.innerData, dbEntryData[method])
+	filter.innerData = append(filter.innerData, dbEntryData[si.dataIndex])
 	iTypeErr := queryItemFilter(filter)
 	if iTypeErr != 0 {
 		return iTypeErr
@@ -534,7 +535,7 @@ func applyObjectMethods(filter *Filter) int {
 	filter.innerData = filter.innerData[:len(filter.innerData)-1]
 	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
 	if !filter.get {
-		dbEntryData[method] = filter.item
+		dbEntryData[si.dataIndex] = filter.item
 		filter.item = dbEntryData
 	}
 	return 0

@@ -7,7 +7,7 @@ type Error struct {
 
 const (
 	// Unexpected error
-	ErrorUnexpected = iota + 1000
+	ErrorUnexpected = 1000 + iota // Unexpected internal error...
 
 	// Generic Table Query Errors
 	ErrorTableExists
@@ -21,18 +21,19 @@ const (
 
 const (
 	// Schema creation errors
-	ErrorSchemaRequired = iota + 2001
+	ErrorSchemaRequired = 2001 + iota
 	ErrorSchemaItemsRequired
 	ErrorSchemaInvalidItemName
+	ErrorSchemaInvalidItemPosition
 	ErrorSchemaInvalidItemType
 	ErrorSchemaInvalidItemParameters
 	ErrorSchemaInvalidFormat
 	ErrorSchemaInvalidTimeFormat
 	ErrorSchemaInvalid
-	ErrorObjectItemNotRequired // Items inside Objects must be required!
+	ErrorObjectItemNotRequired // 2010
 
 	// SQuery Schema errors
-	ErrorInvalidItem // 2010
+	ErrorInvalidItem
 	ErrorInvalidItemValue
 	ErrorInvalidMethod
 	ErrorInvalidMethodParameters
@@ -41,8 +42,9 @@ const (
 	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
-	ErrorArrayItemsRequired
-	ErrorArrayEmpty // 2020
+	ErrorArrayItemsRequired // 2020
+	ErrorArrayEmpty
+	ErrorIndexOutOfBounds
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat
 	ErrorUniqueValueDuplicate
@@ -51,13 +53,13 @@ const (
 
 const (
 	// Keystore Errors
-	ErrorKeyRequired = iota + 3001
+	ErrorKeyRequired = 3001 + iota
 	ErrorKeyInUse
 )
 
 const (
 	// Auth Table Query Errors
-	ErrorNameRequired = iota + 4001
+	ErrorNameRequired = 4001 + iota
 	ErrorEntryNameInUse
 	ErrorPasswordLength
 	ErrorPasswordEncryption
@@ -68,13 +70,13 @@ const (
 
 const (
 	// Leaderboard errors
-	ErrorLeaderboardExists = iota + 5001
+	ErrorLeaderboardExists = 5001 + iota
 	ErrorLeaderboardDoesntExist
 )
 
 const (
 	// Storage errors
-	ErrorLoggerExists = iota + 9001
+	ErrorLoggerExists = 9001 + iota
 	ErrorLoggerFileCreate
 	ErrorTableFolderCreate
 	ErrorCreatingFolder

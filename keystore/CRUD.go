@@ -36,7 +36,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Key is required
 	if len(key) == 0 {
 		return nil, helpers.ErrorKeyRequired
-	} else if strings.ContainsAny(key, " \t\n\r"){
+	} else if strings.ContainsAny(key, "\t\n\r"){
 		return nil, helpers.ErrorInvalidKeyCharacters
 	}
 
@@ -166,7 +166,6 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 	}
 
 	// Check for specific items to get
-	m := make(map[string]interface{})
 	if items != nil && len(items) > 0 {
 		for itemName, methodParams := range items {
 			siName, itemMethods := schema.GetQueryItemMethods(itemName)
@@ -177,25 +176,27 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 			}
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, true, false)
+			err = schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
-			m[itemName] = i
+			items[itemName] = i
 		}
+		return items, 0
 	} else {
+		items = make(map[string]interface{})
 		for itemName, si := range k.schema {
 			// Item filter
 			var i interface{}
-			err := schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, true, false)
+			err = schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, true, false)
 			if err != 0 {
 				return nil, err
 			}
-			m[itemName] = i
+			items[itemName] = i
 		}
-	}
 
-	return m, 0
+	}
+	return items, 0
 }
 
 func (k *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int) {
@@ -287,10 +288,10 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 			return helpers.ErrorSchemaInvalid
 		}
 
-		itemBefore := data[schemaItem.DataIndex()]
+		//itemBefore := data[schemaItem.DataIndex()]
 
 		// Item filter
-		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, false, false)
+		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], data[schemaItem.DataIndex()], schemaItem, &uniqueVals, false, false)
 		if err != 0 {
 			e.mux.Unlock()
 			return err

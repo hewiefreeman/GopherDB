@@ -22,6 +22,14 @@ import (
 	"strings"
 )
 
+// TO-DO:
+// Make Objects write/read to/from disk like schemas to save disk space like so:
+/*
+{"K":"guest20","D":[5,"guest20@gmail.com","2019-12-20T17:52:09.3256667-08:00",
+[[[0,"G7"],"guest1337",0],[[0,"G8"],"guest1338",0],[[0,"G9"],"guest1339",0]],
+{"fek off":[1,"insult"],"hallo":[0,"greeting"],"peace":[2,"farewell"]}]}
+*/
+
 // Schema represents a database schema that one or more tables must adhere to.
 type Schema map[string]SchemaItem
 
@@ -35,9 +43,9 @@ type SchemaItem struct {
 }
 
 type SchemaConfigItem struct {
+	Position uint32
 	Name     string
 	DataType []interface{}
-	Position uint32
 }
 
 // NOTES:
@@ -112,36 +120,83 @@ type SchemaConfigItem struct {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new schema from a JSON schema object
-func New(schema map[string]interface{}) (Schema, int) {
+func New(schema interface{}, restore bool) (Schema, int) {
 	s := make(Schema)
 	var i uint32
-	for itemName, itemParams := range schema {
-		// Names cannot have "." or "*"
-		if len(itemName) == 0 || strings.Contains(itemName, ".") || strings.Contains(itemName, "*") {
-			return nil, helpers.ErrorSchemaInvalidItemName
-		}
-		// Check item format
-		if params, ok := itemParams.([]interface{}); ok {
-			schemaItem, iErr := makeSchemaItem(itemName, params)
-			if iErr != 0 {
-				return nil, iErr
+	if !restore {
+		if schemaInput, ok := schema.(map[string]interface{}); ok {
+			// Standard query input - assign data indexes
+			for itemName, itemParams := range schemaInput {
+				// Names cannot have "." or "*"
+				if len(itemName) == 0 || strings.ContainsAny(itemName, ".*\n\t\r") {
+					return nil, helpers.ErrorSchemaInvalidItemName
+				}
+				// Check item format
+				if params, ok := itemParams.([]interface{}); ok {
+					schemaItem, iErr := makeSchemaItem(itemName, params, restore)
+					if iErr != 0 {
+						return nil, iErr
+					}
+					schemaItem.dataIndex = i
+					//schemaItem.rawParams = params
+					s[itemName] = schemaItem
+					i++
+				} else {
+					return nil, helpers.ErrorSchemaInvalidFormat
+				}
 			}
-			schemaItem.dataIndex = i
-			schemaItem.rawParams = params
-			s[itemName] = schemaItem
-			i++
 		} else {
-			// Invalid format
 			return nil, helpers.ErrorSchemaInvalidFormat
 		}
-
+	} else if schemaInput, ok := schema.([]interface{}); ok {
+		// use []interface{} like []schemaConfigItem
+		posTrack := make([]bool, len(schemaInput))
+		for _, v := range schemaInput {
+			if si, ok := v.(map[string]interface{}); ok {
+				var siName string
+				var ok bool
+				// Get Name and check format
+				if siName, ok = si["Name"].(string); !ok {
+					return nil, helpers.ErrorSchemaInvalidItemParameters
+				}
+				if len(siName) == 0 || strings.ContainsAny(siName, ".*\n\t\r") {
+					return nil, helpers.ErrorSchemaInvalidItemName
+				}
+				// Get Position and verify integrity
+				var siPos uint32
+				if siPos, ok = makeUint32(si["Position"]); !ok {
+					return nil, helpers.ErrorSchemaInvalidItemParameters
+				}
+				if int(siPos) >= len(posTrack) || siPos < 0 || posTrack[int(siPos)] {
+					return nil, helpers.ErrorSchemaInvalidItemPosition
+				}
+				// Get DataType
+				var siDataType []interface{}
+				if siDataType, ok = si["DataType"].([]interface{}); !ok {
+					return nil, helpers.ErrorSchemaInvalidItemParameters
+				}
+				// Make SchemaItem from data
+				var err int
+				var schemaItem SchemaItem
+				if schemaItem, err = makeSchemaItem(siName, siDataType, restore); err != 0 {
+					return nil, err
+				}
+				schemaItem.dataIndex = siPos
+				//schemaItem.rawParams = siDataType
+				s[siName] = schemaItem
+				posTrack[int(siPos)] = true
+			} else {
+				return nil, helpers.ErrorSchemaInvalidFormat
+			}
+		}
+	} else {
+		return nil, helpers.ErrorSchemaInvalidFormat
 	}
-
 	//
 	return s, 0
 }
 
-func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
+func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem, int) {
 	if len(params) <= 1 {
 		// Invalid format - requires at least a length of 2 for any item data type
 		return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
@@ -153,10 +208,11 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 			return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
 		}
 		// Execute create for the type
-		si := SchemaItem{name: name, typeName: t}
+		si := SchemaItem{name: name, typeName: t, rawParams: params}
 		switch t {
 		case ItemTypeBool:
 			si.iType = BoolItem{defaultValue: params[1].(bool)}
+
 			return si, 0
 
 		case ItemTypeInt8:
@@ -204,7 +260,7 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 			return si, 0
 
 		case ItemTypeArray:
-			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
+			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}), restore)
 			if iErr != 0 {
 				return SchemaItem{}, iErr
 			}
@@ -212,7 +268,7 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 			return si, 0
 
 		case ItemTypeMap:
-			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}))
+			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}), restore)
 			if iErr != 0 {
 				return SchemaItem{}, iErr
 			}
@@ -220,15 +276,13 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 			return si, 0
 
 		case ItemTypeObject:
-			if sObj, ok := params[1].(map[string]interface{}); ok {
-				schema, schemaErr := New(sObj)
-				if schemaErr != 0 {
-					return SchemaItem{}, schemaErr
-				}
-				si.iType = ObjectItem{schema: schema}
-				return si, 0
+			// Creating new schema from query...
+			schema, schemaErr := New(params[1], restore)
+			if schemaErr != 0 {
+				return SchemaItem{}, schemaErr
 			}
-			return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
+			si.iType = ObjectItem{schema: schema}
+			return si, 0
 
 		case ItemTypeTime:
 			var format string = timeFormatInitializor[params[1].(string)]
@@ -241,9 +295,8 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 		default:
 			return SchemaItem{}, helpers.ErrorUnexpected
 		}
-	} else {
-		return SchemaItem{}, helpers.ErrorSchemaInvalidFormat
 	}
+	return SchemaItem{}, helpers.ErrorSchemaInvalidFormat
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -253,32 +306,56 @@ func makeSchemaItem(name string, params []interface{}) (SchemaItem, int) {
 // Restore restores a schema from a config file with it's Schema array
 func Restore(schema []SchemaConfigItem) (Schema, int) {
 	s := make(Schema)
+	var iErr int
+	var schemaItem SchemaItem
+	posTrack := make([]bool, len(schema))
 	for _, schemaConfItem := range schema {
-		si, iErr := makeSchemaItem(schemaConfItem.Name, schemaConfItem.DataType)
+		if int(schemaConfItem.Position) >= len(posTrack) || schemaConfItem.Position < 0 || posTrack[int(schemaConfItem.Position)] {
+			return nil, helpers.ErrorSchemaInvalidItemPosition
+		} else if len(schemaConfItem.Name) == 0 || strings.ContainsAny(schemaConfItem.Name, ".*\t\n\r") {
+			return nil, helpers.ErrorSchemaInvalidItemName
+		}
+		schemaItem, iErr = makeSchemaItem(schemaConfItem.Name, schemaConfItem.DataType, true)
 		if iErr != 0 {
 			return nil, iErr
 		}
-		si.dataIndex = schemaConfItem.Position
-		si.rawParams = schemaConfItem.DataType
-		s[schemaConfItem.Name] = si
+		schemaItem.dataIndex = schemaConfItem.Position
+		//schemaItem.rawParams = schemaConfItem.DataType
+		s[schemaConfItem.Name] = schemaItem
+		posTrack[int(schemaConfItem.Position)] = true
 	}
-
 	return s, 0
 }
 
+// MakeConfig makes a Schema for a config file
 func (s Schema) MakeConfig() []SchemaConfigItem {
 	var sc []SchemaConfigItem = make([]SchemaConfigItem, len(s))
 	i := 0
 	for _, v := range s {
-		sci := SchemaConfigItem {
-			Name: v.name,
-			DataType: v.rawParams,
+		sc[i] = SchemaConfigItem {
 			Position: v.dataIndex,
+			Name: v.name,
+			DataType: v.makeConfigDataType(),
 		}
-		sc[i] = sci
 		i++
 	}
 	return sc
+}
+
+func (si SchemaItem) makeConfigDataType() []interface{} {
+	switch si.typeName {
+		case ItemTypeObject:
+			si.rawParams[1] = si.iType.(ObjectItem).schema.MakeConfig()
+
+		case ItemTypeArray:
+			// Check inner item type
+			si.rawParams[1] = si.iType.(ArrayItem).dataType.makeConfigDataType()
+
+		case ItemTypeMap:
+			// Check inner item type
+			si.rawParams[1] = si.iType.(MapItem).dataType.makeConfigDataType()
+	}
+	return si.rawParams
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -359,6 +436,17 @@ func (si SchemaItem) Unique() bool {
 	return false
 }
 
+func (si SchemaItem) IsNumeric() bool {
+	switch si.typeName {
+	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
+			ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
+			ItemTypeFloat64, ItemTypeFloat32:
+		return true
+	default:
+		return false
+	}
+}
+
 // Unique returns true if the SchemaItem is unique.
 func (si SchemaItem) Required() bool {
 	switch si.typeName {
@@ -387,7 +475,7 @@ func (si SchemaItem) Required() bool {
 		case ItemTypeArray:
 			return si.iType.(ArrayItem).required
 		case ItemTypeObject:
-			return si.iType.(ObjectItem).required
+			return false
 		case ItemTypeMap:
 			return si.iType.(MapItem).required
 		case ItemTypeTime:

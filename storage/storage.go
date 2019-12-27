@@ -147,6 +147,7 @@ func getOpenFile(file string) (*openFile, int) {
 	return f, 0
 }
 
+// TO-DO: Make timer.C listen for two signals, and make the emergency file close send a "stopped" signal to indicate the timer has stopped
 func fileCloseTimer(timer *time.Timer, f *openFile) {
 	<-timer.C
 	openFilesMux.Lock()

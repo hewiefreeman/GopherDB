@@ -11,13 +11,15 @@ import (
 	"fmt"
 )
 
-var (
+const (
 	// Test settings
 	tableName string = "test"
 	tablePartitionMax uint16 = 250
 	tableMaxEntries uint64 = 1000000
-	tableEncryptionCost int = 4;
+	tableEncryptionCost int = 4
+)
 
+var (
 	// Test variables
 	setupComplete bool
 	table *keystore.Keystore
@@ -63,10 +65,10 @@ func TestChangeSettings(t *testing.T) {
 		t.Skip("Skipping tests...")
 	}
 
-	// Set fileOpenTime to 3 seconds (needed for testing file closing)
+	// Set fileOpenTime to 3 seconds (needs 3 sec or lower for testing file closing at end)
 	storage.SetFileOpenTime(3 * time.Second)
 
-	// Set maxOpenFiles to 2 (to test manual close when max has been reached) - PASSED
+	// Set maxOpenFiles to 2 (to test auto file close when max has been reached) - Uncomment for testing
 	//storage.SetMaxOpenFiles(2)
 
 	// Set max partition file size
@@ -113,7 +115,12 @@ func TestInsertDuplicateUniqueTableValue(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	_, err := table.InsertKey("guest" + strconv.Itoa(table.Size() + 1), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
+	_, err := table.InsertKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
+	if (err != helpers.ErrorKeyInUse) {
+		t.Errorf("InsertDuplicateUniqueTableValue expected error %v, but got: %v", helpers.ErrorKeyInUse, err)
+	}
+	// Test duplicate key
+	_, err = table.InsertKey("guest" + strconv.Itoa(table.Size() + 1), map[string]interface{}{"email": "guest" + strconv.Itoa(table.Size()) + "@gmail.com"})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("InsertDuplicateUniqueTableValue expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -235,8 +242,8 @@ func TestGet(t *testing.T) {
 	data, err := table.GetKeyData("Harry Potter", nil)
 	if err != 0 {
 		t.Errorf("TestGet error: %v", err)
-	} else if data["mmr"] != float64(1612) {
-		t.Errorf("TestGet expected 1612, but got: %v\n", data["mmr"])
+	} else if data["mmr"] != float64(1674) {
+		t.Errorf("TestGet expected 1674, but got: %v\n", data["mmr"])
 		t.Errorf("TestGet recieved: %v\n", data)
 	}
 }
@@ -245,7 +252,7 @@ func TestGetArrayLength(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("Mary", map[string]interface{}{"friends.*len": nil})
+	data, err := table.GetKeyData("Mary", map[string]interface{}{"friends.*len": []interface{}{}})
 	if err != 0 {
 		t.Errorf("TestGetArrayLength error: %v", err)
 	} else if data["friends.*len"] != 3 {
@@ -257,7 +264,7 @@ func TestGetMapLength(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	data, err := table.GetKeyData("Vokome", map[string]interface{}{"actions.*len": nil})
+	data, err := table.GetKeyData("Vokome", map[string]interface{}{"actions.*len": []interface{}{}})
 	if err != 0 {
 		t.Errorf("TestGetMapLength error: %v", err)
 	} else if data["actions.*len"] != 1 {
@@ -271,6 +278,18 @@ func TestAppendToArray(t *testing.T) {
 	}
 	for i := 0; i < 3; i++ {
 		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0, "labels": map[string]interface{}{"nickname": "G" + strconv.Itoa(7+i), "friendNum": i}}}})
+		if (err != 0) {
+			t.Errorf("TestAppendArray error: %v", err)
+		}
+	}
+}
+
+func TestChangeValueInnerArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	for i := 0; i < 3; i++ {
+		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends." + strconv.Itoa(i) + ".status": 2})
 		if (err != 0) {
 			t.Errorf("TestAppendArray error: %v", err)
 		}
@@ -365,15 +384,46 @@ func TestComparisons(t *testing.T) {
 	if data["email.*eq"] != true {
 		t.Errorf("TestComparisons expected true, but got: %v", data["email.*eq"])
 	}
-	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email.*len.*gt": []interface{}{30}})
+	data, _ = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"email.*len.*gt": []interface{}{30}})
+	if data["email.*len.*gt"] != false {
+		t.Errorf("TestComparisons expected false, but got: %v", data["email.*len.*gt"])
+	}
+	// friends.0.login = "guest1337"
+	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.0.login.*len.*eq": []interface{}{9}})
+	if err != 0 {
+		t.Errorf("TestComparisons error: %v", err)
+	}
+	if data["friends.0.login.*len.*eq"] != true {
+		t.Errorf("TestComparisons expected true, but got: %v", data["friends.0.login.*len.*eq"])
+	}
+	// actions.fek off.type = "insult"
+	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.fek off.type.*len.*add.*eq": []interface{}{3, 9}})
+	if err != 0 {
+		t.Errorf("TestComparisons error: %v", err)
+	}
+	if data["actions.fek off.type.*len.*add.*eq"] != true {
+		t.Errorf("TestComparisons expected true, but got: %v", data["actions.fek off.type.*len.*add.*eq"])
+	}
+	data, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.fek off.id.*gte": []interface{}{1}})
+	if err != 0 {
+		t.Errorf("TestComparisons error: %v", err)
+	}
+	if data["actions.fek off.id.*gte"] != true {
+		t.Errorf("TestComparisons expected true, but got: %v", data["actions.fek off.id.*gte"])
+	}
+}
+
+// Testing nested get queries
+/*func TestUpdateWithNestedGetQuery(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	data, err := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr.*get": []interface{}{map[string]interface{}}})
 	if err != 0 {
 		t.Errorf("TestComparisons error: %v", err)
 		return
 	}
-	if data["email.*len.*gt"] != false {
-		t.Errorf("TestComparisons expected false, but got: %v", data["email.*len.*gt"])
-	}
-}
+}*/
 
 // Must be last test!!
 func TestLetFilesClose(t *testing.T) {

@@ -2,6 +2,134 @@
 	"Name": "test",
 	"Schema": [
 		{
+			"Position": 3,
+			"Name": "friends",
+			"DataType": [
+				"Array",
+				[
+					"Object",
+					[
+						{
+							"Position": 2,
+							"Name": "labels",
+							"DataType": [
+								"Object",
+								[
+									{
+										"Position": 0,
+										"Name": "friendNum",
+										"DataType": [
+											"Int8",
+											0,
+											0,
+											0,
+											false,
+											false,
+											true
+										]
+									},
+									{
+										"Position": 1,
+										"Name": "nickname",
+										"DataType": [
+											"String",
+											"",
+											16,
+											false,
+											true
+										]
+									}
+								]
+							]
+						},
+						{
+							"Position": 0,
+							"Name": "login",
+							"DataType": [
+								"String",
+								"",
+								16,
+								true,
+								true
+							]
+						},
+						{
+							"Position": 1,
+							"Name": "status",
+							"DataType": [
+								"Uint8",
+								0,
+								0,
+								2,
+								false,
+								false
+							]
+						}
+					]
+				],
+				30,
+				false
+			]
+		},
+		{
+			"Position": 1,
+			"Name": "email",
+			"DataType": [
+				"String",
+				"",
+				30,
+				true,
+				true
+			]
+		},
+		{
+			"Position": 4,
+			"Name": "actions",
+			"DataType": [
+				"Map",
+				[
+					"Object",
+					[
+						{
+							"Position": 0,
+							"Name": "id",
+							"DataType": [
+								"Uint16",
+								0,
+								0,
+								0,
+								false,
+								true
+							]
+						},
+						{
+							"Position": 1,
+							"Name": "type",
+							"DataType": [
+								"String",
+								"greeting",
+								0,
+								false,
+								true
+							]
+						}
+					]
+				],
+				0,
+				false
+			]
+		},
+		{
+			"Position": 2,
+			"Name": "subbed",
+			"DataType": [
+				"Time",
+				"RFC3339",
+				false
+			]
+		},
+		{
+			"Position": 0,
 			"Name": "mmr",
 			"DataType": [
 				"Uint16",
@@ -10,110 +138,7 @@
 				0,
 				false,
 				false
-			],
-			"Position": 0
-		},
-		{
-			"Name": "friends",
-			"DataType": [
-				"Array",
-				[
-					"Object",
-					{
-						"labels": [
-							"Object",
-							{
-								"friendNum": [
-									"Int8",
-									0,
-									0,
-									0,
-									false,
-									false,
-									true
-								],
-								"nickname": [
-									"String",
-									"",
-									16,
-									false,
-									true
-								]
-							},
-							false
-						],
-						"login": [
-							"String",
-							"",
-							16,
-							true,
-							true
-						],
-						"status": [
-							"Uint8",
-							0,
-							0,
-							2,
-							false,
-							false
-						]
-					},
-					false
-				],
-				30,
-				false
-			],
-			"Position": 3
-		},
-		{
-			"Name": "email",
-			"DataType": [
-				"String",
-				"",
-				30,
-				true,
-				true
-			],
-			"Position": 1
-		},
-		{
-			"Name": "actions",
-			"DataType": [
-				"Map",
-				[
-					"Object",
-					{
-						"id": [
-							"Uint16",
-							0,
-							0,
-							0,
-							false,
-							true
-						],
-						"type": [
-							"String",
-							"greeting",
-							0,
-							false,
-							true
-						]
-					},
-					false
-				],
-				0,
-				false
-			],
-			"Position": 4
-		},
-		{
-			"Name": "subbed",
-			"DataType": [
-				"Time",
-				"RFC3339",
-				false
-			],
-			"Position": 2
+			]
 		}
 	],
 	"FileOn": 0,

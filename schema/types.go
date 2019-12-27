@@ -28,22 +28,22 @@ const (
 
 // Time formats
 const (
-	TimeFormatANSIC       = "Mon Jan _2 15:04:05 2006" // ANSIC
-	TimeFormatUnixDate    = "Mon Jan _2 15:04:05 MST 2006" // Unix Date
-	TimeFormatRubyDate    = "Mon Jan 02 15:04:05 -0700 2006" // Ruby Date
-	TimeFormatRFC822      = "02 Jan 06 15:04 MST" // RFC882
-	TimeFormatRFC822Z     = "02 Jan 06 15:04 -0700" // RFC822 with numeric zone
-	TimeFormatRFC850      = "Monday, 02-Jan-06 15:04:05 MST" // RFC850
-	TimeFormatRFC1123     = "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
-	TimeFormatRFC1123Z    = "Mon, 02 Jan 2006 15:04:05 -0700" // RFC1123 with numeric zone
-	TimeFormatRFC3339     = "2006-01-02T15:04:05Z07:00" // RFC3339
+	TimeFormatANSIC       = "Mon Jan _2 15:04:05 2006"            // ANSIC
+	TimeFormatUnixDate    = "Mon Jan _2 15:04:05 MST 2006"        // Unix Date
+	TimeFormatRubyDate    = "Mon Jan 02 15:04:05 -0700 2006"      // Ruby Date
+	TimeFormatRFC822      = "02 Jan 06 15:04 MST"                 // RFC882
+	TimeFormatRFC822Z     = "02 Jan 06 15:04 -0700"               // RFC822 with numeric zone
+	TimeFormatRFC850      = "Monday, 02-Jan-06 15:04:05 MST"      // RFC850
+	TimeFormatRFC1123     = "Mon, 02 Jan 2006 15:04:05 MST"       // RFC1123
+	TimeFormatRFC1123Z    = "Mon, 02 Jan 2006 15:04:05 -0700"     // RFC1123 with numeric zone
+	TimeFormatRFC3339     = "2006-01-02T15:04:05Z07:00"           // RFC3339
 	TimeFormatRFC3339Nano = "2006-01-02T15:04:05.999999999Z07:00" // RFC3339 nano
-	TimeFormatKitchen     = "3:04PM" // Kitchen
+	TimeFormatKitchen     = "3:04PM"                              // Kitchen
 
 	// Time stamp formats
-	TimeFormatStamp      = "Jan _2 15:04:05" // Time Stamp
-	TimeFormatStampMilli = "Jan _2 15:04:05.000" // Time Stamp with milliseconds
-	TimeFormatStampMicro = "Jan _2 15:04:05.000000" // Time Stamp with microseconds
+	TimeFormatStamp      = "Jan _2 15:04:05"           // Time Stamp
+	TimeFormatStampMilli = "Jan _2 15:04:05.000"       // Time Stamp with milliseconds
+	TimeFormatStampMicro = "Jan _2 15:04:05.000000"    // Time Stamp with microseconds
 	TimeFormatStampNano  = "Jan _2 15:04:05.000000000" // Time Stamp with nanoseconds
 )
 
@@ -199,7 +199,6 @@ type MapItem struct {
 
 type ObjectItem struct {
 	schema   Schema
-	required bool
 }
 
 type TimeItem struct {
@@ -411,18 +410,15 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 
 	// Objects
 	case ObjectItem:
-		if kind.required {
-			return nil, helpers.ErrorMissingRequiredItem
-		}
-		m := make(map[string]interface{})
-		for itemName, nsi := range kind.schema {
+		o := make([]interface{}, len(kind.schema))
+		for _, nsi := range kind.schema {
 			var err int
-			m[itemName], err = defaultVal(nsi)
+			o[nsi.dataIndex], err = defaultVal(nsi)
 			if err != 0 {
 				return nil, err
 			}
 		}
-		return m, 0
+		return o, 0
 
 	// Time
 	case TimeItem:
@@ -567,16 +563,18 @@ func checkListFormat(f []interface{}) bool {
 
 func checkObjectFormat(f []interface{}) bool {
 	fLen := len(f)
-	if fLen != 2 {
+	if fLen != 1 {
 		return false
 	}
-	if _, ok := f[0].(map[string]interface{}); !ok {
-		return false
+	// Creating new schema from query...
+	if _, ok := f[0].(map[string]interface{}); ok {
+		return true
 	}
-	if _, ok := f[1].(bool); !ok {
-		return false
+	// Restoring schema from config file...
+	if _, ok := f[0].([]interface{}); ok {
+		return true
 	}
-	return true
+	return false
 }
 
 func checkTimeFormat(f []interface{}) bool {

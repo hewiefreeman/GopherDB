@@ -89,7 +89,7 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 
 		case ItemTypeObject:
 			// get item
-			innerItem := item.(map[string]interface{})[filter.schemaItems[indexOn+1].name]
+			innerItem := item.([]interface{})[filter.schemaItems[indexOn+1].dataIndex]
 			return getInnerUnique(filter, (indexOn+1), innerItem)
 	}
 	return false

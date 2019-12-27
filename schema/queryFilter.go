@@ -10,12 +10,12 @@ import (
 type Filter struct {
 	restore bool
 	get bool // when true, output is for get queries
-	item interface{} // The item data to insert/get
-	destination *interface{} // Pointer to where the filtered/retrieved data must go
+	item interface{} // The item data to insert/get, or method parameters when methods are being used
+	destination *interface{} // Pointer to where the filtered data must go
 	methods []string // Method list
-	innerData []interface{} // Data hierarchy holder for entry on database (used for unique value search in insert/updates)
-	schemaItems []SchemaItem // Schema hierarchy holder (used for unique value search in insert/updates)
-	uniqueVals *map[string]interface{} // Pointer to map storing unique values to check & set
+	innerData []interface{} // Data hierarchy holder for entry on database - used for unique value searches and methods
+	schemaItems []SchemaItem // Schema hierarchy holder - used for unique value searches
+	uniqueVals *map[string]interface{} // Pointer a map storing all unique values to check against thier table after running filter
 }
 
 // ItemFilter filters an item in a query against it's cooresponding SchemaItem.
@@ -559,13 +559,13 @@ func mapFilter(filter *Filter) int {
 		return 0
 	} else if i, ok := filter.item.(map[string]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
-		var iTypeErr int
 		// Check inner item type
 		if (len(filter.schemaItems) == 1 && len(filter.innerData) == 0) || len(filter.schemaItems) > 1 {
 			filter.innerData = append(filter.innerData, make(map[string]interface{}))
 		}
 		filter.schemaItems = append(filter.schemaItems, it.dataType)
 		var itemName string
+		var iTypeErr int
 		for itemName, filter.item = range i {
 			iTypeErr = queryItemFilter(filter)
 			if iTypeErr != 0 {
@@ -593,30 +593,56 @@ func objectFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData) - 1]
-		return 0
-	} else if i, ok := filter.item.(map[string]interface{}); ok {
-		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem)
-		if (len(filter.schemaItems) == 1 && len(filter.innerData) == 0) || len(filter.schemaItems) > 1 {
-			filter.innerData = append(filter.innerData, make(map[string]interface{}))
+		// Convert data to map[string]interface{}
+		objList := filter.innerData[len(filter.innerData) - 1].([]interface{})
+		m := make(map[string]interface{})
+		for itemName, schemaItem := range filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema {
+			m[itemName] = objList[schemaItem.dataIndex]
 		}
-		filter.schemaItems = append(filter.schemaItems, SchemaItem{})
-		var itemName string
-		for itemName, filter.schemaItems[len(filter.schemaItems)-1] = range it.schema {
+		filter.item = m
+		return 0
+	}
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem)
+	if (len(filter.schemaItems) == 1 && len(filter.innerData) == 0) || len(filter.schemaItems) > 1 {
+		filter.innerData = append(filter.innerData, make([]interface{}, len(it.schema), len(it.schema)))
+	}
+	filter.schemaItems = append(filter.schemaItems, SchemaItem{})
+	if i, ok := filter.item.(map[string]interface{}); ok {
+		// Object format
+		for itemName, schemaItem := range it.schema {
+			filter.schemaItems[len(filter.schemaItems)-1] = schemaItem
 			filter.item = i[itemName]
 			filterErr := queryItemFilter(filter)
 			if filterErr != 0 {
 				return filterErr
 			}
-			i[itemName] = filter.item
-			filter.innerData[len(filter.innerData)-1].(map[string]interface{})[itemName] = filter.item
+			filter.innerData[len(filter.innerData)-1].([]interface{})[schemaItem.dataIndex] = filter.item
 		}
-		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-		filter.item = i
-		return 0
+		filter.item = filter.innerData[len(filter.innerData)-1]
+
+	} else if i, ok := filter.item.([]interface{}); ok {
+		// List format
+		for _, schemaItem := range it.schema {
+			filter.schemaItems[len(filter.schemaItems)-1] = schemaItem
+			// Prevent out of range
+			if int(schemaItem.dataIndex) >= len(i) {
+				filter.item = nil
+			} else {
+				filter.item = i[schemaItem.dataIndex]
+			}
+			filterErr := queryItemFilter(filter)
+			if filterErr != 0 {
+				return filterErr
+			}
+			filter.innerData[len(filter.innerData)-1].([]interface{})[schemaItem.dataIndex] = filter.item
+		}
+		filter.item = filter.innerData[len(filter.innerData)-1]
+	} else {
+		return helpers.ErrorInvalidItemValue
 	}
-	return helpers.ErrorInvalidItemValue
+	filter.innerData = filter.innerData[:len(filter.innerData)-1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+	return 0
 }
 
 func timeFilter(filter *Filter) int {
