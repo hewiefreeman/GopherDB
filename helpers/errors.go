@@ -32,7 +32,7 @@ const (
 	ErrorSchemaInvalid
 	ErrorObjectItemNotRequired // 2010
 
-	// SQuery Schema errors
+	// Query Schema errors
 	ErrorInvalidItem
 	ErrorInvalidItemValue
 	ErrorInvalidMethod

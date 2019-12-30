@@ -26,9 +26,17 @@ func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 	return 0
 }
 
+// Examples of nested Get queries
+/*
+
+ - Get index for deleting specific friend
+	["Update", "test", "Mary", {"friends.*delete.*get": [["test", "Mary", {"friends.*indexOf": ["Vokome"]}]]}]
+
+*/
+
 // Example JSON for new key query:
 //
-//     {"InsertKey": {"table": "tableName", "query": ["userName", "password", { *items that match schema* }]}}
+//     ["Insert", "tableName", "key", { *items that match schema* }]
 //
 
 // Insert creates a new keystoreEntry in the Keystore, as long as one doesnt already exist
@@ -36,7 +44,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Key is required
 	if len(key) == 0 {
 		return nil, helpers.ErrorKeyRequired
-	} else if strings.ContainsAny(key, "\t\n\r"){
+	} else if strings.ContainsAny(key, ".*\t\n\r"){
 		return nil, helpers.ErrorInvalidKeyCharacters
 	}
 
@@ -139,7 +147,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 
 // Example JSON for get query:
 //
-//     {"GetUserData": {"table": "tableName", "query": ["userName", "password"]}}
+//     ["Get", "tableName", "key", { *items that match schema* }]
 //
 
 // Get
@@ -426,8 +434,8 @@ func (k *Keystore) DeleteKey(key string) int {
 	return 0
 }
 
-// Restore is NOT concurrently safe! Only used for restoring databases.
-func (k *Keystore) RestoreKey(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
+// Restores a key from a config file - NOT concurrently safe on it's own! Must lock Keystore before-hand.
+func (k *Keystore) restoreKey(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
 	// Check for duplicate entry
 	if k.entries[key] != nil {
 		return helpers.ErrorKeyInUse

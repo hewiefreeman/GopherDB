@@ -28,6 +28,17 @@
 					"Object",
 					[
 						{
+							"Position": 0,
+							"Name": "login",
+							"DataType": [
+								"String",
+								"",
+								16,
+								true,
+								true
+							]
+						},
+						{
 							"Position": 1,
 							"Name": "status",
 							"DataType": [
@@ -71,17 +82,6 @@
 									}
 								]
 							]
-						},
-						{
-							"Position": 0,
-							"Name": "login",
-							"DataType": [
-								"String",
-								"",
-								16,
-								true,
-								true
-							]
 						}
 					]
 				],
@@ -109,23 +109,23 @@
 					"Object",
 					[
 						{
-							"Position": 0,
-							"Name": "id",
+							"Position": 1,
+							"Name": "type",
 							"DataType": [
-								"Uint16",
-								0,
-								0,
+								"String",
+								"greeting",
 								0,
 								false,
 								true
 							]
 						},
 						{
-							"Position": 1,
-							"Name": "type",
+							"Position": 0,
+							"Name": "id",
 							"DataType": [
-								"String",
-								"greeting",
+								"Uint16",
+								0,
+								0,
 								0,
 								false,
 								true

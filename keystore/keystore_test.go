@@ -145,7 +145,7 @@ func TestAppendDuplicateUniqueNestedValueArray(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Sir Smackem", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}}})
+	err := table.UpdateKey("Vokome", map[string]interface{}{"friends.*append": []interface{}{[]interface{}{map[string]interface{}{"login": "Sir Smackem", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 		return
@@ -184,13 +184,13 @@ func TestAppendWithUniqueValueDuplicatesArray(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}})
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{[]interface{}{map[string]interface{}{"login": "Vokome", "status": 0, "labels": map[string]interface{}{"nickname":"Oni","friendNum":666}}, map[string]interface{}{"login": "Vokome", "status": 1, "labels": map[string]interface{}{"nickname":"rawrrr","friendNum":432}}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 		return
 	}
 	// Test nested unique Object item
-	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}})
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{[]interface{}{map[string]interface{}{"login": "Moe", "status": 0, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}, map[string]interface{}{"login": "Bob", "status": 1, "labels": map[string]interface{}{"nickname":"Moe","friendNum":27}}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendWithUniqueValueDuplicatesArray expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -211,13 +211,13 @@ func TestAppendDuplicateUniqueNestedValueMap(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"yo": map[string]interface{}{"type": "greeting", "id": 1}}})
+	err := table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"yo": map[string]interface{}{"type": "greeting", "id": 1}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 		return
 	}
 	// Testing Uint16...
-	err = table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 0}}})
+	err = table.UpdateKey("Vokome", map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 0}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendDuplicateUniqueNestedValueMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -238,7 +238,7 @@ func TestAppendWithUniqueValueDuplicatesMap(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"hi": map[string]interface{}{"type": "greeting", "id": 0}, "yo": map[string]interface{}{"type": "greeting", "id": 1}}})
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"hi": map[string]interface{}{"type": "greeting", "id": 0}, "yo": map[string]interface{}{"type": "greeting", "id": 1}}}})
 	if (err != helpers.ErrorUniqueValueDuplicate) {
 		t.Errorf("TestAppendWithUniqueValueDuplicatesMap expected error %v, but got: %v", helpers.ErrorUniqueValueDuplicate, err)
 	}
@@ -286,7 +286,7 @@ func TestAppendToArray(t *testing.T) {
 		t.Skip()
 	}
 	for i := 0; i < 3; i++ {
-		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0, "labels": map[string]interface{}{"nickname": "G" + strconv.Itoa(7+i), "friendNum": i}}}})
+		err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*append": []interface{}{[]interface{}{map[string]interface{}{"login": "guest133" + strconv.Itoa(7+i), "status": 0, "labels": map[string]interface{}{"nickname": "G" + strconv.Itoa(7+i), "friendNum": i}}}}})
 		if (err != 0) {
 			t.Errorf("TestAppendArray error: %v", err)
 			return
@@ -311,17 +311,17 @@ func TestAppendToMap(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
 	}
-	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 1}}})
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 1}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 		return
 	}
-	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"hallo": map[string]interface{}{"type": "greeting", "id": 0}}})
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"hallo": map[string]interface{}{"type": "greeting", "id": 0}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 		return
 	}
-	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": map[string]interface{}{"peace": map[string]interface{}{"type": "farewell", "id": 2}}})
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"peace": map[string]interface{}{"type": "farewell", "id": 2}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 	}
@@ -343,6 +343,7 @@ func TestArithmetic(t *testing.T) {
 	}
 }
 
+// Testing number and string comparisons
 func TestComparisons(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
@@ -498,6 +499,32 @@ func TestMapKeyOfAndContains(t *testing.T) {
 		return
 	}
 }
+
+// Testing multi-layered array methods
+func TestMultiArrayUpdateMethod(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*delete.*prepend.*append": []interface{}{[]interface{}{2,0}, []interface{}{map[string]interface{}{"login": "guest1227", "status": 0, "labels": map[string]interface{}{"nickname": "G7", "friendNum": 0}}}, []interface{}{map[string]interface{}{"login": "guest1229", "status": 0, "labels": map[string]interface{}{"nickname": "G9", "friendNum": 2}}}}})
+	if (err != 0) {
+		t.Errorf("TestAppendArray error: %v", err)
+		return
+	}
+}
+
+// Testing multi-layered map methods
+func TestMultiMapUpdateMethod(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*delete.*append": []interface{}{[]interface{}{"fek off"}, map[string]interface{}{"bloke": map[string]interface{}{"type": "insult", "id": 1}}}})
+	if (err != 0) {
+		t.Errorf("TestMultiMapMethod error: %v", err)
+		return
+	}
+}
+
+
 
 // Testing nested get queries
 /*func TestUpdateWithNestedGetQuery(t *testing.T) {

@@ -462,7 +462,7 @@ func Restore(name string) (*Keystore, int) {
 			if b == 10 {
 				// Restore line
 				if eKey, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
-					if resErr := ks.RestoreKey(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
+					if resErr := ks.restoreKey(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
 						fmt.Printf("Error restoring '%v' on line %v in file %v with error: %v\n", eKey, lineOn, fileStats.Name(), resErr)
 					}
 				}

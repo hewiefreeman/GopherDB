@@ -77,20 +77,18 @@ func uniqueCheck(filter *Filter) bool {
 
 // Get nested entry items for unique check
 func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
-	switch filter.schemaItems[indexOn].typeName {
-		case ItemTypeString:
-			return item
-		case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
-			ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
-			ItemTypeFloat32, ItemTypeFloat64:
-			filter.item, _ = makeFloat64(filter.item)
-			item, _ := makeFloat64(item)
-			return item
-
-		case ItemTypeObject:
-			// get item
-			innerItem := item.([]interface{})[filter.schemaItems[indexOn+1].dataIndex]
-			return getInnerUnique(filter, (indexOn+1), innerItem)
+	tn := filter.schemaItems[indexOn].typeName
+	if tn == ItemTypeString {
+		return item
+	} else if tn == ItemTypeObject {
+		// Get item
+		innerItem := item.([]interface{})[filter.schemaItems[indexOn+1].dataIndex]
+		return getInnerUnique(filter, (indexOn+1), innerItem)
+	} else if filter.schemaItems[indexOn].IsNumeric() {
+		// Convert both items to float64 for comparison
+		filter.item, _ = makeFloat64(filter.item)
+		item, _ := makeFloat64(item)
+		return item
 	}
-	return false
+	return nil
 }
