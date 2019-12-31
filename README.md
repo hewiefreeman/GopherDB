@@ -11,7 +11,7 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
 ## Main Features
   - In-depth schema validation
   - Standardized format across insert, update, and get queries
-  - Many useful methods for arithmetic, comparisons, Array/Map inserts, etc.
+  - Many useful methods for arithmetic, comparisons, list append/prepend, etc.
   - Wide selection of data types and settings
   - User Authentication Tables (single select queries only)
   - Key-value Tables (multi & single select queries)
