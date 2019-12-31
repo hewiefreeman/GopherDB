@@ -29,9 +29,9 @@ When creating a table in GopherDB, you will need to make a schema that describes
   - Float (32 & 64 bit)
   - String
   - Array
-  - Object
   - Map
-  - Time/Date
+  - Object (AKA Schema)
+  - Time (AKA Date)
 
 <hr>
 
