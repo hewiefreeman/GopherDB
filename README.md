@@ -7,6 +7,7 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
 <br>
 <hr>
 <br>
+
 ## Main Features
   - In-depth schema validation
   - Easy, simple query format
