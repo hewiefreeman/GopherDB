@@ -1,9 +1,9 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
 <p align="center"><b>- GopherDB -</b></p>
 <hr>
-GopherDB aims at easing the creation, retrieval, and manipulation of data for secure user authentication, leaderboards, and generic database storage. GDB uses a powerful schema validation mechanism to keep your data well organized, while being extremely flexible, so you can fine-tune to your exact needs.
-
-Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but they're also more expandable and effective than any other JSON query format.
+   GopherDB aims at easing the creation, retrieval, and manipulation of data for secure user authentication, leaderboards, and generic database storage. GDB uses a powerful schema validation mechanism to keep your data well organized, while being extremely flexible, so you can fine-tune to your exact needs.
+<br>
+   Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but they're also more expandable and effective than any other JSON query format.
 
 :construction: **PROJECT IN DEVELOPMENT** :construction:
 <br>
