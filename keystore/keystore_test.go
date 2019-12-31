@@ -251,7 +251,7 @@ func TestGet(t *testing.T) {
 	data, err := table.GetKeyData("Harry Potter", nil)
 	if err != 0 {
 		t.Errorf("TestGet error: %v", err)
-	} else if data["mmr"] != float64(1674) {
+	} else if data["mmr"] != uint16(1674) && data["mmr"] != float64(1674) {
 		t.Errorf("TestGet expected 1674, but got: %v\n", data["mmr"])
 		t.Errorf("TestGet recieved: %v\n", data)
 	}
@@ -314,17 +314,20 @@ func TestAppendToMap(t *testing.T) {
 	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"fek off": map[string]interface{}{"type": "insult", "id": 1}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
+		setupComplete = false
 		return
 	}
 	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"hallo": map[string]interface{}{"type": "greeting", "id": 0}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
+		setupComplete = false
 		return
 	}
 	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"actions.*append": []interface{}{map[string]interface{}{"peace": map[string]interface{}{"type": "farewell", "id": 2}}}})
 	if (err != 0) {
 		t.Errorf("TestAppendMap error: %v", err)
 	}
+
 }
 
 func TestArithmetic(t *testing.T) {
@@ -337,7 +340,7 @@ func TestArithmetic(t *testing.T) {
 		return
 	}
 	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr": nil})
-	if data["mmr"] != float64(5) {
+	if data["mmr"] != uint16(5) && data["mmr"] != float64(5) {
 		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
 		return
 	}
@@ -540,9 +543,6 @@ func TestMultiMapUpdateMethod(t *testing.T) {
 
 // Must be last test!!
 func TestLetFilesClose(t *testing.T) {
-	if (!setupComplete) {
-		t.Skip()
-	}
 	time.Sleep(4 * time.Second)
 	if storage.GetNumOpenFiles() != 0 {
 		t.Errorf("Error: Storage files did not close properly")

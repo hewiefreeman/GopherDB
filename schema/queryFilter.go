@@ -510,6 +510,8 @@ func stringFilter(filter *Filter) int {
 
 func arrayFilter(filter *Filter) int {
 	if len(filter.methods) > 0 {
+		// Copy Array to prevent prematurely changing data in entry's pointer to this innerData slice
+		filter.innerData[len(filter.innerData)-1] = append([]interface{}{}, filter.innerData[len(filter.innerData)-1].([]interface{})...)
 		mErr := applyArrayMethods(filter)
 		if mErr != 0 {
 			return mErr
@@ -548,6 +550,12 @@ func arrayFilter(filter *Filter) int {
 
 func mapFilter(filter *Filter) int {
 	if len(filter.methods) > 0 {
+		// Copy Map to prevent prematurely changing data in entry's pointer to this innerData map
+		var m map[string]interface{} = make(map[string]interface{})
+		for n, v := range filter.innerData[len(filter.innerData)-1].(map[string]interface{}) {
+			m[n] = v
+		}
+		filter.innerData[len(filter.innerData)-1] = m
 		mErr := applyMapMethods(filter)
 		if mErr != 0 {
 			return mErr

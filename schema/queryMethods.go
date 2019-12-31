@@ -5,6 +5,7 @@ import (
 	"time"
 	"strconv"
 	"strings"
+	//"fmt"
 )
 
 /*  **** RULES ****
@@ -73,7 +74,7 @@ func applyNumberMethods(filter *Filter) int {
 			} else {
 				return helpers.ErrorInvalidMethodParameters
 			}
-			// Break when requested
+			// Break when requested (when entrydata would no longer be a number type)
 			if brk {
 				break
 			}
@@ -85,7 +86,12 @@ func applyNumberMethods(filter *Filter) int {
 	}
 	filter.methods = []string{}
 	if !brk {
-		filter.item = entryData
+		// Convert filter item to int if this is a get query and the type of number is not float
+		if filter.get && !filter.schemaItems[len(filter.schemaItems) - 1].IsFloat() {
+			filter.item, _ = makeInt(entryData)
+		} else {
+			filter.item = entryData
+		}
 	}
 	return 0
 }
@@ -146,7 +152,7 @@ func checkGeneralNumberMethods(method string, entryData *float64, num float64) i
 			*entryData = *entryData / num
 
 		case MethodOperatorMod:
-			*entryData = float64(int(*entryData) % int(num))
+			*entryData = float64(int(*entryData + 0.5) % int(num + 0.5))
 
 		default:
 			return helpers.ErrorInvalidMethod
@@ -453,7 +459,7 @@ func applyArrayMethods(filter *Filter) int {
 				if err := filterArrayAppendMethodItems(filter, item); err != 0 {
 					return err
 				}
-				// Merge slices (could possibly be done better?) !!!
+				// Merge slices (could possibly be done better? TO-DO ?)
 				entryStart := append([]interface{}{}, dbEntryData[:i]...)
 				entryStart = append(entryStart, item[0].([]interface{})...)
 				dbEntryData = append(entryStart, dbEntryData[i:]...)
@@ -500,21 +506,38 @@ func applyArrayMethods(filter *Filter) int {
 	return 0
 }
 
+/*func sortArray(ary []interface{}, itemType SchemaItem, asc bool) int {
+	if itemType.IsNumeric() {
+		var t float64
+		for i := 0; i < len(sa) - 1; i++ {
+			for j := len(sa) - 1; j > i; j-- {
+				if sa[i] > sa[j] {
+					t = sa[i]
+					sa[i] = sa[j]
+					sa[j] = t
+				}
+			}
+		}
+	} else if itemType.typeName == ItemTypeString {
+
+	}
+	return helpers.ErrorArrayNotSortable
+}*/
+
 func arrayIndexOf(filter *Filter, searchItem interface{}, dbEntryData []interface{}) (float64, int) {
 	// Get inner data type
 	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
 	var indexOf float64 = -1
 	if si.IsNumeric() {
-		var searchF float64
 		var ok bool
-		if searchF, ok = makeFloat64(searchItem); !ok {
+		if searchItem, ok = makeType(searchItem, si); !ok {
 			return 0, helpers.ErrorInvalidMethodParameters
 		}
 		for i, innerItem := range dbEntryData {
-			if innerItem, ok = makeFloat64(innerItem); !ok {
+			if innerItem, ok = makeType(innerItem, si); !ok {
 				return 0, helpers.ErrorUnexpected
 			}
-			if searchF == innerItem {
+			if searchItem == innerItem {
 				indexOf = float64(i)
 				break
 			}
@@ -569,6 +592,7 @@ func applyMapMethods(filter *Filter) int {
 	}
 	method := filter.methods[0]
 	dbEntryData := filter.innerData[len(filter.innerData)-1].(map[string]interface{})
+	//
 	if item, ok := filter.item.([]interface{}); ok {
 		if filter.get {
 			switch method {
@@ -708,16 +732,15 @@ func mapKeyOf(filter *Filter, searchItem interface{}, dbEntryData map[string]int
 	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(MapItem).dataType
 	var keyOf string
 	if si.IsNumeric() {
-		var searchF float64
 		var ok bool
-		if searchF, ok = makeFloat64(searchItem); !ok {
+		if searchItem, ok = makeType(searchItem, si); !ok {
 			return "", helpers.ErrorInvalidMethodParameters
 		}
 		for key, innerItem := range dbEntryData {
-			if innerItem, ok = makeFloat64(innerItem); !ok {
+			if innerItem, ok = makeType(innerItem, si); !ok {
 				return "", helpers.ErrorUnexpected
 			}
-			if searchF == innerItem {
+			if searchItem == innerItem {
 				keyOf = key
 				break
 			}

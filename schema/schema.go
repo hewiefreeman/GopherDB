@@ -447,6 +447,15 @@ func (si SchemaItem) IsNumeric() bool {
 	}
 }
 
+func (si SchemaItem) IsFloat() bool {
+	switch si.typeName {
+	case ItemTypeFloat64, ItemTypeFloat32:
+		return true
+	default:
+		return false
+	}
+}
+
 // Unique returns true if the SchemaItem is unique.
 func (si SchemaItem) Required() bool {
 	switch si.typeName {

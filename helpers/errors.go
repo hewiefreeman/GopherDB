@@ -2,7 +2,7 @@ package helpers
 
 type Error struct {
 	ID  int
-	Msg string
+	From string
 }
 
 const (
@@ -44,6 +44,7 @@ const (
 	ErrorStringRequired
 	ErrorArrayItemsRequired // 2020
 	ErrorArrayEmpty
+	ErrorArrayNotSortable
 	ErrorIndexOutOfBounds
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat

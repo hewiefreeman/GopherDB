@@ -322,7 +322,6 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 			e.mux.Unlock()
 			return helpers.ErrorUniqueValueDuplicate
 		}
-
 		// DISTRIBUTED UNIQUE CHECKS HERE !!!
 	}
 
