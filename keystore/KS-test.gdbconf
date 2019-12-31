@@ -2,6 +2,63 @@
 	"Name": "test",
 	"Schema": [
 		{
+			"Position": 1,
+			"Name": "email",
+			"DataType": [
+				"String",
+				"",
+				30,
+				true,
+				true
+			]
+		},
+		{
+			"Position": 4,
+			"Name": "actions",
+			"DataType": [
+				"Map",
+				[
+					"Object",
+					[
+						{
+							"Position": 0,
+							"Name": "id",
+							"DataType": [
+								"Uint16",
+								0,
+								0,
+								0,
+								true,
+								true
+							]
+						},
+						{
+							"Position": 1,
+							"Name": "type",
+							"DataType": [
+								"String",
+								"greeting",
+								0,
+								true,
+								true
+							]
+						}
+					]
+				],
+				0,
+				false
+			]
+		},
+		{
+			"Position": 2,
+			"Name": "subbed",
+			"DataType": [
+				"Time",
+				"RFC3339",
+				false
+			]
+		},
+		{
 			"Position": 0,
 			"Name": "mmr",
 			"DataType": [
@@ -134,67 +191,10 @@
 				30,
 				false
 			]
-		},
-		{
-			"Position": 1,
-			"Name": "email",
-			"DataType": [
-				"String",
-				"",
-				30,
-				true,
-				true
-			]
-		},
-		{
-			"Position": 4,
-			"Name": "actions",
-			"DataType": [
-				"Map",
-				[
-					"Object",
-					[
-						{
-							"Position": 0,
-							"Name": "id",
-							"DataType": [
-								"Uint16",
-								0,
-								0,
-								0,
-								true,
-								true
-							]
-						},
-						{
-							"Position": 1,
-							"Name": "type",
-							"DataType": [
-								"String",
-								"greeting",
-								0,
-								true,
-								true
-							]
-						}
-					]
-				],
-				0,
-				false
-			]
-		},
-		{
-			"Position": 2,
-			"Name": "subbed",
-			"DataType": [
-				"Time",
-				"RFC3339",
-				false
-			]
 		}
 	],
 	"FileOn": 0,
-	"DataOnDrive": false,
+	"DataOnDrive": true,
 	"MemOnly": false,
 	"PartitionMax": 250,
 	"EncryptCost": 4,
