@@ -30,9 +30,9 @@ Much like other No-SQL databases, GopherDB uses JSON as it's query/response lang
 
   ``` javascript
  // ASC order
-["Update", "users", "fred", {"friends.*sortAsc": ["id"]}]
+["Update", "users", "fred", {"friends.*sortAsc": ["name"]}]
  // DESC order
-["Update", "users", "fred", {"friends.*sortDesc": ["id"]}]
+["Update", "users", "fred", {"friends.*sortDesc": ["name"]}]
   ```
 
 <br>
