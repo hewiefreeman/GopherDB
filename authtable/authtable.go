@@ -31,7 +31,7 @@ import (
 	"fmt"
 )
 
-////////////////// TODOs
+////////////////// TO-DOs
 //////////////////
 //////////////////     - Password reset for AuthTable:
 //////////////////         - Setting server name/address, subject & body message for password reset emails

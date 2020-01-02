@@ -354,6 +354,46 @@ func applyArrayMethods(filter *Filter) int {
 				filter.methods = []string{}
 				filter.item = (indexOf != -1)
 				return 0
+
+			case MethodSortAsc:
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
+				}
+				if err := sort(filter, dbEntryData, item[0], true); err != 0 {
+					return err
+				}
+				filter.methods = filter.methods[1:]
+				// Check for more methods
+				if len(filter.methods) > 0 {
+					filter.item = item[1:]
+					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					if err := applyArrayMethods(filter); err != 0 {
+						return err
+					}
+					return 0
+				}
+				filter.item = dbEntryData
+				return filterArrayGetQuery(filter)
+
+			case MethodSortDesc:
+				if len(item) == 0 {
+					return helpers.ErrorInvalidMethodParameters
+				}
+				if err := sort(filter, dbEntryData, item[0], false); err != 0 {
+					return err
+				}
+				filter.methods = filter.methods[1:]
+				// Check for more methods
+				if len(filter.methods) > 0 {
+					filter.item = item[1:]
+					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					if err := applyArrayMethods(filter); err != 0 {
+						return err
+					}
+					return 0
+				}
+				filter.item = dbEntryData
+				return filterArrayGetQuery(filter)
 			}
 		} else {
 			// -- Update query array methods --

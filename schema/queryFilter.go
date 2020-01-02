@@ -519,27 +519,7 @@ func arrayFilter(filter *Filter) int {
 		return 0
 	} else if filter.get {
 		filter.item = filter.innerData[len(filter.innerData) - 1]
-		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
-		switch it.dataType.typeName {
-		case ItemTypeObject, ItemTypeArray, ItemTypeMap:
-			i := append([]interface{}{}, filter.item.([]interface{})...)
-			filter.schemaItems = append(filter.schemaItems, it.dataType)
-			filter.innerData = append(filter.innerData, nil)
-			var index int
-			var iTypeErr int
-			for index, filter.item = range i {
-				filter.innerData[len(filter.innerData) - 1] = filter.item
-				iTypeErr = queryItemFilter(filter)
-				if iTypeErr != 0 {
-					return iTypeErr
-				}
-				i[index] = filter.item
-			}
-			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-			filter.item = i
-		}
-		return 0
+		return filterArrayGetQuery(filter)
 	} else if i, ok := filter.item.([]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
 		var iTypeErr int
@@ -566,6 +546,30 @@ func arrayFilter(filter *Filter) int {
 		return 0
 	}
 	return helpers.ErrorInvalidItemValue
+}
+
+func filterArrayGetQuery(filter *Filter) int {
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
+	switch it.dataType.typeName {
+	case ItemTypeObject, ItemTypeArray, ItemTypeMap:
+		i := append([]interface{}{}, filter.item.([]interface{})...)
+		filter.schemaItems = append(filter.schemaItems, it.dataType)
+		filter.innerData = append(filter.innerData, nil)
+		var index int
+		var iTypeErr int
+		for index, filter.item = range i {
+			filter.innerData[len(filter.innerData) - 1] = filter.item
+			iTypeErr = queryItemFilter(filter)
+			if iTypeErr != 0 {
+				return iTypeErr
+			}
+			i[index] = filter.item
+		}
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+		filter.item = i
+	}
+	return 0
 }
 
 func mapFilter(filter *Filter) int {

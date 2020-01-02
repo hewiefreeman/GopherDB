@@ -45,6 +45,7 @@ func sort(filter *Filter, ary []interface{}, by interface{}, asc bool) int {
 	return 0
 }
 
+// Sort numeric Arrays
 func sortArrayNumeric(ary []interface{}, itemType *SchemaItem, asc bool) {
 	// Convert numeric type to float64
 	var fArr []float64 = make([]float64, len(ary), len(ary))
@@ -68,8 +69,8 @@ func sortArrayNumeric(ary []interface{}, itemType *SchemaItem, asc bool) {
 	}
 }
 
+// Sort string Arrays
 func sortArrayString(ary []interface{}, asc bool) {
-	// Sort as string
 	var iItem string
 	var jItem string
 	for i := 0; i < len(ary) - 1; i++ {
@@ -85,8 +86,8 @@ func sortArrayString(ary []interface{}, asc bool) {
 	}
 }
 
+// Sort time Arrays
 func sortArrayTime(ary []interface{}, itemType *SchemaItem, asc bool) {
-	// Sort as Time
 	var iItem time.Time
 	var jItem time.Time
 	var t interface{}
@@ -104,6 +105,7 @@ func sortArrayTime(ary []interface{}, itemType *SchemaItem, asc bool) {
 	}
 }
 
+// Sort Array by inner Object item
 func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []string, asc bool) int {
 	// Check by item
 	var innerSi SchemaItem
@@ -186,6 +188,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 	return 0
 }
 
+// Check validity of a sort-by query parameter
 func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int) (SchemaItem, int) {
 	si := schema[byArr[byOn]]
 	if si.QuickValidate() {
@@ -213,6 +216,7 @@ func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int)
 	return SchemaItem{}, helpers.ErrorInvalidMethodParameters
 }
 
+// Get the value of inner Objects for a sort-by query
 func getSortByValue(i []interface{}, dataIndexes []int, iOn int) interface{} {
 	if iOn < len(dataIndexes) - 1 {
 		return getSortByValue(i[dataIndexes[iOn]].([]interface{}), dataIndexes, iOn + 1)

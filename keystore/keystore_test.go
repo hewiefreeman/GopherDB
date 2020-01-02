@@ -606,7 +606,6 @@ func TestSortArray(t *testing.T) {
 				return
 			}
 		}
-
 	}
 
 	// Sort inner Object String items DESC

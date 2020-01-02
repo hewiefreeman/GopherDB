@@ -38,13 +38,13 @@ const (
 
 func main() {
 	// initialize and start database server
-	http.HandleFunc("/", queryHandler)
+	/*http.HandleFunc("/", queryHandler)
 	fmt.Println("starting server...")
 	if err := http.ListenAndServe("localhost:8082", nil); err != nil {
 		fmt.Println(err)
-	}
+	}*/
 }
 
 func queryHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	//
 }
