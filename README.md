@@ -4,7 +4,6 @@
 GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. It features many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. GopherDB leverages a powerful schema validation algorithm to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
 
 <br>
-<br>
 
 Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format!
 
