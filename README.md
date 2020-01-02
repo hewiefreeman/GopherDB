@@ -58,7 +58,7 @@ And the dependencies:
 
   ``` javascript
   // Query:
-["Get", "users", "Maya", {"friends": null}]
+["Get", "users", "Maya", {"friends": []}]
 
  // Output:
 {"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
@@ -68,7 +68,7 @@ And the dependencies:
 
   ``` javascript
  // Query
-["Get", "users", "Maya", {"friends.1": null}]
+["Get", "users", "Maya", {"friends.1": []}]
 
  // Output:
 {"friends.1": {"name":"Bill", "id": 1}}
