@@ -54,33 +54,40 @@ And the dependencies:
  ```go test -v keystore_test.go```
 
 ## Query examples
- Get the "friends" Array for the key "fred" on the "users" table:
+ Get the "friends" Array for the key "Maya" on the "users" table:
 
   ``` javascript
   // Query:
-["Get", "users", "fred", {"friends": null}]
+["Get", "users", "Maya", {"friends": null}]
 
  // Output:
 {"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
   ```
   
- Get index 1 of the "friends" Array for the key "fred" on the "users" table:
+ Get index 1 of the "friends" Array for the key "Maya" on the "users" table:
 
   ``` javascript
  // Query
-["Get", "users", "fred", {"friends.1": null}]
+["Get", "users", "Maya", {"friends.1": null}]
 
  // Output:
 {"friends.1": {"name":"Bill", "id": 1}}
   ```
 
- Update the "friends" Array for the key "fred" on the "users" table to be sorted alphabetically:
+ Update the "friends" Array for the key "Maya" on the "users" table to be sorted alphabetically:
 
   ``` javascript
  // ASC order
-["Update", "users", "fred", {"friends.*sortAsc": ["name"]}]
+["Update", "users", "Maya", {"friends.*sortAsc": ["name"]}]
  // DESC order
-["Update", "users", "fred", {"friends.*sortDesc": ["name"]}]
+["Update", "users", "Maya", {"friends.*sortDesc": ["name"]}]
+  ```
+
+ Append "George" to the "friends" Array for the key "Maya" on the "users" table:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "Maya", {"friends.*append": [[{"name": "George", "id": 43523}]]}]
   ```
 
 <hr>
