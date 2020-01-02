@@ -1,5 +1,8 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
-<h1 align="center"><b>GopherDB</b></h1>
+<h1 align="center" color="#69a2ff">
+  
+<?xml version="1.0" encoding="utf-8"?><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="50"><text font-size="16" x="0" y="0"><tspan fill="#69a2ff">GopherDB</tspan></text></svg>
+
 GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. Gopher DB will feature many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. It also features a powerful schema validation mechanism to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
 
 Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but they're also more expandable and effective than any other JSON query format.
