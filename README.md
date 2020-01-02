@@ -1,5 +1,4 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
-<h1 align="center" color="#69a2ff">
   
 <?xml version="1.0" encoding="utf-8"?><svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="50"><text font-size="16" x="0" y="0"><tspan fill="#69a2ff">GopherDB</tspan></text></svg>
 
