@@ -4,37 +4,8 @@ GopherDB aims at easing the creation, retrieval, and manipulation of data throug
 <br>
 <br>
 Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format!
-
-## Query examples
- Get the "friends" Array for the key "fred" on the "users" table:
-
-  ``` javascript
-  // Query:
-["Get", "users", "fred", {"friends": null}]
-
- // Output:
-{"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
-  ```
-  
- Get index 1 of the "friends" Array for the key "fred" on the "users" table:
-
-  ``` javascript
- // Query
-["Get", "users", "fred", {"friends.1": null}]
-
- // Output:
-{"friends.1": {"name":"Bill", "id": 1}}
-  ```
-
- Update the "friends" Array for the key "fred" on the "users" table to be sorted alphabetically:
-
-  ``` javascript
- // ASC order
-["Update", "users", "fred", {"friends.*sortAsc": ["name"]}]
- // DESC order
-["Update", "users", "fred", {"friends.*sortDesc": ["name"]}]
-  ```
-
+<br>
+<br>
 <br>
 <p align="center">:construction: <b>PROJECT IN DEVELOPMENT</b> :construction:</p>
 <br>
@@ -78,6 +49,36 @@ And the dependencies:
 `keystore` is the only stable package as of right now. You can test all functionalities of the keystore package with this command from the `keystore` directory:
 
  ```go test -v keystore_test.go```
+
+## Query examples
+ Get the "friends" Array for the key "fred" on the "users" table:
+
+  ``` javascript
+  // Query:
+["Get", "users", "fred", {"friends": null}]
+
+ // Output:
+{"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
+  ```
+  
+ Get index 1 of the "friends" Array for the key "fred" on the "users" table:
+
+  ``` javascript
+ // Query
+["Get", "users", "fred", {"friends.1": null}]
+
+ // Output:
+{"friends.1": {"name":"Bill", "id": 1}}
+  ```
+
+ Update the "friends" Array for the key "fred" on the "users" table to be sorted alphabetically:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "fred", {"friends.*sortAsc": ["name"]}]
+ // DESC order
+["Update", "users", "fred", {"friends.*sortDesc": ["name"]}]
+  ```
 
 <hr>
 
