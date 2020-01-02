@@ -519,6 +519,26 @@ func arrayFilter(filter *Filter) int {
 		return 0
 	} else if filter.get {
 		filter.item = filter.innerData[len(filter.innerData) - 1]
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
+		switch it.dataType.typeName {
+		case ItemTypeObject, ItemTypeArray, ItemTypeMap:
+			i := append([]interface{}{}, filter.item.([]interface{})...)
+			filter.schemaItems = append(filter.schemaItems, it.dataType)
+			filter.innerData = append(filter.innerData, nil)
+			var index int
+			var iTypeErr int
+			for index, filter.item = range i {
+				filter.innerData[len(filter.innerData) - 1] = filter.item
+				iTypeErr = queryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				i[index] = filter.item
+			}
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			filter.item = i
+		}
 		return 0
 	} else if i, ok := filter.item.([]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
@@ -563,6 +583,30 @@ func mapFilter(filter *Filter) int {
 		return 0
 	} else if filter.get {
 		filter.item = filter.innerData[len(filter.innerData) - 1]
+		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
+		switch it.dataType.typeName {
+		case ItemTypeObject, ItemTypeArray, ItemTypeMap:
+			// Copy Map to prevent changing data in entry's pointer to this innerData map
+			var m map[string]interface{} = make(map[string]interface{})
+			for n, v := range filter.innerData[len(filter.innerData)-1].(map[string]interface{}) {
+				m[n] = v
+			}
+			filter.schemaItems = append(filter.schemaItems, it.dataType)
+			filter.innerData = append(filter.innerData, nil)
+			var itemName string
+			var iTypeErr int
+			for itemName, filter.item = range m {
+				filter.innerData[len(filter.innerData) - 1] = filter.item
+				iTypeErr = queryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				m[itemName] = filter.item
+			}
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			filter.item = m
+		}
 		return 0
 	} else if i, ok := filter.item.(map[string]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
@@ -601,10 +645,25 @@ func objectFilter(filter *Filter) int {
 		return 0
 	} else if filter.get {
 		// Convert data to map[string]interface{}
-		objList := filter.innerData[len(filter.innerData) - 1].([]interface{})
+		objList := append([]interface{}{}, filter.innerData[len(filter.innerData) - 1].([]interface{})...)
 		m := make(map[string]interface{})
+		var iTypeErr int
 		for itemName, schemaItem := range filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema {
-			m[itemName] = objList[schemaItem.dataIndex]
+			switch schemaItem.typeName {
+			case ItemTypeObject, ItemTypeArray, ItemTypeMap:
+				filter.schemaItems = append(filter.schemaItems, schemaItem)
+				filter.innerData = append(filter.innerData, objList[schemaItem.dataIndex])
+				iTypeErr = queryItemFilter(filter)
+				if iTypeErr != 0 {
+					return iTypeErr
+				}
+				filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+				m[itemName] = filter.item
+
+			default:
+				m[itemName] = objList[schemaItem.dataIndex]
+			}
 		}
 		filter.item = m
 		return 0

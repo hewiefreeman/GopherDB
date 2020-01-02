@@ -30,8 +30,8 @@ const (
 	MethodContains    = "*contains" // For Arrays and Maps
 	MethodIndexOf     = "*indexOf"  // For Arrays
 	MethodKeyOf       = "*keyOf"    // For Maps
-	MethodSortAsc     = "*sort"     // For Arrays | TO-DO
-	MethodSortDesc    = "*sortDesc" // For Arrays | TO-DO
+	MethodSortAsc     = "*sortAsc"
+	MethodSortDesc    = "*sortDesc"
 	MethodAppend      = "*append"
 	MethodAppendAt    = "*append["
 	MethodAppendAtFin = "]"
@@ -86,12 +86,8 @@ func applyNumberMethods(filter *Filter) int {
 	}
 	filter.methods = []string{}
 	if !brk {
-		// Convert filter item to int if this is a get query and the type of number is not float
-		if filter.get && !filter.schemaItems[len(filter.schemaItems) - 1].IsFloat() {
-			filter.item, _ = makeInt(entryData)
-		} else {
-			filter.item = entryData
-		}
+		// Convert item back to OG type
+		filter.item, _ = makeType(entryData, &filter.schemaItems[len(filter.schemaItems) - 1])
 	}
 	return 0
 }
@@ -309,7 +305,7 @@ func applyArrayMethods(filter *Filter) int {
 	dbEntryData := filter.innerData[len(filter.innerData)-1].([]interface{})
 	if item, ok := filter.item.([]interface{}); ok {
 		if filter.get {
-			// Check get query array methods
+			// -- Get query array methods --
 			switch method {
 			case MethodLength:
 				filter.methods = filter.methods[1:]
@@ -360,7 +356,11 @@ func applyArrayMethods(filter *Filter) int {
 				return 0
 			}
 		} else {
-			// Update query array methods
+			// -- Update query array methods --
+			if len(item) == 0 {
+				return helpers.ErrorNotEnoughMethodParameters
+			}
+
 			switch method {
 			case MethodAppend:
 				// Filter items
@@ -401,9 +401,6 @@ func applyArrayMethods(filter *Filter) int {
 				return 0
 
 			case MethodDelete:
-				if len(item) == 0 {
-					return helpers.ErrorNotEnoughMethodParameters
-				}
 				// Get delete params
 				if mParams, ok := item[0].([]interface{}); ok {
 					// Item numbers to delete must be in order of greatest to least
@@ -435,9 +432,36 @@ func applyArrayMethods(filter *Filter) int {
 				return 0
 
 			case MethodSortAsc:
+				if err := sort(filter, dbEntryData, item[0], true); err != 0 {
+					return err
+				}
+				filter.methods = filter.methods[1:]
+				// Check for more methods
+				if len(filter.methods) > 0 {
+					filter.item = item[1:]
+					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					if err := applyArrayMethods(filter); err != 0 {
+						return err
+					}
+					return 0
+				}
 				filter.item = dbEntryData
 				return 0
+
 			case MethodSortDesc:
+				if err := sort(filter, dbEntryData, item[0], false); err != 0 {
+					return err
+				}
+				filter.methods = filter.methods[1:]
+				// Check for more methods
+				if len(filter.methods) > 0 {
+					filter.item = item[1:]
+					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					if err := applyArrayMethods(filter); err != 0 {
+						return err
+					}
+					return 0
+				}
 				filter.item = dbEntryData
 				return 0
 			}
@@ -506,57 +530,6 @@ func applyArrayMethods(filter *Filter) int {
 	return 0
 }
 
-/*func sortArray(ary []interface{}, itemType SchemaItem, asc bool) int {
-	if itemType.IsNumeric() {
-		var t float64
-		for i := 0; i < len(sa) - 1; i++ {
-			for j := len(sa) - 1; j > i; j-- {
-				if sa[i] > sa[j] {
-					t = sa[i]
-					sa[i] = sa[j]
-					sa[j] = t
-				}
-			}
-		}
-	} else if itemType.typeName == ItemTypeString {
-
-	}
-	return helpers.ErrorArrayNotSortable
-}*/
-
-func arrayIndexOf(filter *Filter, searchItem interface{}, dbEntryData []interface{}) (float64, int) {
-	// Get inner data type
-	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
-	var indexOf float64 = -1
-	if si.IsNumeric() {
-		var ok bool
-		if searchItem, ok = makeType(searchItem, si); !ok {
-			return 0, helpers.ErrorInvalidMethodParameters
-		}
-		for i, innerItem := range dbEntryData {
-			if innerItem, ok = makeType(innerItem, si); !ok {
-				return 0, helpers.ErrorUnexpected
-			}
-			if searchItem == innerItem {
-				indexOf = float64(i)
-				break
-			}
-		}
-	} else if si.typeName == ItemTypeString || si.typeName == ItemTypeBool {
-		for i, innerItem := range dbEntryData {
-			if searchItem == innerItem {
-				indexOf = float64(i)
-				break
-			}
-		}
-	} else {
-		return 0, helpers.ErrorInvalidMethod
-	}
-	filter.item = filter.item.([]interface{})[1:]
-	filter.methods = filter.methods[1:]
-	return indexOf, 0
-}
-
 // Run filter on Array append method item collection
 func filterArrayAppendMethodItems(filter *Filter, item []interface{}) int {
 	if len(item) == 0 {
@@ -583,6 +556,39 @@ func filterArrayAppendMethodItems(filter *Filter, item []interface{}) int {
 		return 0
 	}
 	return helpers.ErrorInvalidMethodParameters
+}
+
+func arrayIndexOf(filter *Filter, searchItem interface{}, dbEntryData []interface{}) (float64, int) {
+	// Get inner data type
+	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
+	var indexOf float64 = -1
+	if si.IsNumeric() {
+		var ok bool
+		if searchItem, ok = makeType(searchItem, &si); !ok {
+			return 0, helpers.ErrorInvalidMethodParameters
+		}
+		for i, innerItem := range dbEntryData {
+			if innerItem, ok = makeType(innerItem, &si); !ok {
+				return 0, helpers.ErrorUnexpected
+			}
+			if searchItem == innerItem {
+				indexOf = float64(i)
+				break
+			}
+		}
+	} else if si.typeName == ItemTypeString || si.typeName == ItemTypeBool {
+		for i, innerItem := range dbEntryData {
+			if searchItem == innerItem {
+				indexOf = float64(i)
+				break
+			}
+		}
+	} else {
+		return 0, helpers.ErrorInvalidMethod
+	}
+	filter.item = filter.item.([]interface{})[1:]
+	filter.methods = filter.methods[1:]
+	return indexOf, 0
 }
 
 // Run methods on Map item collection
@@ -733,11 +739,11 @@ func mapKeyOf(filter *Filter, searchItem interface{}, dbEntryData map[string]int
 	var keyOf string
 	if si.IsNumeric() {
 		var ok bool
-		if searchItem, ok = makeType(searchItem, si); !ok {
+		if searchItem, ok = makeType(searchItem, &si); !ok {
 			return "", helpers.ErrorInvalidMethodParameters
 		}
 		for key, innerItem := range dbEntryData {
-			if innerItem, ok = makeType(innerItem, si); !ok {
+			if innerItem, ok = makeType(innerItem, &si); !ok {
 				return "", helpers.ErrorUnexpected
 			}
 			if searchItem == innerItem {
@@ -765,7 +771,7 @@ func applyObjectMethods(filter *Filter) int {
 	method := filter.methods[0]
 	// Check if valid object item
 	si := (filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema)[method]
-	if !si.Validate() {
+	if !si.QuickValidate() {
 		return helpers.ErrorInvalidMethod
 	}
 	// Remove this method and add new schemaItem

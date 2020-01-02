@@ -7,6 +7,12 @@ import (
 	"strconv"
 	"strings"
 	"encoding/json"
+	"github.com/json-iterator/go"
+)
+
+var (
+	// Faster JSON Mashaling
+	fjson = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 type jsonEntry struct {
@@ -16,11 +22,10 @@ type jsonEntry struct {
 
 func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 	var jErr error
-	*jBytes, jErr = json.Marshal(jsonEntry{
+	if *jBytes, jErr = fjson.Marshal(jsonEntry{
 		K: key,
 		D: data,
-	})
-	if jErr != nil {
+	}); jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
 	return 0
@@ -187,6 +192,9 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 			err = schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, true, false)
 			if err != 0 {
 				return nil, err
+			}
+			if k.dataOnDrive {
+				// Convert Object items from []interface{} to map[string]interface{}
 			}
 			items[itemName] = i
 		}

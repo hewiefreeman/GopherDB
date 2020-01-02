@@ -95,7 +95,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	} else if Get(name) != nil {
 		return nil, helpers.ErrorTableExists
 	} else if !s.Validate() {
-		return nil, helpers.ErrorTableExists
+		return nil, helpers.ErrorSchemaInvalid
 	}
 
 	// memOnly overrides dataOnDrive
@@ -239,6 +239,16 @@ func (k *Keystore) Size() int {
 	s := len(k.entries)
 	k.eMux.Unlock()
 	return s
+}
+
+// Size returns the number of entries in the Keystore
+func (k *Keystore) MemOnly() bool {
+	return k.memOnly
+}
+
+// Size returns the number of entries in the Keystore
+func (k *Keystore) DataOnDrive() bool {
+	return k.dataOnDrive
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

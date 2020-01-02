@@ -36,6 +36,7 @@ func restore() (bool, error) {
 	// Initialize storage engine
 	storage.Init()
 
+	//
 	if(!setupComplete) {
 		var tableErr int
 		now := time.Now()
@@ -527,7 +528,137 @@ func TestMultiMapUpdateMethod(t *testing.T) {
 	}
 }
 
+// Testing multi-layered map methods
+func TestSortArray(t *testing.T) {
+	if (!setupComplete) {
+		t.Skip()
+	}
+	// Append items to sort...
+	err := table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"testFloatArray.*append": []interface{}{[]interface{}{4, 9, 6, 8, 2, 7, 5, 1, 3}}})
+	if (err != 0) {
+		t.Errorf("TestSortArray append error: %v", err)
+		return
+	}
+	// Sort items ASC
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"testFloatArray.*sortAsc": []interface{}{nil}})
+	if (err != 0) {
+		t.Errorf("TestSortArray asc error: %v", err)
+		return
+	}
+	// Confirm sort...
+	var i map[string]interface{}
+	var a []interface{}
+	i, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"testFloatArray": nil})
+	if err != 0 {
+		t.Errorf("TestSortArray confirm error: %v", err)
+		return
+	}
+	var ok bool
+	if a, ok = i["testFloatArray"].([]interface{}); !ok {
+		t.Errorf("TestSortArray confirm floatArray is missing!")
+		return
+	}
+	if table.DataOnDrive() {
+		for j := 1; j < len(a); j++ {
+			if a[j].(float64) < a[j - 1].(float64) {
+				t.Errorf("TestSortArray array isn't sorted: %v", a)
+				return
+			}
+		}
+	} else {
+		for j := 1; j < len(a); j++ {
+			if a[j].(float32) < a[j - 1].(float32) {
+				t.Errorf("TestSortArray array isn't sorted: %v", a)
+				return
+			}
+		}
+	}
 
+	// Sort items DESC
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"testFloatArray.*sortDesc": []interface{}{nil}})
+	if (err != 0) {
+		t.Errorf("TestSortArray asc error: %v", err)
+		return
+	}
+	// Confirm sort...
+	i, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"testFloatArray": nil})
+	if err != 0 {
+		t.Errorf("TestSortArray confirm error: %v", err)
+		return
+	}
+	if a, ok = i["testFloatArray"].([]interface{}); !ok {
+		t.Errorf("TestSortArray confirm floatArray is missing!")
+		return
+	}
+	var is64 bool
+	if len(a) > 0 {
+		_, is64 = a[0].(float64)
+	}
+	for j := 1; j < len(a); j++ {
+		if is64 {
+			if a[j].(float64) > a[j - 1].(float64) {
+				t.Errorf("TestSortArray array isn't sorted: %v", a)
+				return
+			}
+		} else {
+			if a[j].(float32) > a[j - 1].(float32) {
+				t.Errorf("TestSortArray array isn't sorted: %v", a)
+				return
+			}
+		}
+
+	}
+
+	// Sort inner Object String items DESC
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*sortDesc": []interface{}{"labels.nickname"}})
+	if (err != 0) {
+		t.Errorf("TestSortArray inner desc error: %v", err)
+		return
+	}
+	// Confirm sort...
+	i, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends": nil})
+	if err != 0 {
+		t.Errorf("TestSortArray confirm error: %v", err)
+		return
+	}
+	if a, ok = i["friends"].([]interface{}); !ok {
+		t.Errorf("TestSortArray confirm friends is missing!")
+		return
+	}
+	for j := 1; j < len(a); j++ {
+		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		if jItem > jm1Item {
+			t.Errorf("TestSortArray array isn't sorted: %v", a)
+			return
+		}
+	}
+
+	// Sort inner Object String items ASC
+	err = table.UpdateKey("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends.*sortAsc": []interface{}{"labels.friendNum"}})
+	if (err != 0) {
+		t.Errorf("TestSortArray asc error: %v", err)
+		return
+	}
+	// Confirm sort...
+	i, err = table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"friends": nil})
+	if err != 0 {
+		t.Errorf("TestSortArray confirm error: %v", err)
+		return
+	}
+	if a, ok = i["friends"].([]interface{}); !ok {
+		t.Errorf("TestSortArray confirm friends is missing!")
+		return
+	}
+	for j := 1; j < len(a); j++ {
+		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		if jItem < jm1Item {
+			t.Errorf("TestSortArray array isn't sorted: %v", a)
+			return
+		}
+	}
+}
 
 // Testing nested get queries
 /*func TestUpdateWithNestedGetQuery(t *testing.T) {

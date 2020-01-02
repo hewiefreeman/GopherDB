@@ -44,7 +44,7 @@ const (
 	ErrorStringRequired
 	ErrorArrayItemsRequired // 2020
 	ErrorArrayEmpty
-	ErrorArrayNotSortable
+	ErrorArrayItemNotSortable
 	ErrorIndexOutOfBounds
 	ErrorMapItemsRequired
 	ErrorInvalidTimeFormat

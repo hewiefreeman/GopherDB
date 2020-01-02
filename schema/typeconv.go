@@ -1,10 +1,10 @@
 package schema
 
 import (
-
+	"time"
 )
 
-func makeType(i interface{}, t SchemaItem) (interface{}, bool) {
+func makeType(i interface{}, t *SchemaItem) (interface{}, bool) {
 	switch t.typeName {
 	case ItemTypeInt8: return makeInt8(i)
 	case ItemTypeInt16: return makeInt16(i)
@@ -18,6 +18,26 @@ func makeType(i interface{}, t SchemaItem) (interface{}, bool) {
 	case ItemTypeFloat64: return makeFloat64(i)
 	}
 	return nil, false
+}
+
+func makeTime(i interface{}, si *SchemaItem) (time.Time, bool) {
+	switch t := i.(type) {
+	case time.Time: return t, true
+	case string:
+		var ti time.Time
+		var tErr error
+		// Try to parse as RFC3339 (directly from storage engine)
+		ti, tErr = time.Parse(TimeFormatRFC3339, t)
+		// If the TimeItem's format isn't also RFC3339, try that instead
+		if tErr != nil && si.iType.(TimeItem).format == TimeFormatRFC3339 {
+			return time.Time{}, false
+		} else if ti, tErr = time.Parse(si.iType.(TimeItem).format, t); tErr != nil {
+			return time.Time{}, false
+		}
+		return ti, true
+	default:
+		return time.Time{}, false
+	}
 }
 
 func makeFloat64(i interface{}) (float64, bool) {
