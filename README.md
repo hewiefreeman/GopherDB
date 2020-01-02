@@ -3,16 +3,37 @@
 GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. It features many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. GopherDB leverages a powerful schema validation algorithm to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
 <br>
 <br>
-Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format! Here are some examples:
+Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format! Here are some keystore table example queries:
 <br>
 <br>
- - Get the "friends" Array for the key "fred" on the "users" table:
+ Get the "friends" Array for the key "fred" on the "users" table:
 
-  ``` json
+  ``` javascript
+  // Query:
 ["Get", "users", "fred", {"friends": null}]
+
+ // Output:
+{"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
+  ```
+  
+ Get index 1 of the "friends" Array for the key "fred" on the "users" table:
+
+  ``` javascript
+ // Query
+["Get", "users", "fred", {"friends.1": null}]
+
+ // Output:
+{"friends.1": {"name":"Bill", "id": 1}}
   ```
 
-> Output: `{"friends": [{"name":"Mary"},{"name":"Bill"},{"name":"Harry"}]}`
+ Update the "friends" Array for the key "fred" on the "users" table to be sorted alphabetically:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "fred", {"friends.*sortAsc": ["id"]}]
+ // DESC order
+["Update", "users", "fred", {"friends.*sortDesc": ["id"]}]
+  ```
 
 <br>
 <p align="center">:construction: <b>PROJECT IN DEVELOPMENT</b> :construction:</p>
