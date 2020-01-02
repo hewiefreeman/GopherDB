@@ -1,8 +1,6 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
 <h1 align="center"><b>GopherDB</b></h1>
-GopherDB aims at easing the creation, retrieval, and manipulation of data for secure user authentication, leaderboards, and generic database storage. GDB uses a powerful schema validation mechanism to keep your data well organized, while being extremely flexible, so you can fine-tune to your exact needs.
-<br>
-<br>
+GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. Gopher DB will feature many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. It also features a powerful schema validation mechanism to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
 
 Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but they're also more expandable and effective than any other JSON query format.
 <br>
@@ -18,9 +16,9 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
   - Standardized format across insert, update, and get queries
   - Many useful methods for arithmetic, comparisons, list append/prepend, etc.
   - Wide selection of data types and settings
-  - User Authentication Tables (single select queries only)
-  - Key-value Tables (multi & single select queries)
-  - List Tables (multi & single select queries)
+  - User authentication tables (single select queries only)
+  - Key-value tables (multi & single select queries)
+  - Ordered list tables (multi & single select queries)
   - Leaderboards (multi & single select queries)
   
 > **Recommendations**: All feature recommendations will be taken into consideration. This includes new security features, data types, methods, table types, etc. (*Security feature recommendations will be dealt with at the highest priority*)
