@@ -1,7 +1,5 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
-<p align="center"><b>- GopherDB -</b></p>
-<hr>
-
+<h1 align="center"><b>GopherDB</b></h1>
 GopherDB aims at easing the creation, retrieval, and manipulation of data for secure user authentication, leaderboards, and generic database storage. GDB uses a powerful schema validation mechanism to keep your data well organized, while being extremely flexible, so you can fine-tune to your exact needs.
 <br>
 <br>
@@ -38,6 +36,19 @@ When creating a table in GopherDB, you will need to make a schema that describes
   - Map
   - Object (AKA Schema)
   - Time (AKA Date)
+  
+## Installing
+Binaries will be created when project is considered stable. For now, you must download and use the Go source with:
+
+  ```go get github.com/hewiefreeman/GopherDB```
+
+And the dependencies:
+
+ `go get github.com/json-iterator/go` ([JSON-iterator](https://github.com/json-iterator/go))
+
+`keystore` is the only stable package as of right now. You can test all functionalities of the keystore package with this command from the `keystore` directory:
+
+ ```go test -v keystore_test.go```
 
 <hr>
 
