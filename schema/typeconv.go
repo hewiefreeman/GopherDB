@@ -59,6 +59,7 @@ func makeFloat64(i interface{}) (float64, bool) {
 
 func makeFloat32(i interface{}) (float32, bool) {
 	switch t := i.(type) {
+	case float32: return t, true
 	case float64: return float32(t), true
 	case int: return float32(t), true
 	case int8: return float32(t), true
@@ -69,7 +70,6 @@ func makeFloat32(i interface{}) (float32, bool) {
 	case uint16: return float32(t), true
 	case uint32: return float32(t), true
 	case uint64: return float32(t), true
-	case float32: return t, true
 	}
 	return 0, false
 }
@@ -77,8 +77,8 @@ func makeFloat32(i interface{}) (float32, bool) {
 // TO-DO: Negative floats to negative int (t - 0.5)
 func makeInt(i interface{}) (int, bool) {
 	switch t := i.(type) {
-	case float64: return int(t + 0.5), true
 	case int: return t, true
+	case float64: return int(t + 0.5), true
 	case int8: return int(t), true
 	case int16: return int(t), true
 	case int32: return int(t), true

@@ -16,6 +16,7 @@ import (
 
 // Method names
 const (
+	//
 	MethodOperatorAdd = "*add"
 	MethodOperatorSub = "*sub"
 	MethodOperatorMul = "*mul"
@@ -30,6 +31,7 @@ const (
 	MethodContains    = "*contains" // For Arrays and Maps
 	MethodIndexOf     = "*indexOf"  // For Arrays
 	MethodKeyOf       = "*keyOf"    // For Maps
+	MethodLast        = "*last"     // Select last item of Array
 	MethodSortAsc     = "*sortAsc"
 	MethodSortDesc    = "*sortDesc"
 	MethodAppend      = "*append"
@@ -40,12 +42,14 @@ const (
 	MethodSince       = "*since"
 	MethodUntil       = "*until"
 	MethodDay         = "*day"
-	MethodHour        = "*hr"
+	MethodHour        = "*hour"
 	MethodMinute      = "*min"
 	MethodSecond      = "*sec"
-	MethodMillisecond = "*mil"
+	MethodMillisecond = "*ms"
+
+	// Nesting queries
 	MethodGet         = "*get" // Makes a separate query | TO-DO
-	MethodItem        = "*item" // Gets an item from the current entry | TO-DO
+	MethodThis        = "*this" // Makes a separate query for the current entry | TO-DO
 )
 
 // GetQueryItemMethods checks query item names for methods and returns the item name and the list of methods.
@@ -86,7 +90,7 @@ func applyNumberMethods(filter *Filter) int {
 	}
 	filter.methods = []string{}
 	if !brk {
-		// Convert item back to OG type
+		// Convert numeric item back to OG numeric type
 		filter.item, _ = makeType(entryData, &filter.schemaItems[len(filter.schemaItems) - 1])
 	}
 	return 0
@@ -542,10 +546,17 @@ func applyArrayMethods(filter *Filter) int {
 		}
 	}
 
-	// Try to convert methods[0] to int for index method
-	i, iErr := strconv.Atoi(method)
-	if iErr != nil {
-		return helpers.ErrorInvalidMethod
+
+	var i int
+	// Check for last index method
+	if method == MethodLast {
+		i = len(dbEntryData) - 1
+	} else {
+		// Try to convert methods[0] to int for index method
+		var err error
+		if i, err = strconv.Atoi(method); err != nil {
+			return helpers.ErrorInvalidMethod
+		}
 	}
 	// Prevent out of range error
 	if len(dbEntryData) == 0 {

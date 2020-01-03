@@ -2,6 +2,34 @@
 	"Name": "test",
 	"Schema": [
 		{
+			"Position": 0,
+			"Name": "mmr",
+			"DataType": [
+				"Uint16",
+				0,
+				1000,
+				2200,
+				false,
+				false
+			]
+		},
+		{
+			"Position": 5,
+			"Name": "testStringArray",
+			"DataType": [
+				"Array",
+				[
+					"String",
+					"",
+					30,
+					false,
+					false
+				],
+				0,
+				false
+			]
+		},
+		{
 			"Position": 6,
 			"Name": "testFloatArray",
 			"DataType": [
@@ -46,34 +74,11 @@
 					"Object",
 					[
 						{
-							"Position": 1,
-							"Name": "status",
-							"DataType": [
-								"Uint8",
-								0,
-								0,
-								2,
-								false,
-								false
-							]
-						},
-						{
 							"Position": 2,
 							"Name": "labels",
 							"DataType": [
 								"Object",
 								[
-									{
-										"Position": 1,
-										"Name": "nickname",
-										"DataType": [
-											"String",
-											"",
-											16,
-											false,
-											true
-										]
-									},
 									{
 										"Position": 0,
 										"Name": "friendNum",
@@ -83,6 +88,17 @@
 											0,
 											0,
 											false,
+											false,
+											true
+										]
+									},
+									{
+										"Position": 1,
+										"Name": "nickname",
+										"DataType": [
+											"String",
+											"",
+											16,
 											false,
 											true
 										]
@@ -99,6 +115,18 @@
 								16,
 								true,
 								true
+							]
+						},
+						{
+							"Position": 1,
+							"Name": "status",
+							"DataType": [
+								"Uint8",
+								0,
+								0,
+								2,
+								false,
+								false
 							]
 						}
 					]
@@ -163,38 +191,10 @@
 				"RFC3339",
 				false
 			]
-		},
-		{
-			"Position": 0,
-			"Name": "mmr",
-			"DataType": [
-				"Uint16",
-				0,
-				0,
-				0,
-				false,
-				false
-			]
-		},
-		{
-			"Position": 5,
-			"Name": "testStringArray",
-			"DataType": [
-				"Array",
-				[
-					"String",
-					"",
-					30,
-					false,
-					false
-				],
-				0,
-				false
-			]
 		}
 	],
 	"FileOn": 0,
-	"DataOnDrive": false,
+	"DataOnDrive": true,
 	"MemOnly": false,
 	"PartitionMax": 250,
 	"EncryptCost": 4,

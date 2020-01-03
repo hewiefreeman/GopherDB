@@ -116,7 +116,7 @@ func int8Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int8
@@ -154,7 +154,7 @@ func int16Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int16
@@ -192,7 +192,7 @@ func int32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int32
@@ -230,7 +230,7 @@ func int64Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int64
@@ -268,7 +268,7 @@ func uint8Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint8
@@ -303,7 +303,7 @@ func uint16Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint16
@@ -338,7 +338,7 @@ func uint32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint32
@@ -373,7 +373,7 @@ func uint64Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint64
@@ -408,7 +408,7 @@ func float32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData)-1]
+		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic float32
@@ -550,25 +550,22 @@ func arrayFilter(filter *Filter) int {
 
 func filterArrayGetQuery(filter *Filter) int {
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
-	switch it.dataType.typeName {
-	case ItemTypeObject, ItemTypeArray, ItemTypeMap:
-		i := append([]interface{}{}, filter.item.([]interface{})...)
-		filter.schemaItems = append(filter.schemaItems, it.dataType)
-		filter.innerData = append(filter.innerData, nil)
-		var index int
-		var iTypeErr int
-		for index, filter.item = range i {
-			filter.innerData[len(filter.innerData) - 1] = filter.item
-			iTypeErr = queryItemFilter(filter)
-			if iTypeErr != 0 {
-				return iTypeErr
-			}
-			i[index] = filter.item
+	i := append([]interface{}{}, filter.item.([]interface{})...)
+	filter.schemaItems = append(filter.schemaItems, it.dataType)
+	filter.innerData = append(filter.innerData, nil)
+	var index int
+	var iTypeErr int
+	for index, filter.item = range i {
+		filter.innerData[len(filter.innerData) - 1] = filter.item
+		iTypeErr = queryItemFilter(filter)
+		if iTypeErr != 0 {
+			return iTypeErr
 		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-		filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-		filter.item = i
+		i[index] = filter.item
 	}
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+	filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+	filter.item = i
 	return 0
 }
 
@@ -653,21 +650,15 @@ func objectFilter(filter *Filter) int {
 		m := make(map[string]interface{})
 		var iTypeErr int
 		for itemName, schemaItem := range filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema {
-			switch schemaItem.typeName {
-			case ItemTypeObject, ItemTypeArray, ItemTypeMap:
-				filter.schemaItems = append(filter.schemaItems, schemaItem)
-				filter.innerData = append(filter.innerData, objList[schemaItem.dataIndex])
-				iTypeErr = queryItemFilter(filter)
-				if iTypeErr != 0 {
-					return iTypeErr
-				}
-				filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-				filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-				m[itemName] = filter.item
-
-			default:
-				m[itemName] = objList[schemaItem.dataIndex]
+			filter.schemaItems = append(filter.schemaItems, schemaItem)
+			filter.innerData = append(filter.innerData, objList[schemaItem.dataIndex])
+			iTypeErr = queryItemFilter(filter)
+			if iTypeErr != 0 {
+				return iTypeErr
 			}
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			m[itemName] = filter.item
 		}
 		filter.item = m
 		return 0

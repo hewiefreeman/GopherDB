@@ -1,18 +1,23 @@
 package keystore
 
 import (
-	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/keystore"
+	"github.com/hewiefreeman/GopherDB/storage"
 	"testing"
 	"errors"
-	"encoding/json"
 	"strconv"
 	"time"
 	"fmt"
 )
 
+const (
+	// Test settings
+	tableName string = "test"
+)
+
 var (
+	// Test variables
 	setupComplete bool
 	table *keystore.Keystore
 )
@@ -28,52 +33,29 @@ var (
 //          Please use with caution, review the code, and run these benchmarks on disk storage.
 //          GopherDB and it's creators are not liable for any damages these benchmarks may cause.
 
-func setup() (bool, error) {
-	if(!setupComplete) {
-		// Set-up
+func restore() (bool, error) {
+	// Initialize storage engine
+	storage.Init()
 
-		// Try to restore table & find out how long it took
+	//
+	if(!setupComplete) {
 		var tableErr int
 		now := time.Now()
-		table, tableErr = keystore.Restore("test")
-		if tableErr == 0 {
-			since := time.Since(now).Seconds()
-			fmt.Printf("Restore success! Took %v seconds to restore %v keys.", since, table.Size())
-			setupComplete = true
-			return true, nil
-		}
-
-		fmt.Printf("Fatal restore error: #%v", tableErr)
-
-		newTableJson := "{\"NewKeystore\": [\"test\", {\"mmr\": [\"Uint16\", 0, 0, 0, false, false], \"email\": [\"String\", \"\", 0, false, false], \"subbed\": [\"Time\", \"RFC3339\", false]}, 0, 0, 0, 0]}"
-		v := make(map[string]interface{})
-		err := json.Unmarshal([]byte(newTableJson), &v)
-		if err != nil {
-			return false, err
-		}
-
-		// Get the schema object from the query
-		s := v["NewKeystore"].([]interface{})[1].(map[string]interface{})
-
-		// Make a schema with the query's schema object
-		schemaObj, schemaErr := schema.New(s)
-		if schemaErr != 0 {
-			return false, errors.New("Schema error: " + strconv.Itoa(schemaErr))
-		}
-
-		// Make a new Keystore with the schema
-		table, tableErr = keystore.New("test", nil, schemaObj, 0, true, false)
+		table, tableErr = keystore.Restore(tableName)
+		since := time.Since(now).Seconds()
 		if tableErr != 0 {
-			return false, errors.New("Table create error: " + strconv.Itoa(tableErr))
+			return false, errors.New("Fatal restore error: " + strconv.Itoa(tableErr))
+		} else if table.Size() == 0 {
+			return false, errors.New("Restored 0 entries! Skipping benchmarks...")
 		}
-
-		//
+		fmt.Printf("Restore success! Took %v seconds to restore %v keys.\n", since, table.Size())
 		setupComplete = true
+		return true, nil
 	}
 	return false, nil
 }
 
-func BenchmarkInsert(b *testing.B) {
+/*func BenchmarkInsert(b *testing.B) {
 	b.ReportAllocs()
 	var restored bool
 	var sErr error
@@ -93,9 +75,16 @@ func BenchmarkInsert(b *testing.B) {
 			return
 		}
 	}
-}
+}*/
 
-func BenchmarkUpdate(b *testing.B) {
+func BenchmarkUpdateValue(b *testing.B) {
+	var err error
+	if !setupComplete {
+		if setupComplete, err = restore(); err != nil {
+			b.Errorf("Error restoring: %v", err)
+			return
+		}
+	}
 	b.ReportAllocs()
 	if table == nil {
 		b.Errorf("Update error: table is nil!")
@@ -104,22 +93,38 @@ func BenchmarkUpdate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Both Vokome's get appended because no checks are done on the input array!
-		if iErr := table.UpdateKey("Sir Smack II", map[string]interface{}{"friends.*append": []interface{}{map[string]interface{}{"login": "Vokome", "status": 2}, map[string]interface{}{"login": "Vokome", "status": 2}}, "subbed": "*now", /*"friends.1.login": "hello" + strconv.Itoa(i)*/}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if iErr := table.UpdateKey("Harry Potter", map[string]interface{}{"mmr": 1002}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Update error (%v): %v", i, iErr)
 			return
 		}
 	}
 }
 
-func BenchmarkGet(b *testing.B) {
+func BenchmarkRunMethodOnValue(b *testing.B) {
 	b.ReportAllocs()
 	if table == nil {
+		b.Errorf("Update error: table is nil!")
 		return
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		// Both Vokome's get appended because no checks are done on the input array!
+		if iErr := table.UpdateKey("Harry Potter", map[string]interface{}{"mmr.*add": []interface{}{1}}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+			b.Errorf("Update error (%v): %v", i, iErr)
+			return
+		}
+	}
+}
+
+func BenchmarkGetValue(b *testing.B) {
+	b.ReportAllocs()
+	if table == nil || !setupComplete {
+		b.Skip()
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		// 240 vs 1 to test file read efficiency (200 is near default max partition)
-		if _, iErr := table.GetKeyData("Sir Smack II", []string{}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
+		if _, iErr := table.GetKeyData("Harry Potter", map[string]interface{}{"mmr": nil}); iErr != 0 && iErr != helpers.ErrorNoEntryFound {
 			b.Errorf("Get error (%v): %v", i, iErr)
 			return
 		}

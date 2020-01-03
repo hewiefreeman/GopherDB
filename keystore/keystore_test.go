@@ -252,7 +252,7 @@ func TestGet(t *testing.T) {
 	data, err := table.GetKeyData("Harry Potter", nil)
 	if err != 0 {
 		t.Errorf("TestGet error: %v", err)
-	} else if data["mmr"] != uint16(1674) && data["mmr"] != float64(1674) {
+	} else if data["mmr"] != uint16(1674) {
 		t.Errorf("TestGet expected 1674, but got: %v\n", data["mmr"])
 		t.Errorf("TestGet recieved: %v\n", data)
 	}
@@ -341,7 +341,7 @@ func TestArithmetic(t *testing.T) {
 		return
 	}
 	data, _ := table.GetKeyData("guest" + strconv.Itoa(table.Size()), map[string]interface{}{"mmr": nil})
-	if data["mmr"] != uint16(5) && data["mmr"] != float64(5) {
+	if data["mmr"] != uint16(5) {
 		t.Errorf("TestArithmetic expected 5, but got: %v", data["mmr"])
 		return
 	}
@@ -558,19 +558,10 @@ func TestSortArray(t *testing.T) {
 		t.Errorf("TestSortArray confirm floatArray is missing!")
 		return
 	}
-	if table.DataOnDrive() {
-		for j := 1; j < len(a); j++ {
-			if a[j].(float64) < a[j - 1].(float64) {
-				t.Errorf("TestSortArray array isn't sorted: %v", a)
-				return
-			}
-		}
-	} else {
-		for j := 1; j < len(a); j++ {
-			if a[j].(float32) < a[j - 1].(float32) {
-				t.Errorf("TestSortArray array isn't sorted: %v", a)
-				return
-			}
+	for j := 1; j < len(a); j++ {
+		if a[j].(float32) < a[j - 1].(float32) {
+			t.Errorf("TestSortArray array isn't sorted: %v", a)
+			return
 		}
 	}
 
@@ -590,21 +581,10 @@ func TestSortArray(t *testing.T) {
 		t.Errorf("TestSortArray confirm floatArray is missing!")
 		return
 	}
-	var is64 bool
-	if len(a) > 0 {
-		_, is64 = a[0].(float64)
-	}
 	for j := 1; j < len(a); j++ {
-		if is64 {
-			if a[j].(float64) > a[j - 1].(float64) {
-				t.Errorf("TestSortArray array isn't sorted: %v", a)
-				return
-			}
-		} else {
-			if a[j].(float32) > a[j - 1].(float32) {
-				t.Errorf("TestSortArray array isn't sorted: %v", a)
-				return
-			}
+		if a[j].(float32) > a[j - 1].(float32) {
+			t.Errorf("TestSortArray array isn't sorted: %v", a)
+			return
 		}
 	}
 
@@ -625,8 +605,8 @@ func TestSortArray(t *testing.T) {
 		return
 	}
 	for j := 1; j < len(a); j++ {
-		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
-		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(int8)
+		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(int8)
 		if jItem > jm1Item {
 			t.Errorf("TestSortArray array isn't sorted: %v", a)
 			return
@@ -650,8 +630,8 @@ func TestSortArray(t *testing.T) {
 		return
 	}
 	for j := 1; j < len(a); j++ {
-		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
-		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(float64)
+		jItem := a[j].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(int8)
+		jm1Item := a[j - 1].(map[string]interface{})["labels"].(map[string]interface{})["friendNum"].(int8)
 		if jItem < jm1Item {
 			t.Errorf("TestSortArray array isn't sorted: %v", a)
 			return
@@ -659,7 +639,7 @@ func TestSortArray(t *testing.T) {
 	}
 }
 
-// Testing nested get queries
+// Testing nested get/this queries
 /*func TestUpdateWithNestedGetQuery(t *testing.T) {
 	if (!setupComplete) {
 		t.Skip()
