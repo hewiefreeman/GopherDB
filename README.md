@@ -1,15 +1,16 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
-<p align="center"><b>- GopherDB -</b></p>
-<hr>
+<h1 align="center">GopherDB</h1>
 
-GopherDB aims at easing the creation, retrieval, and manipulation of data for secure user authentication, leaderboards, and generic database storage. GDB uses a powerful schema validation mechanism to keep your data well organized, while being extremely flexible, so you can fine-tune to your exact needs.
+GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. It features many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. GopherDB leverages a powerful schema validation algorithm to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
+
+Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format!
+
+<br>
 <br>
 <br>
 
-Much like MongoDB, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is the simplification of the query process, allowing you to target and manipulate any piece of data in an entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but they're also more expandable and effective than any other JSON query format.
-<br>
-<br>
-:construction: <b>PROJECT IN DEVELOPMENT</b> :construction:
+<p align="center">:construction: <b>PROJECT IN DEVELOPMENT</b> :construction:</p>
+
 <br>
 <hr>
 <br>
@@ -19,9 +20,9 @@ Much like MongoDB, GopherDB uses JSON as it's query/response language and means 
   - Standardized format across insert, update, and get queries
   - Many useful methods for arithmetic, comparisons, list append/prepend, etc.
   - Wide selection of data types and settings
-  - User Authentication Tables (single select queries only)
-  - Key-value Tables (multi & single select queries)
-  - List Tables (multi & single select queries)
+  - User authentication tables (single select queries only)
+  - Key-value tables (multi & single select queries)
+  - Ordered list tables (multi & single select queries)
   - Leaderboards (multi & single select queries)
   
 > **Recommendations**: All feature recommendations will be taken into consideration. This includes new security features, data types, methods, table types, etc. (*Security feature recommendations will be dealt with at the highest priority*)
@@ -38,6 +39,56 @@ When creating a table in GopherDB, you will need to make a schema that describes
   - Map
   - Object (AKA Schema)
   - Time (AKA Date)
+  
+## Installing
+Binaries will be created when project is considered stable. For now, you must download and use the Go source with:
+
+  ```go get github.com/hewiefreeman/GopherDB```
+
+And the dependencies:
+
+ `go get github.com/json-iterator/go` ([JSON-iterator](https://github.com/json-iterator/go))
+
+`keystore` is the only stable package as of right now. You can test all functionalities of the keystore package with this command from the `keystore` directory:
+
+ ```go test -v keystore_test.go```
+
+## Query examples
+ Get the "friends" Array for the key "Maya" on the "users" table:
+
+  ``` javascript
+  // Query:
+["Get", "users", "Maya", {"friends": []}]
+
+ // Output:
+{"friends": [{"name":"Mary", "id": 2}, {"name":"Bill", "id": 1}, {"name":"Harry", "id": 0}]}
+  ```
+  
+ Get index 1 of the "friends" Array for the key "Maya" on the "users" table:
+
+  ``` javascript
+ // Query
+["Get", "users", "Maya", {"friends.1": []}]
+
+ // Output:
+{"friends.1": {"name":"Bill", "id": 1}}
+  ```
+
+ Update the "friends" Array for the key "Maya" on the "users" table to be sorted alphabetically:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "Maya", {"friends.*sortAsc": ["name"]}]
+ // DESC order
+["Update", "users", "Maya", {"friends.*sortDesc": ["name"]}]
+  ```
+
+ Append "George" to the "friends" Array for the key "Maya" on the "users" table:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "Maya", {"friends.*append": [[{"name": "George", "id": 43523}]]}]
+  ```
 
 <hr>
 
