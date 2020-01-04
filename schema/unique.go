@@ -87,9 +87,9 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 		innerItem := item.([]interface{})[filter.schemaItems[indexOn+1].dataIndex]
 		return getInnerUnique(filter, (indexOn+1), innerItem)
 	} else if filter.schemaItems[indexOn].IsNumeric() {
-		// Convert both items to float64 for comparison
-		filter.item, _ = makeFloat64(filter.item)
-		item, _ := makeFloat64(item)
+		// Convert both to the respective numeric type for comparison
+		filter.item, _ = makeTypeLiteral(filter.item, &filter.schemaItems[indexOn])
+		item, _ := makeTypeLiteral(item, &filter.schemaItems[indexOn])
 		//fmt.Printf("Comparing numbers %v and %v as float64\n\n", filter.item, item)
 		return item
 	}

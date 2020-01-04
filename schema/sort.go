@@ -13,11 +13,13 @@ var (
 // Sorting Arrays for query filters
 func sort(filter *Filter, ary []interface{}, by interface{}, asc bool) int {
 	itemType := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
-	if itemType.IsNumeric() {
-		sortArrayNumeric(ary, &itemType, asc)
-		return 0
-	}
 	switch itemType.typeName {
+	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64:
+		sortArrayInt(ary, asc)
+	case ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64:
+		sortArrayUint(ary, asc)
+	case ItemTypeFloat32, ItemTypeFloat64:
+		sortArrayFloat(ary, asc)
 	case ItemTypeString:
 		sortArrayString(ary, asc)
 	case ItemTypeTime:
@@ -45,9 +47,57 @@ func sort(filter *Filter, ary []interface{}, by interface{}, asc bool) int {
 	return 0
 }
 
-// Sort numeric Arrays
-func sortArrayNumeric(ary []interface{}, itemType *SchemaItem, asc bool) {
-	// Convert numeric type to float64
+// Sort Int type Arrays
+func sortArrayInt(ary []interface{}, asc bool) {
+	// Convert int type to int64
+	var fArr []int64 = make([]int64, len(ary), len(ary))
+	var tf int64
+	var ti interface{}
+	for i, v := range ary {
+		fArr[i], _ = makeInt64(v)
+	}
+	// Sort as int64
+	for i := 0; i < len(fArr) - 1; i++ {
+		for j := len(fArr) - 1; j > i; j-- {
+			if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
+				tf = fArr[i]
+				fArr[i] = fArr[j]
+				fArr[j] = tf
+				ti = ary[i]
+				ary[i] = ary[j]
+				ary[j] = ti
+			}
+		}
+	}
+}
+
+// Sort Uint type Arrays
+func sortArrayUint(ary []interface{}, asc bool) {
+	// Convert uint type to uint64
+	var fArr []uint64 = make([]uint64, len(ary), len(ary))
+	var tf uint64
+	var ti interface{}
+	for i, v := range ary {
+		fArr[i], _ = makeUint64(v)
+	}
+	// Sort as uint64
+	for i := 0; i < len(fArr) - 1; i++ {
+		for j := len(fArr) - 1; j > i; j-- {
+			if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
+				tf = fArr[i]
+				fArr[i] = fArr[j]
+				fArr[j] = tf
+				ti = ary[i]
+				ary[i] = ary[j]
+				ary[j] = ti
+			}
+		}
+	}
+}
+
+// Sort Float type Arrays
+func sortArrayFloat(ary []interface{}, asc bool) {
+	// Convert float type to float64
 	var fArr []float64 = make([]float64, len(ary), len(ary))
 	var tf float64
 	var ti interface{}
@@ -120,29 +170,73 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		checkAry[i] = getSortByValue(v.([]interface{}), dataIndexes, 0)
 	}
 	// Sort by inner type
-	if innerSi.IsNumeric() {
-		// Sort as float64
-		var iItem float64
-		var jItem float64
-		var t interface{}
-		for i := 0; i < len(checkAry) - 1; i++ {
-			iItem, _ = makeFloat64(checkAry[i])
-			for j := len(checkAry) - 1; j > i; j-- {
-				jItem, _ = makeFloat64(checkAry[j])
-				if (asc && iItem > jItem) || (!asc && iItem < jItem) {
+	switch innerSi.typeName {
+	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64:
+		// Convert int type to int64
+		var fArr []int64 = make([]int64, len(checkAry), len(checkAry))
+		var tf int64
+		var ti interface{}
+		for i, v := range checkAry {
+			fArr[i], _ = makeInt64(v)
+		}
+		for i := 0; i < len(fArr) - 1; i++ {
+			for j := len(fArr) - 1; j > i; j-- {
+				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 					// Swap both ary and checkAry
-					t = ary[i]
+					ti = ary[i]
 					ary[i] = ary[j]
-					ary[j] = t
-					checkAry[i] = jItem
-					checkAry[j] = iItem
-					iItem = jItem
+					ary[j] = ti
+					tf = fArr[i]
+					fArr[i] = fArr[j]
+					fArr[j] = tf
 				}
 			}
 		}
 		return 0
-	}
-	switch innerSi.typeName {
+	case ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64:
+		// Convert uint type to uint64
+		var fArr []uint64 = make([]uint64, len(checkAry), len(checkAry))
+		var tf uint64
+		var ti interface{}
+		for i, v := range checkAry {
+			fArr[i], _ = makeUint64(v)
+		}
+		for i := 0; i < len(fArr) - 1; i++ {
+			for j := len(fArr) - 1; j > i; j-- {
+				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
+					// Swap both ary and checkAry
+					ti = ary[i]
+					ary[i] = ary[j]
+					ary[j] = ti
+					tf = fArr[i]
+					fArr[i] = fArr[j]
+					fArr[j] = tf
+				}
+			}
+		}
+		return 0
+	case ItemTypeFloat32, ItemTypeFloat64:
+		// Convert float type to float64
+		var fArr []float64 = make([]float64, len(checkAry), len(checkAry))
+		var tf float64
+		var ti interface{}
+		for i, v := range checkAry {
+			fArr[i], _ = makeFloat64(v)
+		}
+		for i := 0; i < len(fArr) - 1; i++ {
+			for j := len(fArr) - 1; j > i; j-- {
+				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
+					// Swap both ary and checkAry
+					ti = ary[i]
+					ary[i] = ary[j]
+					ary[j] = ti
+					tf = fArr[i]
+					fArr[i] = fArr[j]
+					fArr[j] = tf
+				}
+			}
+		}
+		return 0
 	case ItemTypeString:
 		// Sort as string
 		var iItem string
@@ -192,20 +286,16 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int) (SchemaItem, int) {
 	si := schema[byArr[byOn]]
 	if si.QuickValidate() {
-		if !si.IsNumeric() {
-			switch si.typeName {
-			case ItemTypeTime, ItemTypeString:
-				// valid item
-			case ItemTypeObject:
-				if len(byArr) == byOn + 1 {
-					return SchemaItem{}, helpers.ErrorArrayItemNotSortable
-				}
-				dataIndexes[byOn] = int(schema[byArr[byOn]].dataIndex)
-				return checkSortByItem(si.iType.(ObjectItem).schema, byArr, dataIndexes, byOn + 1)
-
-			default:
+		switch si.typeName {
+		case ItemTypeArray, ItemTypeMap:
+			// Not sortable
+			return SchemaItem{}, helpers.ErrorArrayItemNotSortable
+		case ItemTypeObject:
+			if len(byArr) == byOn + 1 {
 				return SchemaItem{}, helpers.ErrorArrayItemNotSortable
 			}
+			dataIndexes[byOn] = int(schema[byArr[byOn]].dataIndex)
+			return checkSortByItem(si.iType.(ObjectItem).schema, byArr, dataIndexes, byOn + 1)
 		}
 		if len(byArr) != byOn + 1 {
 			return SchemaItem{}, helpers.ErrorInvalidMethodParameters

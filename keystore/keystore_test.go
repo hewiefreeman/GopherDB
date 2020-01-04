@@ -460,7 +460,7 @@ func TestArrayIndexOfAndContains(t *testing.T) {
 		t.Errorf("TestArrayIndexOfAndContains error: %v", err)
 		return
 	}
-	if data["testStringArray.*indexOf"] != float64(2) {
+	if data["testStringArray.*indexOf"] != int64(2) {
 		t.Errorf("TestArrayIndexOfAndContains expected 2, but got: %v", data["testStringArray.*indexOf"])
 		return
 	}
@@ -474,7 +474,7 @@ func TestArrayIndexOfAndContains(t *testing.T) {
 		t.Errorf("TestArrayIndexOfAndContains error: %v", err)
 		return
 	}
-	if data["testFloatArray.*indexOf"] != float64(3) {
+	if data["testFloatArray.*indexOf"] != int64(3) {
 		t.Errorf("TestArrayIndexOfAndContains expected 3, but got: %v", data["testFloatArray.*indexOf"])
 		return
 	}

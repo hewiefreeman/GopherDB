@@ -1,10 +1,11 @@
 package schema
 
 import (
+	"strconv"
 	"time"
 )
 
-func makeType(i interface{}, t *SchemaItem) (interface{}, bool) {
+func makeTypeLiteral(i interface{}, t *SchemaItem) (interface{}, bool) {
 	switch t.typeName {
 	case ItemTypeInt8: return makeInt8(i)
 	case ItemTypeInt16: return makeInt16(i)
@@ -16,6 +17,32 @@ func makeType(i interface{}, t *SchemaItem) (interface{}, bool) {
 	case ItemTypeUint64: return makeUint64(i)
 	case ItemTypeFloat32: return makeFloat32(i)
 	case ItemTypeFloat64: return makeFloat64(i)
+	}
+	return nil, false
+}
+
+func makeTypeStorage(i interface{}, t *SchemaItem) (interface{}, bool) {
+	switch t.typeName {
+	case ItemTypeInt8: return makeInt8(i)
+	case ItemTypeInt16: return makeInt16(i)
+	case ItemTypeInt32: return makeInt32(i)
+	case ItemTypeUint8: return makeUint8(i)
+	case ItemTypeUint16: return makeUint16(i)
+	case ItemTypeUint32: return makeUint32(i)
+	case ItemTypeFloat32: return makeFloat32(i)
+	case ItemTypeFloat64: return makeFloat64(i)
+	case ItemTypeUint64:
+		if _, ok := i.(string); ok {
+			return i, true
+		}
+		i = strconv.FormatUint(i.(uint64), 10)
+		return i, true
+	case ItemTypeInt64:
+		if _, ok := i.(string); ok {
+			return i, true
+		}
+		i = strconv.FormatInt(i.(int64), 10)
+		return i, true
 	}
 	return nil, false
 }
@@ -35,9 +62,8 @@ func makeTime(i interface{}, si *SchemaItem) (time.Time, bool) {
 			return time.Time{}, false
 		}
 		return ti, true
-	default:
-		return time.Time{}, false
 	}
+	return time.Time{}, false
 }
 
 func makeFloat64(i interface{}) (float64, bool) {
@@ -105,6 +131,10 @@ func makeInt64(i interface{}) (int64, bool) {
 	case uint32: return int64(t), true
 	case uint64: return int64(t), true
 	case float32: return int64(t + 0.5), true
+	case string:
+		if a, e := strconv.ParseInt(t, 10, 64); e == nil {
+			return a, true
+		}
 	}
 	return 0, false
 }
@@ -173,6 +203,10 @@ func makeUint64(i interface{}) (uint64, bool) {
 	case uint32: return uint64(t), true
 	case uint64: return t, true
 	case float32: return uint64(t + 0.5), true
+	case string:
+		if a, e := strconv.ParseUint(t, 10, 64); e == nil {
+			return a, true
+		}
 	}
 	return 0, false
 }

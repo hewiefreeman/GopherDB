@@ -108,7 +108,7 @@ func boolFilter(filter *Filter) int {
 func int8Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyIntMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -116,7 +116,7 @@ func int8Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int8
@@ -146,7 +146,7 @@ func int8Filter(filter *Filter) int {
 func int16Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyIntMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -154,7 +154,7 @@ func int16Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int16
@@ -184,7 +184,7 @@ func int16Filter(filter *Filter) int {
 func int32Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyIntMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -192,7 +192,7 @@ func int32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int32
@@ -222,7 +222,7 @@ func int32Filter(filter *Filter) int {
 func int64Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyIntMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -230,7 +230,7 @@ func int64Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic int64
@@ -254,13 +254,14 @@ func int64Filter(filter *Filter) int {
 	if it.unique && uniqueCheck(filter) {
 		return helpers.ErrorUniqueValueDuplicate
 	}
+	filter.item, _ = makeTypeStorage(filter.item, &filter.schemaItems[len(filter.schemaItems)-1])
 	return 0
 }
 
 func uint8Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyUintMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -268,7 +269,7 @@ func uint8Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint8
@@ -295,7 +296,7 @@ func uint8Filter(filter *Filter) int {
 func uint16Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyUintMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -303,7 +304,7 @@ func uint16Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint16
@@ -330,7 +331,7 @@ func uint16Filter(filter *Filter) int {
 func uint32Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyUintMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -338,7 +339,7 @@ func uint32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint32
@@ -365,7 +366,7 @@ func uint32Filter(filter *Filter) int {
 func uint64Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyUintMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -373,7 +374,7 @@ func uint64Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems) - 1])
 		return 0
 	}
 	var ic uint64
@@ -381,7 +382,7 @@ func uint64Filter(filter *Filter) int {
 	if ic, ok = makeUint64(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint64Item)
+	it := filter.schemaItems[len(filter.schemaItems) - 1].iType.(Uint64Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -394,13 +395,14 @@ func uint64Filter(filter *Filter) int {
 	if it.unique && uniqueCheck(filter) {
 		return helpers.ErrorUniqueValueDuplicate
 	}
+	filter.item, _ = makeTypeStorage(filter.item, &filter.schemaItems[len(filter.schemaItems) - 1])
 	return 0
 }
 
 func float32Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyFloatMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
@@ -408,7 +410,7 @@ func float32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeType(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData) - 1], &filter.schemaItems[len(filter.schemaItems) - 1])
 		return 0
 	}
 	var ic float32
@@ -438,7 +440,7 @@ func float32Filter(filter *Filter) int {
 func float64Filter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Apply number methods
-		mErr := applyNumberMethods(filter)
+		mErr := applyFloatMethods(filter)
 		if mErr != 0 {
 			return mErr
 		}
