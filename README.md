@@ -1,4 +1,6 @@
 <p align="center"><img src="https://github.com/hewiefreeman/GopherDB/raw/master/logo.png" width="25%" height="25%"></p>
+<p align="center"><a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg"></a> <a href="https://godoc.org/github.com/hewiefreeman/GopherDB"><img src="https://godoc.org/github.com/hewiefreeman/GopherDB?status.svg"></a> <img src="https://img.shields.io/badge/version-ALPHA.1.0-yellow.svg"> <a href="https://goreportcard.com/report/github.com/hewiefreeman/GopherDB"><img src="https://goreportcard.com/badge/github.com/hewiefreeman/GopherDB?f=v101"></a></p>
+
 <h1 align="center">GopherDB</h1>
 
 GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. It features many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. GopherDB leverages a powerful schema validation algorithm to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
