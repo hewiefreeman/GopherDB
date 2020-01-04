@@ -73,6 +73,15 @@ And the dependencies:
  // Output:
 {"friends.1": {"name":"Bill", "id": 1}}
   ```
+ Get the name of index 1 of the "friends" Array for the key "Maya" on the "users" table:
+
+  ``` javascript
+ // Query
+["Get", "users", "Maya", {"friends.1.name": []}]
+
+ // Output:
+{"friends.1.name": "Bill"}
+  ```
 
  Update the "friends" Array for the key "Maya" on the "users" table to be sorted alphabetically:
 
@@ -88,6 +97,13 @@ And the dependencies:
   ``` javascript
  // ASC order
 ["Update", "users", "Maya", {"friends.*append": [[{"name": "George", "id": 43523}]]}]
+  ```
+ 
+ Add 10 then divide Maya's MMR by 2:
+
+  ``` javascript
+ // ASC order
+["Update", "users", "Maya", {"mmr.*add.*divide": [10, 2]}]
   ```
 
 <hr>
