@@ -2,21 +2,19 @@ package schema
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
-	"time"
 	"strconv"
 	"strings"
-	//"fmt"
+	"time"
 )
 
 /*  **** RULES ****
 
-	- Query methods must always be paired with a parameter ([]interface{}) list, or (map[string]interface{}) map for certain Map methods
+- Query methods must always be paired with a parameter ([]interface{}) list, or (map[string]interface{}) map for certain Map methods
 
 */
 
 // Method names
 const (
-	//
 	MethodOperatorAdd = "*add"
 	MethodOperatorSub = "*sub"
 	MethodOperatorMul = "*mul"
@@ -31,14 +29,15 @@ const (
 	MethodContains    = "*contains" // For Arrays and Maps
 	MethodIndexOf     = "*indexOf"  // For Arrays
 	MethodKeyOf       = "*keyOf"    // For Maps
-	MethodLast        = "*last"     // Select last item of Array
-	MethodSortAsc     = "*sortAsc"
-	MethodSortDesc    = "*sortDesc"
-	MethodAppend      = "*append"
-	MethodAppendAt    = "*append["
-	MethodAppendAtFin = "]"
-	MethodPrepend     = "*prepend"
-	MethodDelete      = "*delete"
+	MethodLast        = "*last"     // Select last item of Arrays
+	MethodSortAsc     = "*sortAsc"  // Sort Array in Ascending order
+	MethodSortDesc    = "*sortDesc" // Sort Array in Descending order
+	MethodAppend      = "*append"   // For Arrays and Maps
+	MethodAppendAt    = "*append["  // Append item at array index
+	MethodAppendAtFin = "]"         //   ^ End
+	MethodFromTo      = ":"         // Separator for from-to Array get queries
+	MethodPrepend     = "*prepend"  // For Arrays
+	MethodDelete      = "*delete"   // For Arrays and Maps
 	MethodSince       = "*since"
 	MethodUntil       = "*until"
 	MethodDay         = "*day"
@@ -48,8 +47,8 @@ const (
 	MethodMillisecond = "*ms"
 
 	// Nesting queries
-	MethodGet         = "*get" // Makes a separate query | TO-DO
-	MethodThis        = "*this" // Makes a separate query for the current entry | TO-DO
+	MethodGet  = "*get"  // Makes a separate query | TO-DO
+	MethodThis = "*this" // Makes a separate query for the current entry | TO-DO
 )
 
 // GetQueryItemMethods checks query item names for methods and returns the item name and the list of methods.
@@ -91,16 +90,16 @@ func applyStringMethods(filter *Filter) int {
 	if brk {
 		if len(filter.methods) > 0 {
 			// More methods to run...
-			switch filter.schemaItems[len(filter.schemaItems) - 1].typeName {
-				case ItemTypeInt64:
-					if err = applyIntMethods(filter); err != 0 {
-						return err
-					}
+			switch filter.schemaItems[len(filter.schemaItems)-1].typeName {
+			case ItemTypeInt64:
+				if err = applyIntMethods(filter); err != 0 {
+					return err
+				}
 			}
 		} else {
 			filter.item = filter.innerData[len(filter.innerData)-1]
 		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
 	} else {
 		filter.methods = []string{}
@@ -117,45 +116,45 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 	var brk bool
 	if filter.get {
 		switch method {
-			case MethodLength:
-				filter.innerData = append(filter.innerData, int64(len(*entryData)))
-				filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
-				brk = true
+		case MethodLength:
+			filter.innerData = append(filter.innerData, int64(len(*entryData)))
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			brk = true
 
-			case MethodIndexOf:
-				var indexOf int64 = -1
-				for i := 0; i < len(*entryData) - (len(str) - 1); i++ {
-					if (*entryData)[i:i + len(str)] == str {
-						indexOf = int64(i)
-						break
-					}
+		case MethodIndexOf:
+			var indexOf int64 = -1
+			for i := 0; i < len(*entryData)-(len(str)-1); i++ {
+				if (*entryData)[i:i+len(str)] == str {
+					indexOf = int64(i)
+					break
 				}
-				filter.item = filter.item.([]interface{})[1:]
-				filter.innerData = append(filter.innerData, indexOf)
-				filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
-				brk = true
+			}
+			filter.item = filter.item.([]interface{})[1:]
+			filter.innerData = append(filter.innerData, indexOf)
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			brk = true
 
-			case MethodContains:
-				var contains bool
-				for i := 0; i < len(*entryData) - (len(str) - 1); i++ {
-					if (*entryData)[i:i + len(str)] == str {
-						contains = true
-						break
-					}
+		case MethodContains:
+			var contains bool
+			for i := 0; i < len(*entryData)-(len(str)-1); i++ {
+				if (*entryData)[i:i+len(str)] == str {
+					contains = true
+					break
 				}
-				filter.innerData = append(filter.innerData, contains)
-				filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
-				brk = true
+			}
+			filter.innerData = append(filter.innerData, contains)
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			brk = true
 
-			case MethodEquals:
-				filter.innerData = append(filter.innerData, (*entryData == str))
-				filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
-				brk = true
+		case MethodEquals:
+			filter.innerData = append(filter.innerData, (*entryData == str))
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			brk = true
 
-			default:
-				if err := checkGeneralStringMethods(filter, method, entryData, str); err != 0 {
-					return false, err
-				}
+		default:
+			if err := checkGeneralStringMethods(filter, method, entryData, str); err != 0 {
+				return false, err
+			}
 		}
 	} else {
 		if err := checkGeneralStringMethods(filter, method, entryData, str); err != 0 {
@@ -167,33 +166,33 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 
 func checkGeneralStringMethods(filter *Filter, method string, entryData *string, str string) int {
 	switch method {
-		case MethodOperatorAdd, MethodAppend:
-			*entryData = *entryData + str
+	case MethodOperatorAdd, MethodAppend:
+		*entryData = *entryData + str
 
-		case MethodPrepend:
-			*entryData = str + *entryData
+	case MethodPrepend:
+		*entryData = str + *entryData
 
-		default:
-			// Check for append at index method
-			if len(method) >= 10 && method[:8] == MethodAppendAt && method[len(method)-1:len(method)] == MethodAppendAtFin {
-				// Convert the text inside brackets to int
-				j, jErr := strconv.Atoi(method[8 : len(method)-1])
-				if jErr != nil {
-					return helpers.ErrorInvalidMethod
-				}
-				// Prevent out of range error
-				if j < 0 {
-					j = 0
-				} else if j > len(*entryData) - 1 {
-					j = len(*entryData) - 1
-				}
-				// Merge slices (could possibly be done better?) !!!
-				entryStart := (*entryData)[:j]
-				entryStart = entryStart + str
-				*entryData = entryStart + (*entryData)[j:]
-			} else {
+	default:
+		// Check for append at index method
+		if len(method) >= 10 && method[:8] == MethodAppendAt && method[len(method)-1:len(method)] == MethodAppendAtFin {
+			// Convert the text inside brackets to int
+			j, jErr := strconv.Atoi(method[8 : len(method)-1])
+			if jErr != nil {
 				return helpers.ErrorInvalidMethod
 			}
+			// Prevent out of range error
+			if j < 0 {
+				j = 0
+			} else if j > len(*entryData)-1 {
+				j = len(*entryData) - 1
+			}
+			// Merge slices (could possibly be done better?) !!!
+			entryStart := (*entryData)[:j]
+			entryStart = entryStart + str
+			*entryData = entryStart + (*entryData)[j:]
+		} else {
+			return helpers.ErrorInvalidMethod
+		}
 	}
 	filter.item = filter.item.([]interface{})[1:]
 	return 0
@@ -263,7 +262,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -283,7 +282,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -309,7 +308,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -328,7 +327,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -359,7 +358,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -376,7 +375,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -393,7 +392,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -412,10 +411,8 @@ func applyArrayMethods(filter *Filter) int {
 					return helpers.ErrorInvalidMethod
 				}
 				// Prevent out of range error
-				if i < 0 {
-					i = 0
-				} else if i > len(dbEntryData)-1 {
-					i = len(dbEntryData) - 1
+				if i < 0 || i > len(dbEntryData)-1 {
+					return helpers.ErrorIndexOutOfBounds
 				}
 				if err := filterArrayAppendMethodItems(filter, item); err != 0 {
 					return err
@@ -427,7 +424,7 @@ func applyArrayMethods(filter *Filter) int {
 				// Check for more methods
 				if len(filter.methods) > 0 {
 					filter.item = item[1:]
-					filter.innerData[len(filter.innerData) - 1] = dbEntryData
+					filter.innerData[len(filter.innerData)-1] = dbEntryData
 					if err := applyArrayMethods(filter); err != 0 {
 						return err
 					}
@@ -438,12 +435,45 @@ func applyArrayMethods(filter *Filter) int {
 			}
 		}
 	}
-
-
 	var i int
-	// Check for last index method
 	if method == MethodLast {
+		// Get item at last index method
 		i = len(dbEntryData) - 1
+
+	} else if filter.get && strings.Contains(method, ":") {
+		// Get array from-to
+		var j int
+		var err error
+		mArr := strings.Split(method, ":")
+		if len(mArr[0]) > 0 {
+			if i, err = strconv.Atoi(mArr[0]); err != nil {
+				return helpers.ErrorInvalidMethod
+			}
+			if i > len(dbEntryData)-1 || i < 0 {
+				return helpers.ErrorIndexOutOfBounds
+			}
+		}
+		if len(mArr[1]) > 0 {
+			if j, err = strconv.Atoi(mArr[1]); err != nil {
+				return helpers.ErrorInvalidMethod
+			}
+			if (len(mArr[0]) > 0 && j < i) || j > len(dbEntryData)-1 || j < 0 {
+				return helpers.ErrorIndexOutOfBounds
+			}
+		}
+		// Apply from-to to dbEntryData
+		dbEntryData = dbEntryData[i:j]
+		// Check for more methods
+		if len(filter.methods) > 0 {
+			filter.innerData[len(filter.innerData)-1] = dbEntryData
+			if err := applyArrayMethods(filter); err != 0 {
+				return err
+			}
+			return 0
+		}
+		filter.item = dbEntryData
+		return 0
+
 	} else {
 		// Try to convert methods[0] to int for index method
 		var err error
@@ -454,19 +484,19 @@ func applyArrayMethods(filter *Filter) int {
 	// Prevent out of range error
 	if len(dbEntryData) == 0 {
 		return helpers.ErrorArrayEmpty
-	} else if i < 0 || i > len(dbEntryData) - 1 {
+	} else if i < 0 || i > len(dbEntryData)-1 {
 		return helpers.ErrorIndexOutOfBounds
 	}
 	// Check for more methods & filter
 	filter.methods = filter.methods[1:]
-	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType)
+	filter.schemaItems = append(filter.schemaItems, filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType)
 	filter.innerData = append(filter.innerData, dbEntryData[i])
 	iTypeErr := queryItemFilter(filter)
 	if iTypeErr != 0 {
 		return iTypeErr
 	}
-	filter.innerData = filter.innerData[:len(filter.innerData) - 1]
-	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+	filter.innerData = filter.innerData[:len(filter.innerData)-1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 	if !filter.get {
 		dbEntryData[i] = filter.item
 		filter.item = dbEntryData
@@ -494,7 +524,7 @@ func filterArrayAppendMethodItems(filter *Filter, item []interface{}) int {
 			// Add item to array to check for duplicate unique values
 			filter.innerData[len(filter.innerData)-1] = append(filter.innerData[len(filter.innerData)-1].([]interface{}), filter.item)
 		}
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		filter.methods = m
 		item[0] = mParams
 		return 0
@@ -504,7 +534,7 @@ func filterArrayAppendMethodItems(filter *Filter, item []interface{}) int {
 
 func arrayIndexOf(filter *Filter, searchItem interface{}, dbEntryData []interface{}) (int64, int) {
 	// Get inner data type
-	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
+	si := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType
 	var indexOf int64 = -1
 	if si.IsNumeric() {
 		var ok bool
@@ -572,7 +602,7 @@ func applyMapMethods(filter *Filter) int {
 					if err := applyStringMethods(filter); err != 0 {
 						return err
 					}
-					filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+					filter.innerData = filter.innerData[:len(filter.innerData)-1]
 				} else {
 					filter.item = keyOf
 				}
@@ -607,7 +637,7 @@ func applyMapMethods(filter *Filter) int {
 					filter.methods = filter.methods[1:]
 					if len(filter.methods) > 0 {
 						filter.item = item[1:]
-						filter.innerData[len(filter.innerData) - 1] = dbEntryData
+						filter.innerData[len(filter.innerData)-1] = dbEntryData
 						if err := applyMapMethods(filter); err != 0 {
 							return err
 						}
@@ -636,11 +666,11 @@ func applyMapMethods(filter *Filter) int {
 						dbEntryData[itemName] = filter.item
 						filter.innerData[len(filter.innerData)-1].(map[string]interface{})[itemName] = filter.item
 					}
-					filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+					filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 					if len(m) > 0 {
 						filter.methods = m
 						filter.item = item[1:]
-						filter.innerData[len(filter.innerData) - 1] = dbEntryData
+						filter.innerData[len(filter.innerData)-1] = dbEntryData
 						if err := applyMapMethods(filter); err != 0 {
 							return err
 						}
@@ -663,7 +693,7 @@ func applyMapMethods(filter *Filter) int {
 			return iTypeErr
 		}
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		if !filter.get {
 			dbEntryData[method] = filter.item
 			filter.item = dbEntryData
@@ -676,7 +706,7 @@ func applyMapMethods(filter *Filter) int {
 
 func mapKeyOf(filter *Filter, searchItem interface{}, dbEntryData map[string]interface{}) (string, int) {
 	// Get inner data type
-	si := filter.schemaItems[len(filter.schemaItems) - 1].iType.(MapItem).dataType
+	si := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem).dataType
 	var keyOf string
 	if si.IsNumeric() {
 		var ok bool
@@ -725,7 +755,7 @@ func applyObjectMethods(filter *Filter) int {
 		return iTypeErr
 	}
 	filter.innerData = filter.innerData[:len(filter.innerData)-1]
-	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 	if !filter.get {
 		dbEntryData[si.dataIndex] = filter.item
 		filter.item = dbEntryData

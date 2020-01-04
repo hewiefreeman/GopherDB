@@ -17,17 +17,17 @@ language governing permissions and limitations under the License.
 package keystore
 
 import (
-	"github.com/hewiefreeman/GopherDB/helpers"
-	"github.com/hewiefreeman/GopherDB/storage"
-	"github.com/hewiefreeman/GopherDB/schema"
-	"strings"
-	"strconv"
-	"sync/atomic"
-	"sync"
-	"os"
-	"io"
 	"encoding/json"
 	"fmt"
+	"github.com/hewiefreeman/GopherDB/helpers"
+	"github.com/hewiefreeman/GopherDB/schema"
+	"github.com/hewiefreeman/GopherDB/storage"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 )
 
 // File/folder prefixes
@@ -36,29 +36,29 @@ const (
 )
 
 var (
-	storesMux      sync.Mutex
-	stores         map[string]*Keystore = make(map[string]*Keystore)
+	storesMux sync.Mutex
+	stores    map[string]*Keystore = make(map[string]*Keystore)
 )
 
 // Keystore
 type Keystore struct {
-	fileOn    uint16 // locked by eMux - placed for memory efficiency
+	fileOn uint16 // locked by eMux - placed for memory efficiency
 
 	// Settings and schema - read only
-	memOnly       bool          // Store data in memory only (overrides dataOnDrive)
-	dataOnDrive   bool          // when true, entry data is not stored in memory, only indexing
-	name          string        // table's logger/persist folder name
-	schema        schema.Schema // table's schema
-	configFile    *os.File      // configuration file
+	memOnly     bool          // Store data in memory only (overrides dataOnDrive)
+	dataOnDrive bool          // when true, entry data is not stored in memory, only indexing
+	name        string        // table's logger/persist folder name
+	schema      schema.Schema // table's schema
+	configFile  *os.File      // configuration file
 
 	// Atomic changable settings values - 99% read
-	partitionMax  atomic.Value // *uint16* maximum entries per data file
-	maxEntries    atomic.Value // *uint64* maximum amount of entries in the AuthTable
-	encryptCost   atomic.Value // *int* encryption cost of encrypted items
+	partitionMax atomic.Value // *uint16* maximum entries per data file
+	maxEntries   atomic.Value // *uint64* maximum amount of entries in the AuthTable
+	encryptCost  atomic.Value // *int* encryption cost of encrypted items
 
 	// entries
-	eMux       sync.Mutex                // entries/configFile lock
-	entries    map[string]*keystoreEntry // Keystore map
+	eMux    sync.Mutex                // entries/configFile lock
+	entries map[string]*keystoreEntry // Keystore map
 
 	// unique values
 	uMux       sync.Mutex
@@ -74,14 +74,14 @@ type keystoreEntry struct {
 }
 
 type keystoreConfig struct {
-	Name string
-	Schema []schema.SchemaConfigItem
-	FileOn uint16
-	DataOnDrive bool
-	MemOnly bool
+	Name         string
+	Schema       []schema.SchemaConfigItem
+	FileOn       uint16
+	DataOnDrive  bool
+	MemOnly      bool
 	PartitionMax uint16
-	EncryptCost int
-	MaxEntries uint64
+	EncryptCost  int
+	MaxEntries   uint64
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,21 +116,21 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 
 		// Create/open config file
 		var err error
-		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
+		configFile, err = os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
 		if err != nil {
 			return nil, helpers.ErrorFileOpen
 		}
 
 		// Write config file
 		if wErr := writeConfigFile(configFile, keystoreConfig{
-			Name: name,
-			Schema: s.MakeConfig(),
-			FileOn: fileOn,
-			DataOnDrive: dataOnDrive,
-			MemOnly: memOnly,
+			Name:         name,
+			Schema:       s.MakeConfig(),
+			FileOn:       fileOn,
+			DataOnDrive:  dataOnDrive,
+			MemOnly:      memOnly,
 			PartitionMax: helpers.DefaultPartitionMax,
-			EncryptCost: helpers.DefaultEncryptCost,
-			MaxEntries: helpers.DefaultMaxEntries,
+			EncryptCost:  helpers.DefaultEncryptCost,
+			MaxEntries:   helpers.DefaultMaxEntries,
 		}); wErr != 0 {
 			return nil, wErr
 		}
@@ -138,14 +138,14 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 
 	// make table
 	t := Keystore{
-		name:          name,
-		memOnly:       memOnly,
-		dataOnDrive:   dataOnDrive,
-		schema:        s,
-		configFile:    configFile,
-		entries:       make(map[string]*keystoreEntry),
-		uniqueVals:    make(map[string]map[interface{}]bool),
-		fileOn:        fileOn,
+		name:        name,
+		memOnly:     memOnly,
+		dataOnDrive: dataOnDrive,
+		schema:      s,
+		configFile:  configFile,
+		entries:     make(map[string]*keystoreEntry),
+		uniqueVals:  make(map[string]map[interface{}]bool),
+		fileOn:      fileOn,
 	}
 
 	// set defaults
@@ -163,8 +163,8 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 
 // Get retrieves a Keystore by name
 func Get(name string) *Keystore {
-	if (len(name) == 0) {
-		return nil;
+	if len(name) == 0 {
+		return nil
 	}
 
 	storesMux.Lock()
@@ -180,14 +180,14 @@ func (k *Keystore) Close(save bool) {
 		fileOn := k.fileOn
 		k.eMux.Unlock()
 		writeConfigFile(k.configFile, keystoreConfig{
-			Name: k.name,
-			Schema: k.schema.MakeConfig(),
-			FileOn: fileOn,
-			DataOnDrive: k.dataOnDrive,
-			MemOnly: k.memOnly,
+			Name:         k.name,
+			Schema:       k.schema.MakeConfig(),
+			FileOn:       fileOn,
+			DataOnDrive:  k.dataOnDrive,
+			MemOnly:      k.memOnly,
 			PartitionMax: k.partitionMax.Load().(uint16),
-			EncryptCost: k.encryptCost.Load().(int),
-			MaxEntries: k.maxEntries.Load().(uint64),
+			EncryptCost:  k.encryptCost.Load().(int),
+			MaxEntries:   k.maxEntries.Load().(uint64),
 		})
 	}
 
@@ -268,14 +268,14 @@ func (k *Keystore) SetEncryptionCost(cost int) int {
 	fileOn := k.fileOn
 	k.eMux.Unlock()
 	if err := writeConfigFile(k.configFile, keystoreConfig{
-		Name: k.name,
-		Schema: k.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: k.dataOnDrive,
-		MemOnly: k.memOnly,
+		Name:         k.name,
+		Schema:       k.schema.MakeConfig(),
+		FileOn:       fileOn,
+		DataOnDrive:  k.dataOnDrive,
+		MemOnly:      k.memOnly,
 		PartitionMax: k.partitionMax.Load().(uint16),
-		EncryptCost: cost,
-		MaxEntries: k.maxEntries.Load().(uint64),
+		EncryptCost:  cost,
+		MaxEntries:   k.maxEntries.Load().(uint64),
 	}); err != 0 {
 		return err
 	}
@@ -293,14 +293,14 @@ func (k *Keystore) SetMaxEntries(max uint64) int {
 	fileOn := k.fileOn
 	k.eMux.Unlock()
 	if err := writeConfigFile(k.configFile, keystoreConfig{
-		Name: k.name,
-		Schema: k.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: k.dataOnDrive,
-		MemOnly: k.memOnly,
+		Name:         k.name,
+		Schema:       k.schema.MakeConfig(),
+		FileOn:       fileOn,
+		DataOnDrive:  k.dataOnDrive,
+		MemOnly:      k.memOnly,
 		PartitionMax: k.partitionMax.Load().(uint16),
-		EncryptCost: k.encryptCost.Load().(int),
-		MaxEntries: max,
+		EncryptCost:  k.encryptCost.Load().(int),
+		MaxEntries:   max,
 	}); err != 0 {
 		return err
 	}
@@ -321,14 +321,14 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 	fileOn := k.fileOn
 	k.eMux.Unlock()
 	if err := writeConfigFile(k.configFile, keystoreConfig{
-		Name: k.name,
-		Schema: k.schema.MakeConfig(),
-		FileOn: fileOn,
-		DataOnDrive: k.dataOnDrive,
-		MemOnly: k.memOnly,
+		Name:         k.name,
+		Schema:       k.schema.MakeConfig(),
+		FileOn:       fileOn,
+		DataOnDrive:  k.dataOnDrive,
+		MemOnly:      k.memOnly,
 		PartitionMax: max,
-		EncryptCost: k.encryptCost.Load().(int),
-		MaxEntries: k.maxEntries.Load().(uint64),
+		EncryptCost:  k.encryptCost.Load().(int),
+		MaxEntries:   k.maxEntries.Load().(uint64),
 	}); err != 0 {
 		return err
 	}
@@ -362,7 +362,7 @@ func Restore(name string) (*Keystore, int) {
 	namePre := dataFolderPrefix + name
 
 	// Open the File
-	f, err := os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR, 0755)
+	f, err := os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR, 0755)
 	if err != nil {
 		return nil, helpers.ErrorFileOpen
 	}
@@ -450,7 +450,7 @@ func Restore(name string) (*Keystore, int) {
 		}
 
 		// Open data file
-		dataFile, err := os.OpenFile(namePre + "/" + fileStats.Name(), os.O_RDWR, 0755)
+		dataFile, err := os.OpenFile(namePre+"/"+fileStats.Name(), os.O_RDWR, 0755)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -477,7 +477,7 @@ func Restore(name string) (*Keystore, int) {
 					}
 				}
 
-				lineByteStart = i+1
+				lineByteStart = i + 1
 				lineOn++
 			}
 		}

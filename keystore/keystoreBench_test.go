@@ -1,14 +1,14 @@
 package keystore
 
 import (
+	"errors"
+	"fmt"
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/keystore"
 	"github.com/hewiefreeman/GopherDB/storage"
-	"testing"
-	"errors"
 	"strconv"
+	"testing"
 	"time"
-	"fmt"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 var (
 	// Test variables
 	setupComplete bool
-	table *keystore.Keystore
+	table         *keystore.Keystore
 )
 
 // TO TEST:
@@ -38,7 +38,7 @@ func restore() (bool, error) {
 	storage.Init()
 
 	//
-	if(!setupComplete) {
+	if !setupComplete {
 		var tableErr int
 		now := time.Now()
 		table, tableErr = keystore.Restore(tableName)

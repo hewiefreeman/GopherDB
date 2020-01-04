@@ -1,7 +1,7 @@
 package schema
 
 import (
-	//"fmt"
+//"fmt"
 )
 
 // GetUniqueItems gets the item name (string, eg: ["login", "email"]) of all unique table items and appends them to destination.
@@ -36,7 +36,7 @@ func GetUniqueItems(schema Schema, destination *[]string, outerItems string) {
 func uniqueCheck(filter *Filter) bool {
 	// Get parent index
 	parentIndex := -1
-	for i := len(filter.schemaItems)-1; i >= 0; i-- {
+	for i := len(filter.schemaItems) - 1; i >= 0; i-- {
 		if filter.schemaItems[i].typeName == ItemTypeArray || filter.schemaItems[i].typeName == ItemTypeMap {
 			parentIndex = i
 			break
@@ -46,13 +46,13 @@ func uniqueCheck(filter *Filter) bool {
 		// No valid parent, get name for table check
 		name := filter.schemaItems[0].name
 		for i := 1; i < len(filter.schemaItems)-1; i++ {
-				name = name+"."+filter.schemaItems[i].name
+			name = name + "." + filter.schemaItems[i].name
 		}
 		// Add to uniqueVals to be checked after filter
 		(*(filter.uniqueVals))[name] = filter.item
 
 		return false
-	} else if filter.innerData[parentIndex] == nil || filter.item == nil  {
+	} else if filter.innerData[parentIndex] == nil || filter.item == nil {
 		return false
 	}
 
@@ -85,7 +85,7 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 	} else if tn == ItemTypeObject {
 		// Get item
 		innerItem := item.([]interface{})[filter.schemaItems[indexOn+1].dataIndex]
-		return getInnerUnique(filter, (indexOn+1), innerItem)
+		return getInnerUnique(filter, (indexOn + 1), innerItem)
 	} else if filter.schemaItems[indexOn].IsNumeric() {
 		// Convert both to the respective numeric type for comparison
 		filter.item, _ = makeTypeLiteral(filter.item, &filter.schemaItems[indexOn])

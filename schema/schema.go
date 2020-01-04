@@ -22,14 +22,6 @@ import (
 	"strings"
 )
 
-// TO-DO:
-// Make Objects write/read to/from disk like schemas to save disk space like so:
-/*
-{"K":"guest20","D":[5,"guest20@gmail.com","2019-12-20T17:52:09.3256667-08:00",
-[[[0,"G7"],"guest1337",0],[[0,"G8"],"guest1338",0],[[0,"G9"],"guest1339",0]],
-{"fek off":[1,"insult"],"hallo":[0,"greeting"],"peace":[2,"farewell"]}]}
-*/
-
 // Schema represents a database schema that one or more tables must adhere to.
 type Schema map[string]SchemaItem
 
@@ -332,9 +324,9 @@ func (s Schema) MakeConfig() []SchemaConfigItem {
 	var sc []SchemaConfigItem = make([]SchemaConfigItem, len(s))
 	i := 0
 	for _, v := range s {
-		sc[i] = SchemaConfigItem {
+		sc[i] = SchemaConfigItem{
 			Position: v.dataIndex,
-			Name: v.name,
+			Name:     v.name,
 			DataType: v.makeConfigDataType(),
 		}
 		i++
@@ -344,16 +336,16 @@ func (s Schema) MakeConfig() []SchemaConfigItem {
 
 func (si SchemaItem) makeConfigDataType() []interface{} {
 	switch si.typeName {
-		case ItemTypeObject:
-			si.rawParams[1] = si.iType.(ObjectItem).schema.MakeConfig()
+	case ItemTypeObject:
+		si.rawParams[1] = si.iType.(ObjectItem).schema.MakeConfig()
 
-		case ItemTypeArray:
-			// Check inner item type
-			si.rawParams[1] = si.iType.(ArrayItem).dataType.makeConfigDataType()
+	case ItemTypeArray:
+		// Check inner item type
+		si.rawParams[1] = si.iType.(ArrayItem).dataType.makeConfigDataType()
 
-		case ItemTypeMap:
-			// Check inner item type
-			si.rawParams[1] = si.iType.(MapItem).dataType.makeConfigDataType()
+	case ItemTypeMap:
+		// Check inner item type
+		si.rawParams[1] = si.iType.(MapItem).dataType.makeConfigDataType()
 	}
 	return si.rawParams
 }
@@ -410,28 +402,28 @@ func (si SchemaItem) TypeName() string {
 // Unique returns true if the SchemaItem is unique.
 func (si SchemaItem) Unique() bool {
 	switch si.typeName {
-		case ItemTypeInt8:
-			return si.iType.(Int8Item).unique
-		case ItemTypeInt16:
-			return si.iType.(Int16Item).unique
-		case ItemTypeInt32:
-			return si.iType.(Int32Item).unique
-		case ItemTypeInt64:
-			return si.iType.(Int64Item).unique
-		case ItemTypeUint8:
-			return si.iType.(Uint8Item).unique
-		case ItemTypeUint16:
-			return si.iType.(Uint16Item).unique
-		case ItemTypeUint32:
-			return si.iType.(Uint32Item).unique
-		case ItemTypeUint64:
-			return si.iType.(Uint64Item).unique
-		case ItemTypeFloat32:
-			return si.iType.(Float32Item).unique
-		case ItemTypeFloat64:
-			return si.iType.(Float64Item).unique
-		case ItemTypeString:
-			return si.iType.(StringItem).unique
+	case ItemTypeInt8:
+		return si.iType.(Int8Item).unique
+	case ItemTypeInt16:
+		return si.iType.(Int16Item).unique
+	case ItemTypeInt32:
+		return si.iType.(Int32Item).unique
+	case ItemTypeInt64:
+		return si.iType.(Int64Item).unique
+	case ItemTypeUint8:
+		return si.iType.(Uint8Item).unique
+	case ItemTypeUint16:
+		return si.iType.(Uint16Item).unique
+	case ItemTypeUint32:
+		return si.iType.(Uint32Item).unique
+	case ItemTypeUint64:
+		return si.iType.(Uint64Item).unique
+	case ItemTypeFloat32:
+		return si.iType.(Float32Item).unique
+	case ItemTypeFloat64:
+		return si.iType.(Float64Item).unique
+	case ItemTypeString:
+		return si.iType.(StringItem).unique
 	}
 	return false
 }
@@ -439,8 +431,8 @@ func (si SchemaItem) Unique() bool {
 func (si SchemaItem) IsNumeric() bool {
 	switch si.typeName {
 	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
-			ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
-			ItemTypeFloat64, ItemTypeFloat32:
+		ItemTypeUint8, ItemTypeUint16, ItemTypeUint32, ItemTypeUint64,
+		ItemTypeFloat64, ItemTypeFloat32:
 		return true
 	default:
 		return false
@@ -459,36 +451,36 @@ func (si SchemaItem) IsFloat() bool {
 // Unique returns true if the SchemaItem is unique.
 func (si SchemaItem) Required() bool {
 	switch si.typeName {
-		case ItemTypeInt8:
-			return si.iType.(Int8Item).required
-		case ItemTypeInt16:
-			return si.iType.(Int16Item).required
-		case ItemTypeInt32:
-			return si.iType.(Int32Item).required
-		case ItemTypeInt64:
-			return si.iType.(Int64Item).required
-		case ItemTypeUint8:
-			return si.iType.(Uint8Item).required
-		case ItemTypeUint16:
-			return si.iType.(Uint16Item).required
-		case ItemTypeUint32:
-			return si.iType.(Uint32Item).required
-		case ItemTypeUint64:
-			return si.iType.(Uint64Item).required
-		case ItemTypeFloat32:
-			return si.iType.(Float32Item).required
-		case ItemTypeFloat64:
-			return si.iType.(Float64Item).required
-		case ItemTypeString:
-			return si.iType.(StringItem).required
-		case ItemTypeArray:
-			return si.iType.(ArrayItem).required
-		case ItemTypeObject:
-			return false
-		case ItemTypeMap:
-			return si.iType.(MapItem).required
-		case ItemTypeTime:
-			return si.iType.(TimeItem).required
+	case ItemTypeInt8:
+		return si.iType.(Int8Item).required
+	case ItemTypeInt16:
+		return si.iType.(Int16Item).required
+	case ItemTypeInt32:
+		return si.iType.(Int32Item).required
+	case ItemTypeInt64:
+		return si.iType.(Int64Item).required
+	case ItemTypeUint8:
+		return si.iType.(Uint8Item).required
+	case ItemTypeUint16:
+		return si.iType.(Uint16Item).required
+	case ItemTypeUint32:
+		return si.iType.(Uint32Item).required
+	case ItemTypeUint64:
+		return si.iType.(Uint64Item).required
+	case ItemTypeFloat32:
+		return si.iType.(Float32Item).required
+	case ItemTypeFloat64:
+		return si.iType.(Float64Item).required
+	case ItemTypeString:
+		return si.iType.(StringItem).required
+	case ItemTypeArray:
+		return si.iType.(ArrayItem).required
+	case ItemTypeObject:
+		return false
+	case ItemTypeMap:
+		return si.iType.(MapItem).required
+	case ItemTypeTime:
+		return si.iType.(TimeItem).required
 	}
 	return false
 }

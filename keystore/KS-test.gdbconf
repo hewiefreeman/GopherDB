@@ -2,64 +2,6 @@
 	"Name": "test",
 	"Schema": [
 		{
-			"Position": 4,
-			"Name": "actions",
-			"DataType": [
-				"Map",
-				[
-					"Object",
-					[
-						{
-							"Position": 1,
-							"Name": "type",
-							"DataType": [
-								"String",
-								"greeting",
-								0,
-								true,
-								true
-							]
-						},
-						{
-							"Position": 0,
-							"Name": "id",
-							"DataType": [
-								"Uint16",
-								0,
-								0,
-								0,
-								true,
-								true
-							]
-						}
-					]
-				],
-				0,
-				false
-			]
-		},
-		{
-			"Position": 2,
-			"Name": "subbed",
-			"DataType": [
-				"Time",
-				"RFC3339",
-				false
-			]
-		},
-		{
-			"Position": 0,
-			"Name": "mmr",
-			"DataType": [
-				"Uint16",
-				0,
-				0,
-				0,
-				false,
-				false
-			]
-		},
-		{
 			"Position": 5,
 			"Name": "testStringArray",
 			"DataType": [
@@ -190,6 +132,64 @@
 				30,
 				true,
 				true
+			]
+		},
+		{
+			"Position": 4,
+			"Name": "actions",
+			"DataType": [
+				"Map",
+				[
+					"Object",
+					[
+						{
+							"Position": 1,
+							"Name": "type",
+							"DataType": [
+								"String",
+								"greeting",
+								0,
+								true,
+								true
+							]
+						},
+						{
+							"Position": 0,
+							"Name": "id",
+							"DataType": [
+								"Uint16",
+								0,
+								0,
+								0,
+								true,
+								true
+							]
+						}
+					]
+				],
+				0,
+				false
+			]
+		},
+		{
+			"Position": 2,
+			"Name": "subbed",
+			"DataType": [
+				"Time",
+				"RFC3339",
+				false
+			]
+		},
+		{
+			"Position": 0,
+			"Name": "mmr",
+			"DataType": [
+				"Uint16",
+				0,
+				0,
+				0,
+				false,
+				false
 			]
 		}
 	],

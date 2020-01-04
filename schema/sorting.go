@@ -2,17 +2,15 @@ package schema
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
-	"time"
 	"strings"
+	"time"
 )
 
-var (
-
-)
+var ()
 
 // Sorting Arrays for query filters
 func sort(filter *Filter, ary []interface{}, by interface{}, asc bool) int {
-	itemType := filter.schemaItems[len(filter.schemaItems) - 1].iType.(ArrayItem).dataType
+	itemType := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem).dataType
 	switch itemType.typeName {
 	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64:
 		sortArrayInt(ary, asc)
@@ -57,7 +55,7 @@ func sortArrayInt(ary []interface{}, asc bool) {
 		fArr[i], _ = makeInt64(v)
 	}
 	// Sort as int64
-	for i := 0; i < len(fArr) - 1; i++ {
+	for i := 0; i < len(fArr)-1; i++ {
 		for j := len(fArr) - 1; j > i; j-- {
 			if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 				tf = fArr[i]
@@ -81,7 +79,7 @@ func sortArrayUint(ary []interface{}, asc bool) {
 		fArr[i], _ = makeUint64(v)
 	}
 	// Sort as uint64
-	for i := 0; i < len(fArr) - 1; i++ {
+	for i := 0; i < len(fArr)-1; i++ {
 		for j := len(fArr) - 1; j > i; j-- {
 			if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 				tf = fArr[i]
@@ -105,7 +103,7 @@ func sortArrayFloat(ary []interface{}, asc bool) {
 		fArr[i], _ = makeFloat64(v)
 	}
 	// Sort as float64
-	for i := 0; i < len(fArr) - 1; i++ {
+	for i := 0; i < len(fArr)-1; i++ {
 		for j := len(fArr) - 1; j > i; j-- {
 			if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 				tf = fArr[i]
@@ -123,7 +121,7 @@ func sortArrayFloat(ary []interface{}, asc bool) {
 func sortArrayString(ary []interface{}, asc bool) {
 	var iItem string
 	var jItem string
-	for i := 0; i < len(ary) - 1; i++ {
+	for i := 0; i < len(ary)-1; i++ {
 		iItem, _ = ary[i].(string)
 		for j := len(ary) - 1; j > i; j-- {
 			jItem, _ = ary[j].(string)
@@ -141,7 +139,7 @@ func sortArrayTime(ary []interface{}, itemType *SchemaItem, asc bool) {
 	var iItem time.Time
 	var jItem time.Time
 	var t interface{}
-	for i := 0; i < len(ary) - 1; i++ {
+	for i := 0; i < len(ary)-1; i++ {
 		iItem, _ = makeTime(ary[i], itemType)
 		for j := len(ary) - 1; j > i; j-- {
 			jItem, _ = makeTime(ary[j], itemType)
@@ -179,7 +177,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		for i, v := range checkAry {
 			fArr[i], _ = makeInt64(v)
 		}
-		for i := 0; i < len(fArr) - 1; i++ {
+		for i := 0; i < len(fArr)-1; i++ {
 			for j := len(fArr) - 1; j > i; j-- {
 				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 					// Swap both ary and checkAry
@@ -201,7 +199,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		for i, v := range checkAry {
 			fArr[i], _ = makeUint64(v)
 		}
-		for i := 0; i < len(fArr) - 1; i++ {
+		for i := 0; i < len(fArr)-1; i++ {
 			for j := len(fArr) - 1; j > i; j-- {
 				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 					// Swap both ary and checkAry
@@ -223,7 +221,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		for i, v := range checkAry {
 			fArr[i], _ = makeFloat64(v)
 		}
-		for i := 0; i < len(fArr) - 1; i++ {
+		for i := 0; i < len(fArr)-1; i++ {
 			for j := len(fArr) - 1; j > i; j-- {
 				if (asc && fArr[i] > fArr[j]) || (!asc && fArr[i] < fArr[j]) {
 					// Swap both ary and checkAry
@@ -242,7 +240,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		var iItem string
 		var jItem string
 		var t interface{}
-		for i := 0; i < len(checkAry) - 1; i++ {
+		for i := 0; i < len(checkAry)-1; i++ {
 			iItem, _ = checkAry[i].(string)
 			for j := len(checkAry) - 1; j > i; j-- {
 				jItem, _ = checkAry[j].(string) // could change with inner loop
@@ -263,7 +261,7 @@ func sortArrayByObjectItem(ary []interface{}, itemType *SchemaItem, byArr []stri
 		var iItem time.Time
 		var jItem time.Time
 		var t interface{}
-		for i := 0; i < len(checkAry) - 1; i++ {
+		for i := 0; i < len(checkAry)-1; i++ {
 			iItem, _ = makeTime(checkAry[i], &innerSi)
 			for j := len(checkAry) - 1; j > i; j-- {
 				jItem, _ = makeTime(checkAry[j], &innerSi)
@@ -291,13 +289,13 @@ func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int)
 			// Not sortable
 			return SchemaItem{}, helpers.ErrorArrayItemNotSortable
 		case ItemTypeObject:
-			if len(byArr) == byOn + 1 {
+			if len(byArr) == byOn+1 {
 				return SchemaItem{}, helpers.ErrorArrayItemNotSortable
 			}
 			dataIndexes[byOn] = int(schema[byArr[byOn]].dataIndex)
-			return checkSortByItem(si.iType.(ObjectItem).schema, byArr, dataIndexes, byOn + 1)
+			return checkSortByItem(si.iType.(ObjectItem).schema, byArr, dataIndexes, byOn+1)
 		}
-		if len(byArr) != byOn + 1 {
+		if len(byArr) != byOn+1 {
 			return SchemaItem{}, helpers.ErrorInvalidMethodParameters
 		}
 		dataIndexes[byOn] = int(schema[byArr[byOn]].dataIndex)
@@ -308,8 +306,8 @@ func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int)
 
 // Get the value of inner Objects for a sort-by query
 func getSortByValue(i []interface{}, dataIndexes []int, iOn int) interface{} {
-	if iOn < len(dataIndexes) - 1 {
-		return getSortByValue(i[dataIndexes[iOn]].([]interface{}), dataIndexes, iOn + 1)
+	if iOn < len(dataIndexes)-1 {
+		return getSortByValue(i[dataIndexes[iOn]].([]interface{}), dataIndexes, iOn+1)
 	} else {
 		r := i[dataIndexes[iOn]]
 		return r

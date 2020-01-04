@@ -18,8 +18,8 @@ package storage
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"
-	"os"
 	"io"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -139,7 +139,7 @@ func getOpenFile(file string) (*openFile, int) {
 	} else {
 		if !openFileTimers[file].Reset(fileOpenTime.Load().(time.Duration)) {
 			t := time.NewTimer(fileOpenTime.Load().(time.Duration))
-			openFileTimers[file] = t;
+			openFileTimers[file] = t
 			go fileCloseTimer(t, f)
 		}
 	}
@@ -224,7 +224,7 @@ func Update(file string, index uint16, json []byte) int {
 		}
 	}
 	// Calculate byte difference for subsequent lines
-	iDif := len(json)-(iEnd-iStart)
+	iDif := len(json) - (iEnd - iStart)
 	for i := int(index); i < len(f.lineByteOn); i++ {
 		f.lineByteOn[i] += iDif
 	}
@@ -250,7 +250,7 @@ func Insert(file string, json []byte) (uint16, int) {
 	f.mux.Lock()
 
 	// Insert and get line on
-	lineOn := uint16(len(f.lineByteOn)+1)
+	lineOn := uint16(len(f.lineByteOn) + 1)
 	json = append(json, newLineIndicator)
 	if _, wErr := f.file.WriteAt(json, int64(len(f.bytes))); wErr != nil {
 		f.mux.Unlock()

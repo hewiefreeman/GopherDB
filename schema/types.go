@@ -65,22 +65,22 @@ const (
 
 // Time type format initializers for table creation queries
 var (
-	timeFormatInitializor map[string]string = map[string]string {
-		"ANSIC": TimeFormatANSIC,
-		"Unix":  TimeFormatUnixDate,
-		"Ruby":  TimeFormatRubyDate,
-		"RFC822": TimeFormatRFC822,
-		"RFC822Z": TimeFormatRFC822Z,
-		"RFC850": TimeFormatRFC850,
-		"RFC1123": TimeFormatRFC1123,
-		"RFC1123Z": TimeFormatRFC1123Z,
-		"RFC3339": TimeFormatRFC3339,
+	timeFormatInitializor map[string]string = map[string]string{
+		"ANSIC":       TimeFormatANSIC,
+		"Unix":        TimeFormatUnixDate,
+		"Ruby":        TimeFormatRubyDate,
+		"RFC822":      TimeFormatRFC822,
+		"RFC822Z":     TimeFormatRFC822Z,
+		"RFC850":      TimeFormatRFC850,
+		"RFC1123":     TimeFormatRFC1123,
+		"RFC1123Z":    TimeFormatRFC1123Z,
+		"RFC3339":     TimeFormatRFC3339,
 		"RFC3339Nano": TimeFormatRFC3339Nano,
-		"Kitchen": TimeFormatKitchen,
-		"Stamp": TimeFormatStamp,
-		"StampMilli": TimeFormatStampMilli,
-		"StampMicro": TimeFormatStampMicro,
-		"StampNano": TimeFormatStampNano,
+		"Kitchen":     TimeFormatKitchen,
+		"Stamp":       TimeFormatStamp,
+		"StampMilli":  TimeFormatStampMilli,
+		"StampMicro":  TimeFormatStampMicro,
+		"StampNano":   TimeFormatStampNano,
 	}
 )
 
@@ -214,12 +214,12 @@ type MapItem struct {
 }
 
 type ObjectItem struct {
-	schema   Schema
+	schema Schema
 }
 
 type TimeItem struct {
-	format       string
-	required     bool
+	format   string
+	required bool
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -452,16 +452,16 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 //   Item type format checks   //////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 
-func checkTypeFormat(t string) func([]interface{})bool {
+func checkTypeFormat(t string) func([]interface{}) bool {
 	switch t {
 	case ItemTypeBool:
 		return checkBoolFormat
 	case ItemTypeUint8, ItemTypeUint16,
-			ItemTypeUint32, ItemTypeUint64:
+		ItemTypeUint32, ItemTypeUint64:
 		return checkNumericFormat
 	case ItemTypeInt8, ItemTypeInt16,
-			ItemTypeInt32, ItemTypeInt64,
-			ItemTypeFloat32, ItemTypeFloat64:
+		ItemTypeInt32, ItemTypeInt64,
+		ItemTypeFloat32, ItemTypeFloat64:
 		return checkNumericPlusFormat
 	case ItemTypeString:
 		return checkStringFormat

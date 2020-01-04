@@ -1,13 +1,13 @@
 package keystore
 
 import (
+	"encoding/json"
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
+	"github.com/json-iterator/go"
 	"strconv"
 	"strings"
-	"encoding/json"
-	"github.com/json-iterator/go"
 )
 
 var (
@@ -49,7 +49,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Key is required
 	if len(key) == 0 {
 		return nil, helpers.ErrorKeyRequired
-	} else if strings.ContainsAny(key, ".*\t\n\r"){
+	} else if strings.ContainsAny(key, ".*\t\n\r") {
 		return nil, helpers.ErrorInvalidKeyCharacters
 	}
 
@@ -94,7 +94,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 			k.uMux.Unlock()
 			k.eMux.Unlock()
 			return nil, helpers.ErrorUniqueValueDuplicate
-		}/* else {
+		} /* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
 	}
@@ -102,7 +102,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	var lineOn uint16
 	if !k.memOnly {
 		var aErr int
-		lineOn, aErr = storage.Insert(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(k.fileOn)) + helpers.FileTypeStorage, jBytes)
+		lineOn, aErr = storage.Insert(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(k.fileOn))+helpers.FileTypeStorage, jBytes)
 		if aErr != 0 {
 			k.uMux.Unlock()
 			k.eMux.Unlock()
@@ -127,14 +127,14 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	if e.persistIndex >= k.partitionMax.Load().(uint16) {
 		k.fileOn++
 		writeConfigFile(k.configFile, keystoreConfig{
-			Name: k.name,
-			Schema: k.schema.MakeConfig(),
-			FileOn: k.fileOn,
-			DataOnDrive: k.dataOnDrive,
-			MemOnly: k.memOnly,
+			Name:         k.name,
+			Schema:       k.schema.MakeConfig(),
+			FileOn:       k.fileOn,
+			DataOnDrive:  k.dataOnDrive,
+			MemOnly:      k.memOnly,
 			PartitionMax: k.partitionMax.Load().(uint16),
-			EncryptCost: k.encryptCost.Load().(int),
-			MaxEntries: k.maxEntries.Load().(uint64),
+			EncryptCost:  k.encryptCost.Load().(int),
+			MaxEntries:   k.maxEntries.Load().(uint64),
 		})
 	}
 
@@ -168,7 +168,7 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 	// Get entry data
 	if k.dataOnDrive {
 		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return nil, dErr
 		}
@@ -281,7 +281,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	// Get entry data
 	if k.dataOnDrive {
 		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -335,7 +335,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 
 	// Update entry on disk with jBytes
 	if !k.memOnly {
-		uErr := storage.Update(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex, jBytes)
+		uErr := storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex, jBytes)
 		if uErr != 0 {
 			k.uMux.Unlock()
 			e.mux.Unlock()
@@ -388,7 +388,7 @@ func (k *Keystore) DeleteKey(key string) int {
 	// Get entry data
 	if k.dataOnDrive {
 		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
+		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
 			return dErr
 		}
@@ -426,7 +426,7 @@ func (k *Keystore) DeleteKey(key string) int {
 
 	// Update entry on disk with []byte{}
 	if !k.memOnly {
-		uErr := storage.Update(dataFolderPrefix + k.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
+		uErr := storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
 			return uErr
 		}

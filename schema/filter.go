@@ -7,27 +7,27 @@ import (
 
 // Filter for queries
 type Filter struct {
-	restore bool
-	get bool // when true, output is for get queries
-	item interface{} // The item data to insert/get, or method parameters when methods are being used
-	destination *interface{} // Pointer to where the filtered data must go
-	methods []string // Method list
-	innerData []interface{} // Data hierarchy holder for entry on database - used for unique value searches and methods
-	schemaItems []SchemaItem // Schema hierarchy holder - used for unique value searches
-	uniqueVals *map[string]interface{} // Pointer a map storing all unique values to check against thier table after running filter
+	restore     bool
+	get         bool                    // when true, output is for get queries
+	item        interface{}             // The item data to insert/get, or method parameters when methods are being used
+	destination *interface{}            // Pointer to where the filtered data must go
+	methods     []string                // Method list
+	innerData   []interface{}           // Data hierarchy holder for entry on database - used for unique value searches and methods
+	schemaItems []SchemaItem            // Schema hierarchy holder - used for unique value searches
+	uniqueVals  *map[string]interface{} // Pointer a map storing all unique values to check against thier table after running filter
 }
 
 // ItemFilter filters an item in a query against it's cooresponding SchemaItem.
 func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
 	filter := Filter{
-		restore: restore,
-		get: get,
-		item: item,
-		methods: methods,
+		restore:     restore,
+		get:         get,
+		item:        item,
+		methods:     methods,
 		destination: destination,
-		innerData: []interface{}{},
+		innerData:   []interface{}{},
 		schemaItems: []SchemaItem{schemaItem},
-		uniqueVals: uniqueVals,
+		uniqueVals:  uniqueVals,
 	}
 	if innerData != nil {
 		filter.innerData = []interface{}{innerData}
@@ -67,25 +67,42 @@ func queryItemFilter(filter *Filter) int {
 	return 0
 }
 
-func getTypeFilter(typeName string) func(*Filter)(int) {
+func getTypeFilter(typeName string) func(*Filter) int {
 	switch typeName {
-	case ItemTypeBool: return boolFilter
-	case ItemTypeInt8: return int8Filter
-	case ItemTypeInt16: return int16Filter
-	case ItemTypeInt32: return int32Filter
-	case ItemTypeInt64: return int64Filter
-	case ItemTypeUint8: return uint8Filter
-	case ItemTypeUint16: return uint16Filter
-	case ItemTypeUint32: return uint32Filter
-	case ItemTypeUint64: return uint64Filter
-	case ItemTypeFloat32: return float32Filter
-	case ItemTypeFloat64: return float64Filter
-	case ItemTypeString: return stringFilter
-	case ItemTypeArray: return arrayFilter
-	case ItemTypeMap: return mapFilter
-	case ItemTypeObject: return objectFilter
-	case ItemTypeTime: return timeFilter
-	default: return nil
+	case ItemTypeBool:
+		return boolFilter
+	case ItemTypeInt8:
+		return int8Filter
+	case ItemTypeInt16:
+		return int16Filter
+	case ItemTypeInt32:
+		return int32Filter
+	case ItemTypeInt64:
+		return int64Filter
+	case ItemTypeUint8:
+		return uint8Filter
+	case ItemTypeUint16:
+		return uint16Filter
+	case ItemTypeUint32:
+		return uint32Filter
+	case ItemTypeUint64:
+		return uint64Filter
+	case ItemTypeFloat32:
+		return float32Filter
+	case ItemTypeFloat64:
+		return float64Filter
+	case ItemTypeString:
+		return stringFilter
+	case ItemTypeArray:
+		return arrayFilter
+	case ItemTypeMap:
+		return mapFilter
+	case ItemTypeObject:
+		return objectFilter
+	case ItemTypeTime:
+		return timeFilter
+	default:
+		return nil
 	}
 }
 
@@ -374,7 +391,7 @@ func uint64Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems) - 1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic uint64
@@ -382,7 +399,7 @@ func uint64Filter(filter *Filter) int {
 	if ic, ok = makeUint64(filter.item); !ok {
 		return helpers.ErrorInvalidItemValue
 	}
-	it := filter.schemaItems[len(filter.schemaItems) - 1].iType.(Uint64Item)
+	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(Uint64Item)
 	// Check min/max unless both are the same
 	if it.min < it.max {
 		if ic > it.max {
@@ -395,7 +412,7 @@ func uint64Filter(filter *Filter) int {
 	if it.unique && uniqueCheck(filter) {
 		return helpers.ErrorUniqueValueDuplicate
 	}
-	filter.item, _ = makeTypeStorage(filter.item, &filter.schemaItems[len(filter.schemaItems) - 1])
+	filter.item, _ = makeTypeStorage(filter.item, &filter.schemaItems[len(filter.schemaItems)-1])
 	return 0
 }
 
@@ -410,7 +427,7 @@ func float32Filter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
-		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData) - 1], &filter.schemaItems[len(filter.schemaItems) - 1])
+		filter.item, _ = makeTypeLiteral(filter.innerData[len(filter.innerData)-1], &filter.schemaItems[len(filter.schemaItems)-1])
 		return 0
 	}
 	var ic float32
@@ -520,7 +537,7 @@ func arrayFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData) - 1]
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		return filterArrayGetQuery(filter)
 	} else if i, ok := filter.item.([]interface{}); ok {
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(ArrayItem)
@@ -540,7 +557,7 @@ func arrayFilter(filter *Filter) int {
 			filter.innerData[len(filter.innerData)-1] = append(filter.innerData[len(filter.innerData)-1].([]interface{}), filter.item)
 		}
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorArrayItemsRequired
 		}
@@ -558,15 +575,15 @@ func filterArrayGetQuery(filter *Filter) int {
 	var index int
 	var iTypeErr int
 	for index, filter.item = range i {
-		filter.innerData[len(filter.innerData) - 1] = filter.item
+		filter.innerData[len(filter.innerData)-1] = filter.item
 		iTypeErr = queryItemFilter(filter)
 		if iTypeErr != 0 {
 			return iTypeErr
 		}
 		i[index] = filter.item
 	}
-	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-	filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+	filter.innerData = filter.innerData[:len(filter.innerData)-1]
 	filter.item = i
 	return 0
 }
@@ -585,7 +602,7 @@ func mapFilter(filter *Filter) int {
 		}
 		return 0
 	} else if filter.get {
-		filter.item = filter.innerData[len(filter.innerData) - 1]
+		filter.item = filter.innerData[len(filter.innerData)-1]
 		it := filter.schemaItems[len(filter.schemaItems)-1].iType.(MapItem)
 		switch it.dataType.typeName {
 		case ItemTypeObject, ItemTypeArray, ItemTypeMap:
@@ -599,15 +616,15 @@ func mapFilter(filter *Filter) int {
 			var itemName string
 			var iTypeErr int
 			for itemName, filter.item = range m {
-				filter.innerData[len(filter.innerData) - 1] = filter.item
+				filter.innerData[len(filter.innerData)-1] = filter.item
 				iTypeErr = queryItemFilter(filter)
 				if iTypeErr != 0 {
 					return iTypeErr
 				}
 				m[itemName] = filter.item
 			}
-			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
 			filter.item = m
 		}
 		return 0
@@ -629,7 +646,7 @@ func mapFilter(filter *Filter) int {
 			filter.innerData[len(filter.innerData)-1].(map[string]interface{})[itemName] = filter.item
 		}
 		filter.innerData = filter.innerData[:len(filter.innerData)-1]
-		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+		filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 		if it.required && len(i) == 0 {
 			return helpers.ErrorMapItemsRequired
 		}
@@ -648,7 +665,7 @@ func objectFilter(filter *Filter) int {
 		return 0
 	} else if filter.get {
 		// Convert data to map[string]interface{}
-		objList := append([]interface{}{}, filter.innerData[len(filter.innerData) - 1].([]interface{})...)
+		objList := append([]interface{}{}, filter.innerData[len(filter.innerData)-1].([]interface{})...)
 		m := make(map[string]interface{})
 		var iTypeErr int
 		for itemName, schemaItem := range filter.schemaItems[len(filter.schemaItems)-1].iType.(ObjectItem).schema {
@@ -658,8 +675,8 @@ func objectFilter(filter *Filter) int {
 			if iTypeErr != 0 {
 				return iTypeErr
 			}
-			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
-			filter.innerData = filter.innerData[:len(filter.innerData) - 1]
+			filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
+			filter.innerData = filter.innerData[:len(filter.innerData)-1]
 			m[itemName] = filter.item
 		}
 		filter.item = m
@@ -704,7 +721,7 @@ func objectFilter(filter *Filter) int {
 		return helpers.ErrorInvalidItemValue
 	}
 	filter.innerData = filter.innerData[:len(filter.innerData)-1]
-	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems) - 1]
+	filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 	return 0
 }
 
@@ -712,14 +729,14 @@ func timeFilter(filter *Filter) int {
 	if filter.get {
 		var t time.Time
 		// If the item is a string, was retrieved from disk - convert to time.Time
-		if i, ok := filter.innerData[len(filter.innerData) - 1].(string); ok {
+		if i, ok := filter.innerData[len(filter.innerData)-1].(string); ok {
 			var tErr error
 			t, tErr = time.Parse(TimeFormatRFC3339, i) // JSON uses RFC3339
 			if tErr != nil {
 				return helpers.ErrorInvalidTimeFormat
 			}
 		} else {
-			t = filter.innerData[len(filter.innerData) - 1].(time.Time)
+			t = filter.innerData[len(filter.innerData)-1].(time.Time)
 		}
 		if len(filter.methods) > 0 {
 			if mErr := applyTimeMethods(filter, t); mErr != 0 {

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"sync"
-	"net/http"
-	"html"
 	"fmt"
+	"html"
+	"net/http"
+	"sync"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 const (
 	configFile string = "db.conf"
 
-	defaultConfigFile string = "{\"masterPass\":"",\"dbs\":[],\"replica\":false,\"readOnly\":false,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
+	defaultConfigFile string = "{\"masterPass\":\"\",\"dbs\":[],\"replica\":false,\"readOnly\":false,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
 )
 
 // Database statuses
