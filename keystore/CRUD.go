@@ -5,14 +5,8 @@ import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
-	"github.com/json-iterator/go"
 	"strconv"
 	"strings"
-)
-
-var (
-	// Faster JSON Mashaling
-	fjson = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 type jsonEntry struct {
@@ -22,7 +16,7 @@ type jsonEntry struct {
 
 func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 	var jErr error
-	if *jBytes, jErr = fjson.Marshal(jsonEntry{
+	if *jBytes, jErr = helpers.Fjson.Marshal(jsonEntry{
 		K: key,
 		D: data,
 	}); jErr != nil {
@@ -198,7 +192,6 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 			}
 			items[itemName] = i
 		}
-		return items, 0
 	} else {
 		items = make(map[string]interface{})
 		for itemName, si := range k.schema {
@@ -210,7 +203,6 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 			}
 			items[itemName] = i
 		}
-
 	}
 	return items, 0
 }
@@ -442,7 +434,7 @@ func (k *Keystore) DeleteKey(key string) int {
 }
 
 // Restores a key from a config file - NOT concurrently safe on it's own! Must lock Keystore before-hand.
-func (k *Keystore) restoreKey(key string, data []interface{}, fileOn uint16, lineOn uint16) int {
+func (k *Keystore) restoreKey(key string, data []interface{}, fileOn uint32, lineOn uint16) int {
 	// Check for duplicate entry
 	if k.entries[key] != nil {
 		return helpers.ErrorKeyInUse

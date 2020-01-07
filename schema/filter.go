@@ -14,10 +14,10 @@ type Filter struct {
 	methods     []string                // Method list
 	innerData   []interface{}           // Data hierarchy holder for entry on database - used for unique value searches and methods
 	schemaItems []SchemaItem            // Schema hierarchy holder - used for unique value searches
-	uniqueVals  *map[string]interface{} // Pointer a map storing all unique values to check against thier table after running filter
+	uniqueVals  *map[string]interface{} // Pointer a map storing all unique values to check against their table after running filter
 }
 
-// ItemFilter filters an item in a query against it's cooresponding SchemaItem.
+// ItemFilter filters an item in a query against it's corresponding SchemaItem.
 func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
 	filter := Filter{
 		restore:     restore,
@@ -35,7 +35,7 @@ func ItemFilter(item interface{}, methods []string, destination *interface{}, in
 	return queryItemFilter(&filter)
 }
 
-// queryItemFilter takes in an item from a query, and filters/checks it for format/completion against the cooresponding SchemaItem data type.
+// queryItemFilter takes in an item from a query, and filters/checks it for format/completion against the corresponding SchemaItem data type.
 func queryItemFilter(filter *Filter) int {
 	if !filter.get && filter.item == nil {
 		// No methods allowed on a nil item

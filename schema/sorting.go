@@ -308,8 +308,6 @@ func checkSortByItem(schema Schema, byArr []string, dataIndexes []int, byOn int)
 func getSortByValue(i []interface{}, dataIndexes []int, iOn int) interface{} {
 	if iOn < len(dataIndexes)-1 {
 		return getSortByValue(i[dataIndexes[iOn]].([]interface{}), dataIndexes, iOn+1)
-	} else {
-		r := i[dataIndexes[iOn]]
-		return r
 	}
+	return i[dataIndexes[iOn]]
 }

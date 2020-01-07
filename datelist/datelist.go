@@ -74,7 +74,7 @@ type DateList struct {
 	persistName   string // table's logger/persist folder name
 	schema        *schema.Schema // table's schema
 
-	// Atomic changable settings values - 99% read
+	// Atomic changeable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
 	maxEntries    atomic.Value // *uint64* maximum amount of entries in the Datelist
 	encryptCost   atomic.Value // *int* encryption cost of encrypted items

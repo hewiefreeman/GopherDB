@@ -40,13 +40,11 @@ func restore() (bool, error) {
 		var tableErr int
 		now := time.Now()
 		table, tableErr = keystore.Restore(tableName)
-		since := time.Since(now).Seconds()
 		if tableErr != 0 {
 			return false, errors.New("Fatal restore error: " + strconv.Itoa(tableErr))
 		} else if table.Size() == 0 {
 			return false, errors.New("Restored 0 entries! Skipping tests...")
 		}
-		fmt.Printf("\nRestore success! Took %v seconds to restore %v keys.\n\n", since, table.Size())
 		setupComplete = true
 		return true, nil
 	}

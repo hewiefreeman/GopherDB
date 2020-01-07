@@ -355,11 +355,11 @@ func (si SchemaItem) makeConfigDataType() []interface{} {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Validate returns true if Schema is valid
-func (ts Schema) Validate() bool {
-	if len(ts) == 0 {
+func (s Schema) Validate() bool {
+	if len(s) == 0 {
 		return false
 	}
-	for _, v := range ts {
+	for _, v := range s {
 		if !v.Validate() {
 			return false
 		}

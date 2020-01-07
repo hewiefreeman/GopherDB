@@ -68,7 +68,7 @@ type AuthTable struct {
 	schema        schema.Schema // table's schema
 	configFile    *os.File // config file
 
-	// Atomic changable settings values - 99% read
+	// Atomic changeable settings values - 99% read
 	partitionMax  atomic.Value // *uint16* maximum entries per data file
 	maxEntries    atomic.Value // *uint64* maximum amount of entries in the AuthTable
 	minPassword   atomic.Value // *uint8* minimum password length

@@ -17,17 +17,19 @@ language governing permissions and limitations under the License.
 package keystore
 
 import (
-	"encoding/json"
-	"fmt"
+
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
+	"github.com/schollz/progressbar"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"encoding/json"
+	"fmt"
 )
 
 // File/folder prefixes
@@ -42,16 +44,17 @@ var (
 
 // Keystore
 type Keystore struct {
-	fileOn uint16 // locked by eMux - placed for memory efficiency
+	fileOn uint32 // locked by eMux - placed for memory efficiency
 
 	// Settings and schema - read only
+	// Changing some of these setting requires a reformat and/or restore of the Keystore
 	memOnly     bool          // Store data in memory only (overrides dataOnDrive)
 	dataOnDrive bool          // when true, entry data is not stored in memory, only indexing
 	name        string        // table's logger/persist folder name
 	schema      schema.Schema // table's schema
 	configFile  *os.File      // configuration file
 
-	// Atomic changable settings values - 99% read
+	// Atomic changeable settings values - 99% read
 	partitionMax atomic.Value // *uint16* maximum entries per data file
 	maxEntries   atomic.Value // *uint64* maximum amount of entries in the AuthTable
 	encryptCost  atomic.Value // *int* encryption cost of encrypted items
@@ -66,7 +69,7 @@ type Keystore struct {
 }
 
 type keystoreEntry struct {
-	persistFile  uint16
+	persistFile  uint32
 	persistIndex uint16
 
 	mux  sync.Mutex
@@ -76,7 +79,7 @@ type keystoreEntry struct {
 type keystoreConfig struct {
 	Name         string
 	Schema       []schema.SchemaConfigItem
-	FileOn       uint16
+	FileOn       uint32
 	DataOnDrive  bool
 	MemOnly      bool
 	PartitionMax uint16
@@ -89,7 +92,7 @@ type keystoreConfig struct {
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new Keystore with the provided name, schema, and other parameters.
-func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*Keystore, int) {
+func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataOnDrive bool, memOnly bool) (*Keystore, int) {
 	if len(name) == 0 {
 		return nil, helpers.ErrorTableNameRequired
 	} else if Get(name) != nil {
@@ -359,21 +362,19 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 
 // Restore restores a Keystore by name; requires a valid config file and data folder
 func Restore(name string) (*Keystore, int) {
+	fmt.Printf("Restoring Keystore table '%v'...\n", name)
 	namePre := dataFolderPrefix + name
-
 	// Open the File
 	f, err := os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR, 0755)
 	if err != nil {
 		return nil, helpers.ErrorFileOpen
 	}
-
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
 		f.Close()
 		return nil, helpers.ErrorFileOpen
 	}
-
 	// Get file bytes
 	bytes := make([]byte, fs.Size())
 	_, rErr := f.ReadAt(bytes, 0)
@@ -381,7 +382,6 @@ func Restore(name string) (*Keystore, int) {
 		f.Close()
 		return nil, helpers.ErrorFileRead
 	}
-
 	// Make confStruct from json bytes
 	var confStruct keystoreConfig
 	mErr := json.Unmarshal(bytes, &confStruct)
@@ -389,38 +389,30 @@ func Restore(name string) (*Keystore, int) {
 		f.Close()
 		return nil, helpers.ErrorJsonDecoding
 	}
-
 	// Make schema with the schemaList
 	s, schemaErr := schema.Restore(confStruct.Schema)
 	if schemaErr != 0 {
 		f.Close()
 		return nil, schemaErr
 	}
-
+	// Make Keystore table
 	ks, ksErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
 	if ksErr != 0 {
 		f.Close()
 		return nil, ksErr
 	}
-
 	ks.eMux.Lock()
 	ks.uMux.Lock()
-
 	// Set optional settings if different from defaults
 	if confStruct.EncryptCost != helpers.DefaultEncryptCost {
 		ks.encryptCost.Store(confStruct.EncryptCost)
 	}
-
 	if confStruct.MaxEntries != helpers.DefaultMaxEntries {
 		ks.maxEntries.Store(confStruct.MaxEntries)
 	}
-
 	if confStruct.PartitionMax != helpers.DefaultPartitionMax {
 		ks.partitionMax.Store(confStruct.PartitionMax)
 	}
-
-	// Load data/indexing into memory...
-
 	// Open data folder
 	df, err := os.Open(namePre)
 	if err != nil {
@@ -430,6 +422,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.Close(false)
 		return nil, helpers.ErrorFileOpen
 	}
+	// Get file names
 	files, err := df.Readdir(-1)
 	df.Close()
 	if err != nil {
@@ -438,51 +431,42 @@ func Restore(name string) (*Keystore, int) {
 		ks.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
-
-	// Go through files
+	// Make progress bar
+	pBar := progressbar.New(len(files))
+	// Go through files & restor entries
 	for _, fileStats := range files {
 		// Get file number
 		fileNameSplit := strings.Split(fileStats.Name(), ".")
 		fileNum, fnErr := strconv.Atoi(fileNameSplit[0])
 		if fnErr != nil || len(fileNameSplit) < 2 || "."+fileNameSplit[1] != helpers.FileTypeStorage {
 			// Not a valid storage file
+			pBar.Add(1)
 			continue
 		}
-
-		// Open data file
-		dataFile, err := os.OpenFile(namePre+"/"+fileStats.Name(), os.O_RDWR, 0755)
-		if err != nil {
-			fmt.Println(err)
-			continue
+		var of *storage.OpenFile
+		var err int
+		if of, err = storage.GetOpenFile(namePre + "/" + fileStats.Name()); err != 0 {
+			pBar.Finish()
+			return nil, err
 		}
-
-		// Get file bytes
-		fb := make([]byte, fileStats.Size())
-		_, rErr := dataFile.ReadAt(fb, 0)
-		if rErr != nil && rErr != io.EOF {
-			dataFile.Close()
-			fmt.Println(rErr)
-			continue
-		}
-
-		// Go through file bytes and restore entries
-		lineOn := 1
-		lineByteStart := 0
-		for i, b := range fb {
-			if b == 10 {
-				// Restore line
-				if eKey, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
-					if resErr := ks.restoreKey(eKey, eData, uint16(fileNum), uint16(lineOn)); resErr != 0 {
-						fmt.Printf("Error restoring '%v' on line %v in file %v with error: %v\n", eKey, lineOn, fileStats.Name(), resErr)
-					}
-				}
-
-				lineByteStart = i + 1
-				lineOn++
+		for i := 0; i < of.Lines(); i++ {
+			// Get line bytes
+			var lb []byte
+			if lb, err = of.Read(uint16(i+1)); err != 0 {
+				pBar.Finish()
+				return nil, err
+			}
+			eKey, eData := restoreDataLine(lb)
+			if eData == nil {
+				pBar.Finish()
+				return nil, helpers.ErrorJsonDataFormat
+			}
+			if err = ks.restoreKey(eKey, eData, uint32(fileNum), uint16(i+1)); err != 0 {
+				pBar.Finish()
+				return nil, err
 			}
 		}
-		//
-		dataFile.Close()
+		pBar.Add(1)
 	}
 	ks.uMux.Unlock()
 	ks.eMux.Unlock()

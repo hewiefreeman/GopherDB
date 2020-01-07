@@ -90,4 +90,6 @@ const (
 	ErrorJsonEncoding
 	ErrorJsonDecoding
 	ErrorJsonDataFormat
+	ErrorJsonIndexingFormat
+	ErrorInternalFormatting
 )
