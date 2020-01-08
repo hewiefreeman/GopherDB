@@ -51,6 +51,8 @@ And the dependencies:
 
  `go get github.com/json-iterator/go` ([JSON-iterator](https://github.com/json-iterator/go))
 
+ `go get github.com/schollz/progressbar`([Progress Bar](https://github.com/schollz/progressbar))
+
 `keystore` is the only stable package as of right now. You can test all functionalities of the keystore package with this command from the `keystore` directory:
 
  ```go test -v keystore_test.go```
