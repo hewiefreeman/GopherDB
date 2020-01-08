@@ -34,6 +34,7 @@ type SchemaItem struct {
 	rawParams []interface{}
 }
 
+// SchemaConfigItem structures data for saving Schemas/Objects to disk in a config file.
 type SchemaConfigItem struct {
 	Position uint32
 	Name     string
@@ -111,7 +112,7 @@ type SchemaConfigItem struct {
 //   Creating a Schema   ////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// New creates a new schema from a JSON schema object
+// New creates a new schema from a JSON schema object, or recovered Schema from a config file.
 func New(schema interface{}, restore bool) (Schema, int) {
 	s := make(Schema)
 	var i uint32
@@ -428,6 +429,7 @@ func (si SchemaItem) Unique() bool {
 	return false
 }
 
+// IsNumeric returns true if this SchemaItem is any numeric type
 func (si SchemaItem) IsNumeric() bool {
 	switch si.typeName {
 	case ItemTypeInt8, ItemTypeInt16, ItemTypeInt32, ItemTypeInt64,
@@ -439,6 +441,7 @@ func (si SchemaItem) IsNumeric() bool {
 	}
 }
 
+// IsFloat returns true if this SchemaItem is any float type
 func (si SchemaItem) IsFloat() bool {
 	switch si.typeName {
 	case ItemTypeFloat64, ItemTypeFloat32:

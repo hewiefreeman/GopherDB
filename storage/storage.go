@@ -47,9 +47,9 @@ const (
 
 var (
 	// Open Files
-	OpenFilesMux   sync.Mutex
-	OpenFiles      map[string]*OpenFile   = make(map[string]*OpenFile)
-	OpenFileTimers map[string]*time.Timer = make(map[string]*time.Timer)
+	openFilesMux   sync.Mutex
+	openFiles      map[string]*OpenFile   = make(map[string]*OpenFile)
+	openFileTimers map[string]*closeTimer = make(map[string]*closeTimer)
 
 	// Settings
 	fileOpenTime atomic.Value // time.Duration *int64* in seconds
@@ -59,6 +59,7 @@ var (
 	defaultIndexingBytes []byte = []byte("[]")
 )
 
+// OpenFile represents a file on a disk that is open and ready for I/O
 type OpenFile struct {
 	name       string
 	mux        sync.Mutex
@@ -66,6 +67,11 @@ type OpenFile struct {
 	bytes      []byte
 	lineByteOn []int64
 	indexStart int64
+}
+
+type closeTimer struct {
+	t *time.Timer // Close timer
+	c chan bool  // Cancel chan
 }
 
 // Init initializes the storage package. Must be called before using.
@@ -76,12 +82,14 @@ func Init() {
 
 //
 func newOpenFile(file string) (*OpenFile, int) {
-	// Close the first found (random) OpenFile if max files are open
-	if len(OpenFiles) >= int(maxOpenFiles.Load().(uint16)) {
-		for fileName, f := range OpenFiles {
-			OpenFileTimers[fileName].Stop()
-			delete(OpenFiles, fileName)
-			delete(OpenFileTimers, fileName)
+	// Close the first found (random) OpenFile if maximum files are open
+	if len(openFiles) >= int(maxOpenFiles.Load().(uint16)) {
+		for fileName, f := range openFiles {
+			ct := openFileTimers[fileName]
+			ct.c <- true
+			close(ct.c)
+			delete(openFiles, fileName)
+			delete(openFileTimers, fileName)
 			f.mux.Lock()
 			f.file.Truncate(int64(len(f.bytes)))
 			f.bytes = nil
@@ -142,54 +150,66 @@ func newOpenFile(file string) (*OpenFile, int) {
 	newOFPointer := &newOF
 
 	// Start close timer
-	OpenFileTimers[file] = time.NewTimer(fileOpenTime.Load().(time.Duration))
-	go fileCloseTimer(OpenFileTimers[file], newOFPointer)
+	newCT := closeTimer{
+		t: time.NewTimer(fileOpenTime.Load().(time.Duration)),
+		c: make(chan bool),
+	}
+	openFileTimers[file] = &newCT
+	go fileCloseTimer(openFileTimers[file], newOFPointer)
 
 	return newOFPointer, 0
 }
 
-//
+// GetOpenFile
 func GetOpenFile(file string) (*OpenFile, int) {
 	var f *OpenFile
-	OpenFilesMux.Lock()
-	f = OpenFiles[file]
+	openFilesMux.Lock()
+	f = openFiles[file]
 	if f == nil {
 		var fileErr int
 		if f, fileErr = newOpenFile(file); fileErr != 0 {
-			OpenFilesMux.Unlock()
+			openFilesMux.Unlock()
 			return nil, fileErr
 		}
-		OpenFiles[file] = f
+		openFiles[file] = f
 	} else {
-		if !OpenFileTimers[file].Reset(fileOpenTime.Load().(time.Duration)) {
+		// If the closeTimer cannot be reset, the timer has already expired,
+		// but has not been removed. Make a new Timer and replace the closeTimer's
+		// Timer with the new Timer so that it cancells the fileCloseTimer() action.
+		if !openFileTimers[file].t.Reset(fileOpenTime.Load().(time.Duration)) {
 			t := time.NewTimer(fileOpenTime.Load().(time.Duration))
-			OpenFileTimers[file] = t
+			openFileTimers[file].t = t
 			go fileCloseTimer(t, f)
 		}
 	}
-	OpenFilesMux.Unlock()
+	openFilesMux.Unlock()
 	return f, 0
 }
 
-// TO-DO: Make timer.C listen for two signals, and make the emergency file close send a "stopped" signal to indicate the timer has stopped
-func fileCloseTimer(timer *time.Timer, f *OpenFile) {
-	<-timer.C
-	OpenFilesMux.Lock()
-	f.mux.Lock()
-	if timer != OpenFileTimers[f.name] {
-		// The OpenFile has already been reset - don't close file
+// Waits for a signal on either t.t.C for a timer expire, or t.c for a timer cancel.
+func fileCloseTimer(t *closeTimer, f *OpenFile) {
+	select {
+	case <- t.t.C:
+		// Timer ended
+		openFilesMux.Lock()
+		if timer != openFileTimers[f.name].t {
+			// The OpenFile has already been reset by GetOpenFile() - cancel action
+			openFilesMux.Unlock()
+			return
+		}
+		delete(openFiles, f.name)
+		delete(openFileTimers, f.name)
+		openFilesMux.Unlock()
+		f.mux.Lock()
+		f.file.Truncate(int64(len(f.bytes)))
+		f.bytes = nil
+		f.lineByteOn = nil
+		f.file.Close()
 		f.mux.Unlock()
-		OpenFilesMux.Unlock()
-		return
+	case <- t.c:
+		// Timer cancelled
+		t.t.Stop()
 	}
-	delete(OpenFiles, f.name)
-	delete(OpenFileTimers, f.name)
-	OpenFilesMux.Unlock()
-	f.file.Truncate(int64(len(f.bytes)))
-	f.bytes = nil
-	f.lineByteOn = nil
-	f.file.Close()
-	f.mux.Unlock()
 }
 
 // MakeDir creates a directory path on the system
@@ -202,7 +222,7 @@ func DeleteDir(dir string) error {
 	return os.RemoveAll(dir)
 }
 
-// Read reads a specific line from a file.
+// Read opens a file by name, then returns the data from said line.
 func Read(file string, line uint16) ([]byte, int) {
 	f, fErr := GetOpenFile(file)
 	if fErr != 0 {
@@ -211,6 +231,7 @@ func Read(file string, line uint16) ([]byte, int) {
 	return f.Read(line)
 }
 
+// Read returns the data in an OpenFile from said line.
 func (f *OpenFile) Read(line uint16) ([]byte, int) {
 	f.mux.Lock()
 	// Get the start and end index of line
@@ -306,6 +327,7 @@ func Insert(file string, jData []byte) (uint16, int) {
 	return lineOn, 0
 }
 
+// SetFileOpenTime preference allows you to keep OpenFiles open for a given duration.
 func SetFileOpenTime(t time.Duration) {
 	if t <= 0 {
 		return
@@ -313,6 +335,8 @@ func SetFileOpenTime(t time.Duration) {
 	fileOpenTime.Store(t)
 }
 
+// SetMaxOpenFiles preference sets the maximum number of OpenFile to be open.
+// When the maximum number of OpenFile has been reached, a random OpenFile will be closed.
 func SetMaxOpenFiles(max uint16) {
 	if max == 0 {
 		return
@@ -320,15 +344,16 @@ func SetMaxOpenFiles(max uint16) {
 	maxOpenFiles.Store(max)
 }
 
-// Get the number of open files in system
-func GetNumOpenFiles() int {
+// GetNumopenFiles gets the number of OpenFiles in system
+func GetNumopenFiles() int {
 	var i int
-	OpenFilesMux.Lock()
-	i = len(OpenFiles)
-	OpenFilesMux.Unlock()
+	openFilesMux.Lock()
+	i = len(openFiles)
+	openFilesMux.Unlock()
 	return i
 }
 
+// Lines returns the number of data lines for this OpenFile
 func (f *OpenFile) Lines() int {
 	f.mux.Lock()
 	l := len(f.lineByteOn)

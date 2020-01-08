@@ -15,6 +15,7 @@ import (
 
 // Method names
 const (
+	// Numeric methods
 	MethodOperatorAdd = "*add"
 	MethodOperatorSub = "*sub"
 	MethodOperatorMul = "*mul"
@@ -26,6 +27,7 @@ const (
 	MethodLess        = "*lt"
 	MethodGreaterOE   = "*gte"
 	MethodLessOE      = "*lte"
+	// Array and Map methods
 	MethodContains    = "*contains" // For Arrays and Maps
 	MethodIndexOf     = "*indexOf"  // For Arrays
 	MethodKeyOf       = "*keyOf"    // For Maps
@@ -38,6 +40,7 @@ const (
 	MethodFromTo      = ":"         // Separator for from-to Array get queries
 	MethodPrepend     = "*prepend"  // For Arrays
 	MethodDelete      = "*delete"   // For Arrays and Maps
+	// Time methods
 	MethodSince       = "*since"
 	MethodUntil       = "*until"
 	MethodDay         = "*day"
@@ -47,8 +50,8 @@ const (
 	MethodMillisecond = "*ms"
 
 	// Nesting queries
-	MethodGet  = "*get"  // Makes a separate query | TO-DO
-	MethodThis = "*this" // Makes a separate query for the current entry | TO-DO
+	MethodGet  = "*get"  // Makes a nested get query | TO-DO
+	MethodThis = "*this" // Makes a nested get query for the current entry | TO-DO
 )
 
 // GetQueryItemMethods checks query item names for methods and returns the item name and the list of methods.

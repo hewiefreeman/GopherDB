@@ -17,7 +17,6 @@ language governing permissions and limitations under the License.
 package keystore
 
 import (
-
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
@@ -119,7 +118,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 
 		// Create/open config file
 		var err error
-		configFile, err = os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
+		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR | os.O_CREATE, 0755)
 		if err != nil {
 			return nil, helpers.ErrorFileOpen
 		}
@@ -177,6 +176,7 @@ func Get(name string) *Keystore {
 	return k
 }
 
+// Close a Keystore and save current settings to a config file if `save` is true
 func (k *Keystore) Close(save bool) {
 	if save {
 		k.eMux.Lock()
@@ -200,7 +200,7 @@ func (k *Keystore) Close(save bool) {
 	storesMux.Unlock()
 }
 
-// Delete deletes a Keystore with the given name.
+// Delete a Keystore with the given name.
 func (k *Keystore) Delete() int {
 	k.Close(false)
 
@@ -217,7 +217,7 @@ func (k *Keystore) Delete() int {
 	return 0
 }
 
-// Get retrieves a *keystoreEntry by it's key from the Keystore
+// Get a *keystoreEntry by it's key from the Keystore
 func (k *Keystore) Get(key string) (*keystoreEntry, int) {
 	// key is required
 	if len(key) == 0 {
@@ -244,12 +244,12 @@ func (k *Keystore) Size() int {
 	return s
 }
 
-// Size returns the number of entries in the Keystore
+// MemOnly returns the current memory-only preference saved for this Keystore
 func (k *Keystore) MemOnly() bool {
 	return k.memOnly
 }
 
-// Size returns the number of entries in the Keystore
+// DataOnDrive returns the current dataOnDrive preference saved for this Keystore
 func (k *Keystore) DataOnDrive() bool {
 	return k.dataOnDrive
 }
@@ -360,7 +360,7 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 //   Keystore Restoring   ////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Restore restores a Keystore by name; requires a valid config file and data folder
+// Restore restores a Keystore by name; requires a valid config file and data folder.
 func Restore(name string) (*Keystore, int) {
 	fmt.Printf("Restoring Keystore table '%v'...\n", name)
 	namePre := dataFolderPrefix + name
@@ -433,7 +433,7 @@ func Restore(name string) (*Keystore, int) {
 	}
 	// Make progress bar
 	pBar := progressbar.New(len(files))
-	// Go through files & restor entries
+	// Go through files & restore entries
 	for _, fileStats := range files {
 		// Get file number
 		fileNameSplit := strings.Split(fileStats.Name(), ".")
