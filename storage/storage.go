@@ -147,17 +147,17 @@ func newOpenFile(file string) (*OpenFile, int) {
 		}
 	}
 
-	newOFPointer := &newOF
-
+	ofp := &newOF
 	// Start close timer
 	newCT := closeTimer{
 		t: time.NewTimer(fileOpenTime.Load().(time.Duration)),
 		c: make(chan bool),
 	}
-	openFileTimers[file] = &newCT
-	go fileCloseTimer(openFileTimers[file], newOFPointer)
+	ctp := &newCT
+	openFileTimers[file] = ctp
+	go fileCloseTimer(ctp, ofp)
 
-	return newOFPointer, 0
+	return ofp, 0
 }
 
 // GetOpenFile
@@ -177,9 +177,13 @@ func GetOpenFile(file string) (*OpenFile, int) {
 		// but has not been removed. Make a new Timer and replace the closeTimer's
 		// Timer with the new Timer so that it cancells the fileCloseTimer() action.
 		if !openFileTimers[file].t.Reset(fileOpenTime.Load().(time.Duration)) {
-			t := time.NewTimer(fileOpenTime.Load().(time.Duration))
-			openFileTimers[file].t = t
-			go fileCloseTimer(t, f)
+			newCT := closeTimer{
+				t: time.NewTimer(fileOpenTime.Load().(time.Duration)),
+				c: make(chan bool),
+			}
+			ctp := &newCT
+			openFileTimers[file] = ctp
+			go fileCloseTimer(ctp, f)
 		}
 	}
 	openFilesMux.Unlock()
@@ -192,7 +196,7 @@ func fileCloseTimer(t *closeTimer, f *OpenFile) {
 	case <- t.t.C:
 		// Timer ended
 		openFilesMux.Lock()
-		if timer != openFileTimers[f.name].t {
+		if t.t != openFileTimers[f.name].t {
 			// The OpenFile has already been reset by GetOpenFile() - cancel action
 			openFilesMux.Unlock()
 			return
@@ -345,7 +349,7 @@ func SetMaxOpenFiles(max uint16) {
 }
 
 // GetNumopenFiles gets the number of OpenFiles in system
-func GetNumopenFiles() int {
+func GetNumOpenFiles() int {
 	var i int
 	openFilesMux.Lock()
 	i = len(openFiles)

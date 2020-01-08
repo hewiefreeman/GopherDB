@@ -20,7 +20,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
-	"github.com/schollz/progressbar"
+	//"github.com/schollz/progressbar"
 	"io"
 	"os"
 	"strconv"
@@ -432,7 +432,7 @@ func Restore(name string) (*Keystore, int) {
 		return nil, helpers.ErrorFileRead
 	}
 	// Make progress bar
-	pBar := progressbar.New(len(files))
+	//pBar := progressbar.New(len(files))
 	// Go through files & restore entries
 	for _, fileStats := range files {
 		// Get file number
@@ -440,33 +440,33 @@ func Restore(name string) (*Keystore, int) {
 		fileNum, fnErr := strconv.Atoi(fileNameSplit[0])
 		if fnErr != nil || len(fileNameSplit) < 2 || "."+fileNameSplit[1] != helpers.FileTypeStorage {
 			// Not a valid storage file
-			pBar.Add(1)
+			//pBar.Add(1)
 			continue
 		}
 		var of *storage.OpenFile
 		var err int
 		if of, err = storage.GetOpenFile(namePre + "/" + fileStats.Name()); err != 0 {
-			pBar.Finish()
+			//pBar.Finish()
 			return nil, err
 		}
 		for i := 0; i < of.Lines(); i++ {
 			// Get line bytes
 			var lb []byte
 			if lb, err = of.Read(uint16(i+1)); err != 0 {
-				pBar.Finish()
+				//pBar.Finish()
 				return nil, err
 			}
 			eKey, eData := restoreDataLine(lb)
 			if eData == nil {
-				pBar.Finish()
+				//pBar.Finish()
 				return nil, helpers.ErrorJsonDataFormat
 			}
 			if err = ks.restoreKey(eKey, eData, uint32(fileNum), uint16(i+1)); err != 0 {
-				pBar.Finish()
+				//pBar.Finish()
 				return nil, err
 			}
 		}
-		pBar.Add(1)
+		//pBar.Add(1)
 	}
 	ks.uMux.Unlock()
 	ks.eMux.Unlock()

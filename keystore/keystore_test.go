@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"errors"
-	"fmt"
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/keystore"
 	"github.com/hewiefreeman/GopherDB/storage"
@@ -38,7 +37,6 @@ func restore() (bool, error) {
 	//
 	if !setupComplete {
 		var tableErr int
-		now := time.Now()
 		table, tableErr = keystore.Restore(tableName)
 		if tableErr != 0 {
 			return false, errors.New("Fatal restore error: " + strconv.Itoa(tableErr))
