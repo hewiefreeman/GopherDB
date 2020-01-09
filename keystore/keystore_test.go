@@ -31,9 +31,25 @@ var (
 
 // NOTE: All .gdbs files must have a new line at the end of the file to work properly.
 
-func restore() (bool, error) {
+func TestChangeStorageSettings(t *testing.T) {
 	// Initialize storage engine
 	storage.Init()
+
+	// Set fileOpenTime to 3 seconds (needs 3 sec or lower for testing file closing at end)
+	storage.SetFileOpenTime(3 * time.Second)
+
+	// Set maxOpenFiles to 2 (to test auto file close when max has been reached) - Uncomment for testing
+	storage.SetMaxOpenFiles(2)
+}
+
+func TestRestore(t *testing.T) {
+	// Run restore() to restore "test" table
+	if ok, err := restore(); !ok {
+		t.Errorf("Error while restoring '%v' table: %v", tableName, err)
+	}
+}
+
+func restore() (bool, error) {
 	//
 	if !setupComplete {
 		var tableErr int
@@ -49,38 +65,22 @@ func restore() (bool, error) {
 	return false, nil
 }
 
-func TestRestore(t *testing.T) {
-	// Run restore() to restore "test" table
-	if ok, err := restore(); !ok {
-		t.Errorf("Error while restoring '%v' table: %v", tableName, err)
-	}
-}
-
-func TestChangeSettings(t *testing.T) {
+func TestChangeTableSettings(t *testing.T) {
 	if !setupComplete {
-		t.Skip("Skipping tests...")
+		t.Skip()
 	}
-
-	// Set fileOpenTime to 3 seconds (needs 3 sec or lower for testing file closing at end)
-	storage.SetFileOpenTime(3 * time.Second)
-
-	// Set maxOpenFiles to 2 (to test auto file close when max has been reached) - Uncomment for testing
-	//storage.SetMaxOpenFiles(2)
-
 	// Set max partition file size
 	err := table.SetPartitionMax(tablePartitionMax)
 	if err != 0 {
 		t.Errorf("Error while setting max partition file size: %v", err)
 		return
 	}
-
 	// Set max table entries
 	err = table.SetMaxEntries(tableMaxEntries)
 	if err != 0 {
 		t.Errorf("Error while setting max table entries: %v", err)
 		return
 	}
-
 	// Set table encryption cost
 	err = table.SetEncryptionCost(tableEncryptionCost)
 	if err != 0 {

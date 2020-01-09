@@ -28,8 +28,9 @@ import (
 
 // Defaults and indicators
 const (
-	newLineIndicator     byte = byte(10)
-	openBracketIndicator byte = byte(91)
+	newLineIndicator     byte   = byte(10)
+	openBracketIndicator byte   = byte(91)
+	uint32Max            uint32 = 2147483647
 
 	defaultFileOpenTime  time.Duration = 20 * time.Second
 	defaultMaxOpenFiles  uint16        = 50
@@ -67,6 +68,7 @@ type OpenFile struct {
 	bytes      []byte
 	lineByteOn []int64
 	indexStart int64
+	accessed   uint32
 }
 
 type closeTimer struct {
@@ -82,22 +84,29 @@ func Init() {
 
 //
 func newOpenFile(file string) (*OpenFile, int) {
-	// Close the first found (random) OpenFile if maximum files are open
+	// Close the least accessed OpenFile
 	if len(openFiles) >= int(maxOpenFiles.Load().(uint16)) {
-		for fileName, f := range openFiles {
-			ct := openFileTimers[fileName]
-			ct.c <- true
-			close(ct.c)
-			delete(openFiles, fileName)
-			delete(openFileTimers, fileName)
-			f.mux.Lock()
-			f.file.Truncate(int64(len(f.bytes)))
-			f.bytes = nil
-			f.lineByteOn = nil
-			f.file.Close()
-			f.mux.Unlock()
-			break
+		// Get least accessed OpenFile
+		var laf *OpenFile
+		for _, f := range openFiles {
+			if laf == nil {
+				laf = f
+			} else if laf.accessed > f.accessed {
+				laf = f
+			}
 		}
+		// Close OpenFile and cancel close timer
+		ct := openFileTimers[laf.name]
+		ct.c <- true
+		close(ct.c)
+		delete(openFiles, laf.name)
+		delete(openFileTimers, laf.name)
+		laf.mux.Lock()
+		laf.file.Truncate(int64(len(laf.bytes)))
+		laf.bytes = nil
+		laf.lineByteOn = nil
+		laf.file.Close()
+		laf.mux.Unlock()
 	}
 	// Open the File
 	var f *os.File
@@ -111,15 +120,13 @@ func newOpenFile(file string) (*OpenFile, int) {
 		return nil, helpers.ErrorFileOpen
 	}
 	// Make new OpenFile object
-	newOF := OpenFile{file: f, name: file}
-
+	newOF := OpenFile{file: f, name: file, accessed: 1}
 	// Get file bytes
 	newOF.bytes = make([]byte, fs.Size())
 	_, rErr := f.ReadAt(newOF.bytes, 0)
 	if rErr != nil && rErr != io.EOF {
 		return nil, helpers.ErrorFileRead
 	}
-
 	// Get indexing
 	if (len(newOF.bytes) == 0) {
 		// New file, create indexing layer
@@ -146,7 +153,6 @@ func newOpenFile(file string) (*OpenFile, int) {
 			return nil, helpers.ErrorJsonIndexingFormat
 		}
 	}
-
 	ofp := &newOF
 	// Start close timer
 	newCT := closeTimer{
@@ -184,6 +190,10 @@ func GetOpenFile(file string) (*OpenFile, int) {
 			ctp := &newCT
 			openFileTimers[file] = ctp
 			go fileCloseTimer(ctp, f)
+		}
+		// Increase accessed uint unless at max value
+		if f.accessed < uint32Max {
+			f.accessed++
 		}
 	}
 	openFilesMux.Unlock()
