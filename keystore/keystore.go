@@ -61,6 +61,12 @@ type Keystore struct {
 	// entries
 	eMux    sync.Mutex                // entries/configFile lock
 	entries map[string]*keystoreEntry // Keystore map
+	// entries as map = 8 + (len(entries) * 8)
+	// entries total  = (entries as map) + (len(entries) * keystoreEntry)
+	// keystoreEntry  = 38 + (len(data) * (data.size))
+	// len(data)      = 6
+	// data.size      = 50
+	// 10,000 entries = (80008) + (3,380,000) = 3,460,008 bytes = 3.46 MB
 
 	// unique values
 	uMux       sync.Mutex
@@ -362,7 +368,7 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 
 // Restore restores a Keystore by name; requires a valid config file and data folder.
 func Restore(name string) (*Keystore, int) {
-	fmt.Printf("Restoring Keystore table '%v'...\n", name)
+	fmt.Printf("Restoring table '%v'...\n", name)
 	namePre := dataFolderPrefix + name
 	// Open the File
 	f, err := os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR, 0755)
@@ -431,6 +437,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
+	fmt.Printf("Loading table data for '%v'...\n", name)
 	// Make progress bar
 	pBar := progressbar.New(len(files))
 	// Go through files & restore entries
@@ -470,7 +477,7 @@ func Restore(name string) (*Keystore, int) {
 	}
 	ks.uMux.Unlock()
 	ks.eMux.Unlock()
-
+	fmt.Printf("Successfully restored table '%v'!\n", name)
 	return ks, 0
 }
 

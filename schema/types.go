@@ -197,6 +197,7 @@ type Float64Item struct {
 type StringItem struct {
 	defaultValue string
 	maxChars     uint32
+	encrypted    bool
 	required     bool
 	unique       bool
 }
@@ -405,7 +406,7 @@ func defaultVal(si SchemaItem) (interface{}, int) {
 	case StringItem:
 		if kind.unique {
 			return nil, helpers.ErrorMissingRequiredItem
-		} else if kind.required && len(kind.defaultValue) == 0 {
+		} else if (kind.required || kind.encrypted) && len(kind.defaultValue) == 0 {
 			return nil, helpers.ErrorMissingRequiredItem
 		}
 		return kind.defaultValue, 0
@@ -542,19 +543,27 @@ func checkNumericPlusFormat(f []interface{}) bool {
 
 func checkStringFormat(f []interface{}) bool {
 	fLen := len(f)
-	if fLen != 4 {
+	if fLen != 5 {
 		return false
 	}
+	// defaultVal
 	if _, ok := f[0].(string); !ok {
 		return false
 	}
+	// maxChars
 	if _, ok := f[1].(float64); !ok {
 		return false
 	}
+	// encrypted
 	if _, ok := f[2].(bool); !ok {
 		return false
 	}
+	// required
 	if _, ok := f[3].(bool); !ok {
+		return false
+	}
+	// unique
+	if _, ok := f[4].(bool); !ok {
 		return false
 	}
 	return true

@@ -33,7 +33,7 @@ const (
 	uint32Max            uint32 = 2147483647
 
 	defaultFileOpenTime  time.Duration = 20 * time.Second
-	defaultMaxOpenFiles  uint16        = 50
+	defaultMaxOpenFiles  uint16        = 25
 )
 
 // File actions
@@ -49,8 +49,7 @@ const (
 var (
 	// Open Files
 	openFilesMux   sync.Mutex
-	openFiles      map[string]*OpenFile   = make(map[string]*OpenFile)
-	openFileTimers map[string]*closeTimer = make(map[string]*closeTimer)
+	openFiles      map[string]*OpenFile = make(map[string]*OpenFile)
 
 	// Settings
 	fileOpenTime atomic.Value // time.Duration *int64* in seconds
@@ -62,18 +61,15 @@ var (
 
 // OpenFile represents a file on a disk that is open and ready for I/O
 type OpenFile struct {
-	name       string
-	mux        sync.Mutex
-	file       *os.File
-	bytes      []byte
-	lineByteOn []int64
-	indexStart int64
-	accessed   uint32
-}
-
-type closeTimer struct {
-	t *time.Timer // Close timer
-	c chan bool  // Cancel chan
+	name        string
+	mux         sync.Mutex
+	file        *os.File
+	bytes       []byte
+	lineByteOn  []int64
+	indexStart  int64
+	accessed    uint32
+	expireTimer *time.Timer
+	cancelChan  chan bool
 }
 
 // Init initializes the storage package. Must be called before using.
@@ -95,18 +91,16 @@ func newOpenFile(file string) (*OpenFile, int) {
 				laf = f
 			}
 		}
-		// Close OpenFile and cancel close timer
-		ct := openFileTimers[laf.name]
-		ct.c <- true
-		close(ct.c)
-		delete(openFiles, laf.name)
-		delete(openFileTimers, laf.name)
+		// Close least accessed OpenFile and cancel it's close timer
 		laf.mux.Lock()
+		laf.cancelChan <- true
+		close(laf.cancelChan)
 		laf.file.Truncate(int64(len(laf.bytes)))
 		laf.bytes = nil
 		laf.lineByteOn = nil
 		laf.file.Close()
 		laf.mux.Unlock()
+		delete(openFiles, laf.name)
 	}
 	// Open the File
 	var f *os.File
@@ -155,13 +149,9 @@ func newOpenFile(file string) (*OpenFile, int) {
 	}
 	ofp := &newOF
 	// Start close timer
-	newCT := closeTimer{
-		t: time.NewTimer(fileOpenTime.Load().(time.Duration)),
-		c: make(chan bool),
-	}
-	ctp := &newCT
-	openFileTimers[file] = ctp
-	go fileCloseTimer(ctp, ofp)
+	newOF.expireTimer = time.NewTimer(fileOpenTime.Load().(time.Duration))
+	newOF.cancelChan = make(chan bool, 1)
+	go fileCloseTimer(ofp)
 
 	return ofp, 0
 }
@@ -181,15 +171,12 @@ func GetOpenFile(file string) (*OpenFile, int) {
 	} else {
 		// If the closeTimer cannot be reset, the timer has already expired,
 		// but has not been removed. Make a new Timer and replace the closeTimer's
-		// Timer with the new Timer so that it cancells the fileCloseTimer() action.
-		if !openFileTimers[file].t.Reset(fileOpenTime.Load().(time.Duration)) {
-			newCT := closeTimer{
-				t: time.NewTimer(fileOpenTime.Load().(time.Duration)),
-				c: make(chan bool),
-			}
-			ctp := &newCT
-			openFileTimers[file] = ctp
-			go fileCloseTimer(ctp, f)
+		// Timer with the new Timer so that it cancels the fileCloseTimer() action.
+		if !f.expireTimer.Reset(fileOpenTime.Load().(time.Duration)) {
+			close(f.cancelChan)
+			f.expireTimer = time.NewTimer(fileOpenTime.Load().(time.Duration))
+			f.cancelChan = make(chan bool, 1)
+			go fileCloseTimer(f)
 		}
 		// Increase accessed uint unless at max value
 		if f.accessed < uint32Max {
@@ -201,28 +188,29 @@ func GetOpenFile(file string) (*OpenFile, int) {
 }
 
 // Waits for a signal on either t.t.C for a timer expire, or t.c for a timer cancel.
-func fileCloseTimer(t *closeTimer, f *OpenFile) {
+func fileCloseTimer(f *OpenFile) {
+	et := f.expireTimer
 	select {
-	case <- t.t.C:
+	case <- et.C:
 		// Timer ended
 		openFilesMux.Lock()
-		if t.t != openFileTimers[f.name].t {
+		if et != f.expireTimer {
 			// The OpenFile has already been reset by GetOpenFile() - cancel action
 			openFilesMux.Unlock()
 			return
 		}
 		delete(openFiles, f.name)
-		delete(openFileTimers, f.name)
 		openFilesMux.Unlock()
 		f.mux.Lock()
+		close(f.cancelChan)
 		f.file.Truncate(int64(len(f.bytes)))
 		f.bytes = nil
 		f.lineByteOn = nil
 		f.file.Close()
 		f.mux.Unlock()
-	case <- t.c:
+	case <- f.cancelChan:
 		// Timer cancelled
-		t.t.Stop()
+		et.Stop()
 	}
 }
 

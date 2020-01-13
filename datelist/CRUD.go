@@ -9,7 +9,7 @@ import (
 
 
 func (d *Datelist) Get(
-		start time.Time, sel []string, where map[string]interface{},
+		start *time.Time, sel []string, where map[string]interface{},
 		asc bool, limit int, page int) ([]*DateListEntry, int) {
 
 	// key is required

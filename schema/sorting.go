@@ -22,7 +22,7 @@ func sort(filter *Filter, ary []interface{}, by interface{}, asc bool) int {
 		sortArrayString(ary, asc)
 	case ItemTypeTime:
 		sortArrayTime(ary, &itemType, asc)
-	case ItemTypeObject: // TO-DO
+	case ItemTypeObject:
 		// Convert "by" to string array
 		var byArr []string
 		if s, ok := by.(string); ok {

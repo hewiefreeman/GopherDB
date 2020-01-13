@@ -147,6 +147,9 @@ func makeInt(i interface{}) (int, bool) {
 	case int:
 		return t, true
 	case float64:
+		if t < 0 {
+			return int(t - 0.5), true
+		}
 		return int(t + 0.5), true
 	case int8:
 		return int(t), true
@@ -165,6 +168,9 @@ func makeInt(i interface{}) (int, bool) {
 	case uint64:
 		return int(t), true
 	case float32:
+		if t < 0 {
+			return int(t - 0.5), true
+		}
 		return int(t + 0.5), true
 	}
 	return 0, false
@@ -173,6 +179,9 @@ func makeInt(i interface{}) (int, bool) {
 func makeInt64(i interface{}) (int64, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return int64(t - 0.5), true
+		}
 		return int64(t + 0.5), true
 	case int:
 		return int64(t), true
@@ -193,6 +202,9 @@ func makeInt64(i interface{}) (int64, bool) {
 	case uint64:
 		return int64(t), true
 	case float32:
+		if t < 0 {
+			return int64(t - 0.5), true
+		}
 		return int64(t + 0.5), true
 	case string:
 		if a, e := strconv.ParseInt(t, 10, 64); e == nil {
@@ -205,6 +217,9 @@ func makeInt64(i interface{}) (int64, bool) {
 func makeInt32(i interface{}) (int32, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return int32(t - 0.5), true
+		}
 		return int32(t + 0.5), true
 	case int:
 		return int32(t), true
@@ -225,6 +240,9 @@ func makeInt32(i interface{}) (int32, bool) {
 	case uint64:
 		return int32(t), true
 	case float32:
+		if t < 0 {
+			return int32(t - 0.5), true
+		}
 		return int32(t + 0.5), true
 	}
 	return 0, false
@@ -233,6 +251,9 @@ func makeInt32(i interface{}) (int32, bool) {
 func makeInt16(i interface{}) (int16, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return int16(t - 0.5), true
+		}
 		return int16(t + 0.5), true
 	case int:
 		return int16(t), true
@@ -253,6 +274,9 @@ func makeInt16(i interface{}) (int16, bool) {
 	case uint64:
 		return int16(t), true
 	case float32:
+		if t < 0 {
+			return int16(t - 0.5), true
+		}
 		return int16(t + 0.5), true
 	}
 	return 0, false
@@ -261,6 +285,9 @@ func makeInt16(i interface{}) (int16, bool) {
 func makeInt8(i interface{}) (int8, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return int8(t - 0.5), true
+		}
 		return int8(t + 0.5), true
 	case int:
 		return int8(t), true
@@ -281,6 +308,9 @@ func makeInt8(i interface{}) (int8, bool) {
 	case uint64:
 		return int8(t), true
 	case float32:
+		if t < 0 {
+			return int8(t - 0.5), true
+		}
 		return int8(t + 0.5), true
 	}
 	return 0, false
@@ -289,6 +319,9 @@ func makeInt8(i interface{}) (int8, bool) {
 func makeUint64(i interface{}) (uint64, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return uint64(t - 0.5), true
+		}
 		return uint64(t + 0.5), true
 	case int:
 		return uint64(t), true
@@ -309,6 +342,9 @@ func makeUint64(i interface{}) (uint64, bool) {
 	case uint64:
 		return t, true
 	case float32:
+		if t < 0 {
+			return uint64(t - 0.5), true
+		}
 		return uint64(t + 0.5), true
 	case string:
 		if a, e := strconv.ParseUint(t, 10, 64); e == nil {
@@ -321,6 +357,9 @@ func makeUint64(i interface{}) (uint64, bool) {
 func makeUint32(i interface{}) (uint32, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return uint32(t - 0.5), true
+		}
 		return uint32(t + 0.5), true
 	case int:
 		return uint32(t), true
@@ -341,6 +380,9 @@ func makeUint32(i interface{}) (uint32, bool) {
 	case uint64:
 		return uint32(t), true
 	case float32:
+		if t < 0 {
+			return uint32(t - 0.5), true
+		}
 		return uint32(t + 0.5), true
 	}
 	return 0, false
@@ -349,6 +391,9 @@ func makeUint32(i interface{}) (uint32, bool) {
 func makeUint16(i interface{}) (uint16, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return uint16(t - 0.5), true
+		}
 		return uint16(t + 0.5), true
 	case int:
 		return uint16(t), true
@@ -369,6 +414,9 @@ func makeUint16(i interface{}) (uint16, bool) {
 	case uint64:
 		return uint16(t), true
 	case float32:
+		if t < 0 {
+			return uint16(t - 0.5), true
+		}
 		return uint16(t + 0.5), true
 	}
 	return 0, false
@@ -377,6 +425,9 @@ func makeUint16(i interface{}) (uint16, bool) {
 func makeUint8(i interface{}) (uint8, bool) {
 	switch t := i.(type) {
 	case float64:
+		if t < 0 {
+			return uint8(t - 0.5), true
+		}
 		return uint8(t + 0.5), true
 	case int:
 		return uint8(t), true
@@ -397,6 +448,9 @@ func makeUint8(i interface{}) (uint8, bool) {
 	case uint64:
 		return uint8(t), true
 	case float32:
+		if t < 0 {
+			return uint8(t - 0.5), true
+		}
 		return uint8(t + 0.5), true
 	}
 	return 0, false

@@ -591,7 +591,7 @@ func filterArrayGetQuery(filter *Filter) int {
 func mapFilter(filter *Filter) int {
 	if len(filter.methods) > 0 {
 		// Copy Map to prevent prematurely changing data in entry's pointer to this innerData map
-		var m map[string]interface{} = make(map[string]interface{})
+		var m map[string]interface{} = make(map[string]interface{}, len(filter.innerData[len(filter.innerData)-1].(map[string]interface{})))
 		for n, v := range filter.innerData[len(filter.innerData)-1].(map[string]interface{}) {
 			m[n] = v
 		}

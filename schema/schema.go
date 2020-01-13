@@ -249,7 +249,7 @@ func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem
 			return si, 0
 
 		case ItemTypeString:
-			si.iType = StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), required: params[3].(bool), unique: params[4].(bool)}
+			si.iType = StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), encrypted: params[3].(bool), required: params[4].(bool), unique: params[5].(bool)}
 			return si, 0
 
 		case ItemTypeArray:
