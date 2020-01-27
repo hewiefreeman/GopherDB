@@ -98,6 +98,8 @@ func applyStringMethods(filter *Filter) int {
 				if err = applyIntMethods(filter); err != 0 {
 					return err
 				}
+			default:
+				filter.methods = []string{}
 			}
 		} else {
 			filter.item = filter.innerData[len(filter.innerData)-1]
@@ -117,6 +119,15 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 	}
 	method := filter.methods[0]
 	var brk bool
+	// Check for encrypted string
+	if filter.schemaItems[len(filter.schemaItems)-1].iType.(StringItem).encrypted {
+		if !filter.get || method != MethodEquals {
+			return false, helpers.ErrorStringIsEncrypted
+		}
+		filter.innerData = append(filter.innerData, helpers.StringMatchesEncryption(str, []byte(*entryData)))
+		filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeBool})
+		brk = true
+	}
 	if filter.get {
 		switch method {
 		case MethodLength:
@@ -146,12 +157,12 @@ func getStringMethodResult(filter *Filter, entryData *string, str string) (bool,
 				}
 			}
 			filter.innerData = append(filter.innerData, contains)
-			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeBool})
 			brk = true
 
 		case MethodEquals:
 			filter.innerData = append(filter.innerData, (*entryData == str))
-			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeInt64})
+			filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeBool})
 			brk = true
 
 		default:
@@ -601,11 +612,13 @@ func applyMapMethods(filter *Filter) int {
 				}
 				if len(filter.methods) > 0 {
 					// run methods as string
+					filter.schemaItems = append(filter.schemaItems, SchemaItem{typeName: ItemTypeString})
 					filter.innerData = append(filter.innerData, keyOf)
 					if err := applyStringMethods(filter); err != 0 {
 						return err
 					}
 					filter.innerData = filter.innerData[:len(filter.innerData)-1]
+					filter.schemaItems = filter.schemaItems[:len(filter.schemaItems)-1]
 				} else {
 					filter.item = keyOf
 				}

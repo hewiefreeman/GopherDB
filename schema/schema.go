@@ -70,6 +70,7 @@ type SchemaConfigItem struct {
 //		- ["String", defaultValue, maxChars, required, unique] : store as string
 //			> defaultValue: default value the of String
 //			> maxChars: maximum characters the String can be
+//			> encrypted: when true, inserts/updates to the item will be encrypted with the table's set cost. Get queries will only allow certain comparison checks.
 //			> required: when true, the value cannot be set to a blank string. When inserting, the value must be specified unless there is a valid default value
 //			> unique: when true, no two database entries can be assigned the same value (automatically sets required to true)
 //				Note: a unique value (or a unique value Object item) inside an Array/Map checks the containing Array/Map, and not the whole database

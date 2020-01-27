@@ -1,7 +1,7 @@
 package schema
 
 import (
-//"fmt"
+
 )
 
 // GetUniqueItems gets the item name (string, eg: ["login", "email"]) of all unique table items and appends them to destination.
@@ -57,7 +57,6 @@ func uniqueCheck(filter *Filter) bool {
 	}
 
 	if filter.schemaItems[parentIndex].typeName == ItemTypeMap {
-		//fmt.Printf("Comparing number %v to Map '%v': %v\n\n", filter.item, filter.schemaItems[parentIndex].name, filter.innerData[parentIndex])
 		// Check Map
 		for _, item := range filter.innerData[parentIndex].(map[string]interface{}) {
 			if getInnerUnique(filter, (parentIndex+1), item) == filter.item {
@@ -65,7 +64,6 @@ func uniqueCheck(filter *Filter) bool {
 			}
 		}
 	} else {
-		//fmt.Printf("Comparing number %v to Array '%v': %v\n\n", filter.item, filter.schemaItems[parentIndex].name, filter.innerData[parentIndex])
 		// Check Array
 		for _, item := range filter.innerData[parentIndex].([]interface{}) {
 			if getInnerUnique(filter, (parentIndex+1), item) == filter.item {
@@ -90,7 +88,6 @@ func getInnerUnique(filter *Filter, indexOn int, item interface{}) interface{} {
 		// Convert both to the respective numeric type for comparison
 		filter.item, _ = makeTypeLiteral(filter.item, &filter.schemaItems[indexOn])
 		item, _ := makeTypeLiteral(item, &filter.schemaItems[indexOn])
-		//fmt.Printf("Comparing numbers %v and %v as float64\n\n", filter.item, item)
 		return item
 	}
 	return nil

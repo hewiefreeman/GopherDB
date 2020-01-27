@@ -14,6 +14,7 @@ either express or implied. See the License for the specific
 language governing permissions and limitations under the License.
 */
 
+// storage
 package storage
 
 import (
@@ -49,7 +50,8 @@ const (
 var (
 	// Open Files
 	openFilesMux   sync.Mutex
-	openFiles      map[string]*OpenFile = make(map[string]*OpenFile)
+	openFiles      map[string]*OpenFile
+	inited           bool
 
 	// Settings
 	fileOpenTime atomic.Value // time.Duration *int64* in seconds
@@ -74,8 +76,39 @@ type OpenFile struct {
 
 // Init initializes the storage package. Must be called before using.
 func Init() {
+	openFilesMux.Lock()
+	if inited {
+		openFilesMux.Unlock()
+		return
+	}
 	fileOpenTime.Store(defaultFileOpenTime)
 	maxOpenFiles.Store(defaultMaxOpenFiles)
+	openFiles = make(map[string]*OpenFile)
+	inited = true
+	openFilesMux.Unlock()
+}
+
+// ShutDown closes all OpenFiles and shuts the storage engine down.
+func ShutDown() {
+	openFilesMux.Lock()
+	if !inited {
+		openFilesMux.Unlock()
+		return
+	}
+	// Close all OpenFiles
+	for fName, f := range openFiles {
+		f.mux.Lock()
+		f.cancelChan <- true
+		close(f.cancelChan)
+		f.file.Truncate(int64(len(f.bytes)))
+		f.bytes = nil
+		f.lineByteOn = nil
+		f.file.Close()
+		f.mux.Unlock()
+		delete(openFiles, fName)
+	}
+	inited = false
+	openFilesMux.Unlock()
 }
 
 //
@@ -160,6 +193,10 @@ func newOpenFile(file string) (*OpenFile, int) {
 func GetOpenFile(file string) (*OpenFile, int) {
 	var f *OpenFile
 	openFilesMux.Lock()
+	if !inited {
+		openFilesMux.Unlock()
+		return nil, helpers.ErrorStorageNotInitialized
+	}
 	f = openFiles[file]
 	if f == nil {
 		var fileErr int

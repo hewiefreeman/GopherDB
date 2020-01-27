@@ -33,7 +33,7 @@ import (
 
 // File/folder prefixes
 const (
-	dataFolderPrefix = "KS-"
+	dataFolderPrefix = "Keystore-"
 )
 
 var (
@@ -111,7 +111,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 		dataOnDrive = false
 	}
 
-	// table name with prefix
+	// Table name with prefix
 	namePre := dataFolderPrefix + name
 
 	// Restoring if configFile is not nil
@@ -144,7 +144,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 		}
 	}
 
-	// make table
+	// Make table
 	t := Keystore{
 		name:        name,
 		memOnly:     memOnly,
@@ -156,12 +156,12 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 		fileOn:      fileOn,
 	}
 
-	// set defaults
+	// Set defaults
 	t.partitionMax.Store(helpers.DefaultPartitionMax)
 	t.maxEntries.Store(helpers.DefaultMaxEntries)
 	t.encryptCost.Store(helpers.DefaultEncryptCost)
 
-	// push to stores map
+	// Push to stores map
 	storesMux.Lock()
 	stores[name] = &t
 	storesMux.Unlock()
@@ -260,6 +260,10 @@ func (k *Keystore) DataOnDrive() bool {
 	return k.dataOnDrive
 }
 
+func (k *Keystore) EncryptCost() int {
+	return k.encryptCost.Load().(int)
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //   Keystore Setters   //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -271,51 +275,31 @@ func (k *Keystore) SetEncryptionCost(cost int) int {
 	} else if cost < helpers.EncryptCostMin {
 		cost = helpers.EncryptCostMin
 	}
-
 	// Write to configFile
 	k.eMux.Lock()
 	fileOn := k.fileOn
 	k.eMux.Unlock()
-	if err := writeConfigFile(k.configFile, keystoreConfig{
-		Name:         k.name,
-		Schema:       k.schema.MakeConfig(),
-		FileOn:       fileOn,
-		DataOnDrive:  k.dataOnDrive,
-		MemOnly:      k.memOnly,
-		PartitionMax: k.partitionMax.Load().(uint16),
-		EncryptCost:  cost,
-		MaxEntries:   k.maxEntries.Load().(uint64),
-	}); err != 0 {
+	conf := k.makeDefaultConfig(fileOn)
+	conf.EncryptCost = cost
+	if err := writeConfigFile(k.configFile, conf); err != 0 {
 		return err
 	}
-
 	k.encryptCost.Store(cost)
-
 	return 0
 }
 
 // SetMaxEntries sets the maximum entries for the Keystore
 func (k *Keystore) SetMaxEntries(max uint64) int {
-
 	// Write to configFile
 	k.eMux.Lock()
 	fileOn := k.fileOn
 	k.eMux.Unlock()
-	if err := writeConfigFile(k.configFile, keystoreConfig{
-		Name:         k.name,
-		Schema:       k.schema.MakeConfig(),
-		FileOn:       fileOn,
-		DataOnDrive:  k.dataOnDrive,
-		MemOnly:      k.memOnly,
-		PartitionMax: k.partitionMax.Load().(uint16),
-		EncryptCost:  k.encryptCost.Load().(int),
-		MaxEntries:   max,
-	}); err != 0 {
+	conf := k.makeDefaultConfig(fileOn)
+	conf.MaxEntries = max
+	if err := writeConfigFile(k.configFile, conf); err != 0 {
 		return err
 	}
-
 	k.maxEntries.Store(max)
-
 	return 0
 }
 
@@ -329,27 +313,31 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 	k.eMux.Lock()
 	fileOn := k.fileOn
 	k.eMux.Unlock()
-	if err := writeConfigFile(k.configFile, keystoreConfig{
+	conf := k.makeDefaultConfig(fileOn)
+	conf.PartitionMax = max
+	if err := writeConfigFile(k.configFile, conf); err != 0 {
+		return err
+	}
+	k.partitionMax.Store(max)
+	return 0
+}
+
+func (k *Keystore) makeDefaultConfig(fileOn uint32) keystoreConfig {
+	return keystoreConfig {
 		Name:         k.name,
 		Schema:       k.schema.MakeConfig(),
 		FileOn:       fileOn,
 		DataOnDrive:  k.dataOnDrive,
 		MemOnly:      k.memOnly,
-		PartitionMax: max,
+		PartitionMax: k.partitionMax.Load().(uint16),
 		EncryptCost:  k.encryptCost.Load().(int),
 		MaxEntries:   k.maxEntries.Load().(uint64),
-	}); err != 0 {
-		return err
 	}
-
-	k.partitionMax.Store(max)
-
-	return 0
 }
 
 // Writes k to f and truncates file
 func writeConfigFile(f *os.File, k keystoreConfig) int {
-	jBytes, jErr := json.MarshalIndent(k, "", "\t")
+	jBytes, jErr := helpers.Fjson.MarshalIndent(k, "", "   ")
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
@@ -368,7 +356,7 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 
 // Restore restores a Keystore by name; requires a valid config file and data folder.
 func Restore(name string) (*Keystore, int) {
-	fmt.Printf("Restoring table '%v'...\n", name)
+	fmt.Printf("Restoring Keystore '%v'...\n", name)
 	namePre := dataFolderPrefix + name
 	// Open the File
 	f, err := os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR, 0755)
@@ -437,7 +425,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
-	fmt.Printf("Loading table data for '%v'...\n", name)
+	fmt.Printf("Loading Keystore data for '%v'...\n", name)
 	// Make progress bar
 	pBar := progressbar.New(len(files))
 	// Go through files & restore entries
@@ -481,6 +469,7 @@ func Restore(name string) (*Keystore, int) {
 	return ks, 0
 }
 
+// Resore a line of data from
 func restoreDataLine(line []byte) (string, []interface{}) {
 	var jEntry jsonEntry
 	mErr := json.Unmarshal(line, &jEntry)

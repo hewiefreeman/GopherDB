@@ -42,7 +42,9 @@ const (
 	ErrorMissingRequiredItem
 	ErrorStringTooLarge
 	ErrorStringRequired
-	ErrorArrayItemsRequired // 2020
+	ErrorStringIsEncrypted // 2020
+	ErrorEncryptingString
+	ErrorArrayItemsRequired
 	ErrorArrayEmpty
 	ErrorArrayItemNotSortable
 	ErrorIndexOutOfBounds
@@ -61,7 +63,7 @@ const (
 const (
 	// Auth Table Query Errors
 	ErrorNameRequired = 4001 + iota
-	ErrorEntryNameInUse
+	ErrorNameInUse
 	ErrorPasswordLength
 	ErrorPasswordEncryption
 	ErrorNoEmailItem
@@ -77,8 +79,7 @@ const (
 
 const (
 	// Storage errors
-	ErrorLoggerExists = 9001 + iota
-	ErrorLoggerFileCreate
+	ErrorStorageNotInitialized = 9001 + iota
 	ErrorTableFolderCreate
 	ErrorCreatingFolder
 	ErrorFileOpen

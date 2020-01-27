@@ -57,7 +57,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	// Fill entry data with insertObj - Loop through schema to also check for required items
 	for itemName, schemaItem := range k.schema {
 		// Item filter
-		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, false)
+		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, k.EncryptCost(), false, false)
 		if err != 0 {
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 //
 
 // Get
-func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[string]interface{}, int) {
+func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]interface{}, int) {
 	// Get entry
 	e, err := k.Get(key)
 	if err != 0 {
@@ -183,21 +183,18 @@ func (k *Keystore) GetKeyData(key string, items map[string]interface{}) (map[str
 			}
 			// Item filter
 			var i interface{}
-			err = schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, true, false)
+			err = schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, k.EncryptCost(), true, false)
 			if err != 0 {
 				return nil, err
-			}
-			if k.dataOnDrive {
-				// Convert Object items from []interface{} to map[string]interface{}
 			}
 			items[itemName] = i
 		}
 	} else {
-		items = make(map[string]interface{})
+		items = make(map[string]interface{}, len(k.schema))
 		for itemName, si := range k.schema {
 			// Item filter
 			var i interface{}
-			err = schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, true, false)
+			err = schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, k.EncryptCost(), true, false)
 			if err != 0 {
 				return nil, err
 			}
@@ -284,6 +281,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	}
 
 	uniqueVals := make(map[string]interface{})
+	uniqueValsBefore := make(map[string]interface{})
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
 		var itemMethods []string
@@ -296,13 +294,17 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 			return helpers.ErrorSchemaInvalid
 		}
 
-		//itemBefore := data[schemaItem.DataIndex()]
+		itemBefore := data[schemaItem.DataIndex()]
 
 		// Item filter
-		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], data[schemaItem.DataIndex()], schemaItem, &uniqueVals, false, false)
+		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, k.EncryptCost(), false, false)
 		if err != 0 {
 			e.mux.Unlock()
 			return err
+		}
+		// Check for changed unique value to remove old value from table's uniqueVals
+		if uniqueVals[updateName] != nil && data[schemaItem.DataIndex()] != itemBefore {
+			uniqueValsBefore[updateName] = itemBefore
 		}
 	}
 
@@ -341,6 +343,11 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 			k.uniqueVals[itemName] = make(map[interface{}]bool)
 		}
 		k.uniqueVals[itemName][itemVal] = true
+
+		// Remove old unique values
+		if uniqueValsBefore[itemName] != nil {
+			delete(k.uniqueVals[itemName], uniqueValsBefore[itemName])
+		}
 	}
 	k.uMux.Unlock()
 
@@ -403,9 +410,9 @@ func (k *Keystore) DeleteKey(key string) int {
 			k.uMux.Unlock()
 			return helpers.ErrorUnexpected
 		}
-		// Make filter
+		// Make get filter
 		var i interface{}
-		err := schema.ItemFilter(data[si.DataIndex()], itemMethods, &i, nil, si, nil, true, false)
+		err := schema.ItemFilter(nil, itemMethods, &i, data[si.DataIndex()], si, nil, k.EncryptCost(), true, false)
 		if err != 0 {
 			ue.mux.Unlock()
 			k.uMux.Unlock()
@@ -454,7 +461,7 @@ func (k *Keystore) restoreKey(key string, data []interface{}, fileOn uint32, lin
 		}
 
 		// Item filter
-		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, false, true)
+		err := schema.ItemFilter(data[schemaItem.DataIndex()], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, 0, false, true)
 		if err != 0 {
 			return err
 		}

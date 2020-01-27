@@ -20,6 +20,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"github.com/hewiefreeman/GopherDB/schema"
 	"github.com/hewiefreeman/GopherDB/storage"
+	"github.com/schollz/progressbar"
 	"sync"
 	"sync/atomic"
 	"os"
@@ -31,27 +32,19 @@ import (
 	"fmt"
 )
 
-////////////////// TO-DOs
-//////////////////
-//////////////////     - Password reset for AuthTable:
-//////////////////         - Setting server name/address, subject & body message for password reset emails
-//////////////////         - Send emails for password resets
-//////////////////
-//////////////////     - Database server
-//////////////////         - Connection authentication
-//////////////////         - Connection privillages
-//////////////////
-//////////////////     - Rate & connection limiting
-//////////////////
-//////////////////     - Clustering
-//////////////////         - Connect to cluster nodes & agree upon master node
-//////////////////         - Master assigns nodes key numbers and creates a keyspace unless valid ones have been created already
-//////////////////         - Master ensures all nodes contain the same table schemas
-//////////////////         -
-//////////////////         - Global unique values
-//////////////////
-//////////////////     - Ordered tables
+// File/folder prefixes
+const (
+	dataFolderPrefix = "Auth-"
+)
 
+// Defaults
+const (
+	defaultMinPassword uint8   = 6
+	defaultPassResetLen uint8  = 12
+	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
+)
+
+// Tables
 var (
 	tablesMux      sync.Mutex
 	tables         map[string]*AuthTable = make(map[string]*AuthTable)
@@ -82,8 +75,8 @@ type AuthTable struct {
 	// entries
 	eMux      sync.Mutex // entries/altLogins map lock
 	entries   map[string]*authTableEntry // AuthTable uses a Map for storage since it's only look-up is with user name and password
-	altLogins map[string]*authTableEntry
-	vCodes    map[string]string
+	altLogins map[string]*authTableEntry // Alternative login item references
+	vCodes    map[string]string //
 
 	// unique values
 	uMux       sync.Mutex
@@ -129,18 +122,6 @@ type authtableConfig struct {
 	EmailSettings EmailSettings
 	AltLogin string
 }
-
-// File/folder prefixes
-const (
-	dataFolderPrefix = "AT-"
-)
-
-// Defaults
-const (
-	defaultMinPassword uint8   = 6
-	defaultPassResetLen uint8  = 12
-	defaultConfig string       = "{\"dbName\":\"db\",\"replica\":false,\"readOnly\":false,\"routerOnly\":false,\"logPersistTime\":30,\"replicas\":[],\"routers\":[],\"AuthTables\":[],\"Leaderboards\":[]}"
-)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //   AuthTable   ////////////////////////////////////////////////////////////////////////////////
@@ -217,13 +198,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 		}
 	}
 
-	// Make table folder   & update config file !!!
-	mkErr := storage.MakeDir(namePre)
-	if mkErr != nil {
-		return nil, helpers.ErrorCreatingFolder
-	}
-
-	// make table
+	// Make table
 	t := AuthTable{
 		name:          name,
 		memOnly:       memOnly,
@@ -237,7 +212,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 		fileOn:        fileOn,
 	}
 
-	// set defaults
+	// Set defaults
 	t.partitionMax.Store(helpers.DefaultPartitionMax)
 	t.maxEntries.Store(helpers.DefaultMaxEntries)
 	t.minPassword.Store(defaultMinPassword)
@@ -248,7 +223,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	t.emailSettings.Store(EmailSettings{})
 	t.altLoginItem.Store("")
 
-	// push to tables map
+	// Push to tables map
 	tablesMux.Lock()
 	tables[name] = &t
 	tablesMux.Unlock()
@@ -352,6 +327,14 @@ func (t *AuthTable) Size() int {
 	s := len(t.entries)
 	t.eMux.Unlock()
 	return s
+}
+
+func (t *AuthTable) EncryptCost() int {
+	return t.encryptCost.Load().(int)
+}
+
+func (t *AuthTable) AltLoginItem() string {
+	return t.altLoginItem.Load().(string)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -565,7 +548,7 @@ func (t *AuthTable) makeDefaultConfig(fileOn uint16) authtableConfig {
 }
 
 func writeConfigFile(f *os.File, c authtableConfig) int {
-	jBytes, jErr := json.MarshalIndent(c, "", "\t")
+	jBytes, jErr := helpers.Fjson.MarshalIndent(c, "", "   ")
 	if jErr != nil {
 		return helpers.ErrorJsonEncoding
 	}
@@ -584,6 +567,7 @@ func writeConfigFile(f *os.File, c authtableConfig) int {
 
 // Restore restores an AuthTable by name; requires a valid config file and data folder
 func Restore(name string) (*AuthTable, int) {
+	fmt.Printf("Restoring Auth '%v'...\n", name)
 	namePre := dataFolderPrefix + name
 
 	// Open the File
@@ -622,46 +606,46 @@ func Restore(name string) (*AuthTable, int) {
 		return nil, schemaErr
 	}
 
-	t, tErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
+	at, tErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
 	if tErr != 0 {
 		f.Close()
 		return nil, tErr
 	}
 
-	t.eMux.Lock()
-	t.uMux.Lock()
+	at.eMux.Lock()
+	at.uMux.Lock()
 
 	// Set optional settings if different from defaults
 	if confStruct.EncryptCost != helpers.DefaultEncryptCost {
-		t.encryptCost.Store(confStruct.EncryptCost)
+		at.encryptCost.Store(confStruct.EncryptCost)
 	}
 
 	if confStruct.MaxEntries != helpers.DefaultMaxEntries {
-		t.maxEntries.Store(confStruct.MaxEntries)
+		at.maxEntries.Store(confStruct.MaxEntries)
 	}
 
 	if confStruct.PartitionMax != helpers.DefaultPartitionMax {
-		t.partitionMax.Store(confStruct.PartitionMax)
+		at.partitionMax.Store(confStruct.PartitionMax)
 	}
 
 	if confStruct.MinPass != defaultMinPassword {
-		t.minPassword.Store(confStruct.MinPass)
+		at.minPassword.Store(confStruct.MinPass)
 	}
 
 	if confStruct.PassResetLen != defaultPassResetLen {
-		t.passResetLen.Store(confStruct.PassResetLen)
+		at.passResetLen.Store(confStruct.PassResetLen)
 	}
 
 	if confStruct.EmailItem != "" {
-		t.emailItem.Store(confStruct.EmailItem)
+		at.emailItem.Store(confStruct.EmailItem)
 	}
 
 	if confStruct.EmailSettings.AuthType != "" {
-		t.emailSettings.Store(confStruct.EmailSettings)
+		at.emailSettings.Store(confStruct.EmailSettings)
 	}
 
 	if confStruct.AltLogin != "" {
-		t.altLoginItem.Store(confStruct.AltLogin)
+		at.altLoginItem.Store(confStruct.AltLogin)
 	}
 
 	// Load data/indexing into memory...
@@ -669,82 +653,76 @@ func Restore(name string) (*AuthTable, int) {
 	// Open data folder
 	df, err := os.Open(namePre)
 	if err != nil {
-		t.eMux.Unlock()
-		t.uMux.Unlock()
+		at.eMux.Unlock()
+		at.uMux.Unlock()
 		df.Close()
-		t.Close(false)
+		at.Close(false)
 		return nil, helpers.ErrorFileOpen
 	}
 	files, err := df.Readdir(-1)
 	df.Close()
 	if err != nil {
-		t.eMux.Unlock()
-		t.uMux.Unlock()
-		t.Close(false)
+		at.eMux.Unlock()
+		at.uMux.Unlock()
+		at.Close(false)
 		return nil, helpers.ErrorFileRead
 	}
-
+	fmt.Printf("Loading Auth data for '%v'...\n", name)
+	// Make progress bar
+	pBar := progressbar.New(len(files))
 	// Go through files
 	for _, fileStats := range files {
 		// Get file number
 		fileNameSplit := strings.Split(fileStats.Name(), ".")
 		fileNum, fnErr := strconv.Atoi(fileNameSplit[0])
 		if fnErr != nil || len(fileNameSplit) < 2 || "."+fileNameSplit[1] != helpers.FileTypeStorage {
-			fmt.Println("'"+fileStats.Name()+"' is not a valid storage file.")
+			// Not a storage file...
+			pBar.Add(1)
 			continue
 		}
-
-		// Open data file
-		dataFile, err := os.OpenFile(namePre + "/" + fileStats.Name(), os.O_RDWR, 0755)
-		if err != nil {
-			fmt.Println(err)
+		var of *storage.OpenFile
+		var err int
+		if of, err = storage.GetOpenFile(namePre + "/" + fileStats.Name()); err != 0 {
+			fmt.Printf("Error: Auth '%v':: Data file '%v' is corrupt!\n", name, fileStats.Name())
+			pBar.Add(1)
 			continue
 		}
-
-		// Get file bytes
-		fb := make([]byte, fileStats.Size())
-		_, rErr := dataFile.ReadAt(fb, 0)
-		if rErr != nil && rErr != io.EOF {
-			dataFile.Close()
-			fmt.Println(rErr)
-			continue
-		}
-
-		// Go through file bytes and restore entries
-		lineOn := 1
-		lineByteStart := 0
-		for i, b := range fb {
-			if b == 10 {
-				// Restore line
-				if eKey, ePass, eData := restoreDataLine(fb[lineByteStart:i]); eData != nil {
-					if resErr := t.RestoreUser(eKey, ePass, eData, uint16(fileNum), uint16(lineOn), confStruct.AltLogin); resErr != 0 {
-						fmt.Println("Error restoring '"+eKey+"' on line", lineOn, "in file", fileStats.Name(), "with error:", resErr)
-					}
-				}
-
-				lineByteStart = i+1
-				lineOn++
+		for i := 0; i < of.Lines(); i++ {
+			// Get line bytes
+			var lb []byte
+			if lb, err = of.Read(uint16(i+1)); err != 0 {
+				fmt.Printf("Error: Auth '%v':: Could not read line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				continue
+			}
+			eKey, ePass, eData := restoreDataLine(lb)
+			if eData == nil {
+				fmt.Printf("Error: Auth '%v':: Incorrect JSON format on line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				continue
+			}
+			if err = at.restoreUser(eKey, []byte(ePass), eData, uint16(fileNum), uint16(i+1)); err != 0 {
+				fmt.Printf("Error: Auth '%v':: Line %v of '%v' error code %v\n", name, i + 1, fileStats.Name(), err)
+				continue
 			}
 		}
-
-		//
-		dataFile.Close()
+		pBar.Add(1)
 	}
-	t.uMux.Unlock()
-	t.eMux.Unlock()
+	at.uMux.Unlock()
+	at.eMux.Unlock()
 
-	return t, 0
+	return at, 0
 }
 
-func restoreDataLine(line []byte) (string, []byte, []interface{}) {
+func restoreDataLine(line []byte) (string, string, []interface{}) {
 	var jEntry jsonEntry
 	mErr := json.Unmarshal(line, &jEntry)
 	if mErr != nil {
-		return "", nil, nil
+		fmt.Printf("Unmarshaling data E3: %v\n", string(line))
+		return "", "", nil
 	}
 
 	if jEntry.D == nil || jEntry.N == "" || len(jEntry.P) == 0 {
-		return "", nil, nil
+		fmt.Printf("Unmarshaling data E2: %v\n", string(line))
+		return "", "", nil
 	}
 
 	return jEntry.N, jEntry.P, jEntry.D

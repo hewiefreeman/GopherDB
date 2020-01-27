@@ -1,8 +1,30 @@
 package main
 
+////////////////// TO-DOs
+//////////////////
+//////////////////     - Password reset for AuthTable:
+//////////////////         - Setting server name/address, subject & body message for password reset emails
+//////////////////         - Send emails for password resets
+//////////////////
+//////////////////     - Database server
+//////////////////         - Connection authentication
+//////////////////         - Connection privillages
+//////////////////
+//////////////////     - Rate & connection limiting
+//////////////////
+//////////////////     - Clustering
+//////////////////         - Connect to cluster nodes & agree upon master node
+//////////////////         - Master assigns nodes key numbers and creates a keyspace unless valid ones have been created already
+//////////////////         - Master ensures all nodes contain the same table schemas
+//////////////////         -
+//////////////////         - Global unique values
+//////////////////
+//////////////////     - Ordered tables
+
 import (
+	"github.com/hewiefreeman/GopherDB/helpers"
 	"fmt"
-	"html"
+	//"html"
 	"net/http"
 	"sync"
 )

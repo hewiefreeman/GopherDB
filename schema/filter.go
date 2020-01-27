@@ -9,6 +9,7 @@ import (
 type Filter struct {
 	restore     bool
 	get         bool                    // when true, output is for get queries
+	eCost       int                     // encryption cost for encrypted items
 	item        interface{}             // The item data to insert/get, or method parameters when methods are being used
 	destination *interface{}            // Pointer to where the filtered data must go
 	methods     []string                // Method list
@@ -18,10 +19,11 @@ type Filter struct {
 }
 
 // ItemFilter filters an item in a query against it's corresponding SchemaItem.
-func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem SchemaItem, uniqueVals *map[string]interface{}, get bool, restore bool) int {
+func ItemFilter(item interface{}, methods []string, destination *interface{}, innerData interface{}, schemaItem SchemaItem, uniqueVals *map[string]interface{}, eCost int, get bool, restore bool) int {
 	filter := Filter{
 		restore:     restore,
 		get:         get,
+		eCost:       eCost,
 		item:        item,
 		methods:     methods,
 		destination: destination,
@@ -503,6 +505,10 @@ func stringFilter(filter *Filter) int {
 			return 0
 		}
 	} else if filter.get {
+		// Cannot retrieve an encrypted item directly
+		if filter.schemaItems[len(filter.schemaItems)-1].iType.(StringItem).encrypted {
+			return helpers.ErrorStringIsEncrypted
+		}
 		filter.item = filter.innerData[len(filter.innerData)-1]
 		return 0
 	}
@@ -512,12 +518,28 @@ func stringFilter(filter *Filter) int {
 		return helpers.ErrorInvalidItemValue
 	}
 	it := filter.schemaItems[len(filter.schemaItems)-1].iType.(StringItem)
-	l := uint32(len(ic))
+	// Don't filter encrypted strings while restoring
+	if filter.restore && it.encrypted {
+		filter.item = ic
+		return 0
+	}
 	// Check length and if required
+	l := uint32(len(ic))
 	if it.maxChars > 0 && l > it.maxChars {
 		return helpers.ErrorStringTooLarge
 	} else if it.required && l == 0 {
 		return helpers.ErrorStringRequired
+	}
+	if it.encrypted {
+		// Encrypt ic
+		var es []byte
+		var err error
+		if es, err = helpers.EncryptString(ic, filter.eCost); err != nil {
+			return helpers.ErrorEncryptingString
+		}
+		// Encrypted strings cannot be unique. Skip next checks
+		filter.item = string(es)
+		return 0
 	}
 	// Check if unique
 	filter.item = ic
