@@ -3,9 +3,10 @@
 
 <h1 align="center">GopherDB</h1>
 
-GopherDB aims at easing the creation, retrieval, and manipulation of data through a robust, yet simple query format. It features many table types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered tables, and more to come. GopherDB leverages a powerful schema validation algorithm to keep your data well organized, while being extremely flexible so you can fine-tune to your exact needs.
+GopherDB is a new hybrid database which eases the creation, retrieval, and manipulation of data through a robust, yet simple query language. It features many table (AKA collection) types tailored for specific use-cases including secure user authentication, leaderboards for online games, keystores, ordered lists, and more. Being a hybrid database, individual tables can be configured to store data either only in memory, disk, or both.
 
-Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Where GDB excels is it's simple and effective query format. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. This not only makes building queries easier, but the format itself is more dynamic and expandable than any other JSON query format!
+Leveraging a comprehensive schema validation algorithm, your data is always kept well organized. Though this doesn't take away from your data structure's flexibility, meaning deep-nesting is never a problem. Much like other No-SQL databases, GopherDB uses JSON as it's query/response language and means of storing data on the disk. Using standard JSON format, GopherDB provides a powerful new query language. Retrieve, manipulate, or run any combination of built-in methods on any piece of data in a table entry as a hierarchy of `Object`, `Array`, and `Map`. Not only is building queries easy, but the query format itself is more dynamic and expandable than any other JSON query format!
+
 
 <br>
 <br>
