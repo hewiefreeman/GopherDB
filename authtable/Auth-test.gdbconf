@@ -2,42 +2,6 @@
    "Name": "test",
    "Schema": [
       {
-         "Position": 6,
-         "Name": "testFloatArray",
-         "DataType": [
-            "Array",
-            [
-               "Float32",
-               0,
-               0,
-               0,
-               false,
-               false,
-               false
-            ],
-            0,
-            false
-         ]
-      },
-      {
-         "Position": 7,
-         "Name": "testFloatMap",
-         "DataType": [
-            "Map",
-            [
-               "Float32",
-               0,
-               0,
-               0,
-               false,
-               false,
-               false
-            ],
-            0,
-            false
-         ]
-      },
-      {
          "Position": 3,
          "Name": "friends",
          "DataType": [
@@ -189,6 +153,42 @@
                "String",
                "",
                30,
+               false,
+               false,
+               false
+            ],
+            0,
+            false
+         ]
+      },
+      {
+         "Position": 6,
+         "Name": "testFloatArray",
+         "DataType": [
+            "Array",
+            [
+               "Float32",
+               0,
+               0,
+               0,
+               false,
+               false,
+               false
+            ],
+            0,
+            false
+         ]
+      },
+      {
+         "Position": 7,
+         "Name": "testFloatMap",
+         "DataType": [
+            "Map",
+            [
+               "Float32",
+               0,
+               0,
+               0,
                false,
                false,
                false

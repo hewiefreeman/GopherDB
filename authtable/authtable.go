@@ -154,14 +154,11 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	} else if !s.Validate() {
 		return nil, helpers.ErrorTableExists
 	}
-
 	// memOnly overrides dataOnDrive
 	if memOnly {
 		dataOnDrive = false
 	}
-
 	namePre := dataFolderPrefix + name
-
 	// Restoring if configFile is not nil
 	if configFile == nil {
 		// Make table storage folder
@@ -169,14 +166,12 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 		if mkErr != nil {
 			return nil, helpers.ErrorCreatingFolder
 		}
-
 		// Create/open config file
 		var err error
 		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
 		if err != nil {
 			return nil, helpers.ErrorFileOpen
 		}
-
 		// Write config file
 		if wErr := writeConfigFile(configFile, authtableConfig{
 			Name: name,
@@ -197,7 +192,6 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 			return nil, wErr
 		}
 	}
-
 	// Make table
 	t := AuthTable{
 		name:          name,
@@ -211,7 +205,6 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,
 	}
-
 	// Set defaults
 	t.partitionMax.Store(helpers.DefaultPartitionMax)
 	t.maxEntries.Store(helpers.DefaultMaxEntries)
@@ -222,12 +215,10 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	t.verifyItem.Store("")
 	t.emailSettings.Store(EmailSettings{})
 	t.altLoginItem.Store("")
-
 	// Push to tables map
 	tablesMux.Lock()
 	tables[name] = &t
 	tablesMux.Unlock()
-
 	return &t, 0
 }
 
@@ -253,28 +244,23 @@ func (t *AuthTable) Close(save bool) {
 			AltLogin: t.altLoginItem.Load().(string),
 		})
 	}
-
 	tablesMux.Lock()
 	delete(tables, t.name)
 	tablesMux.Unlock()
-
 	t.configFile.Close()
 }
 
 // Delete deletes the AuthTable from memory and disk
 func (t *AuthTable) Delete() int {
 	t.Close(false)
-
 	// Delete data directory
 	if err := os.RemoveAll(dataFolderPrefix + t.name); err != nil {
 		return helpers.ErrorFileDelete
 	}
-
 	// Delete config file
 	if err := os.Remove(dataFolderPrefix + t.name + helpers.FileTypeConfig); err != nil {
 		return helpers.ErrorFileDelete
 	}
-
 	return 0
 }
 
@@ -283,7 +269,6 @@ func Get(name string) *AuthTable {
 	tablesMux.Lock()
 	t := tables[name]
 	tablesMux.Unlock()
-
 	return t
 }
 
@@ -294,7 +279,6 @@ func (t *AuthTable) Get(userName string, password string) (*authTableEntry, int)
 	} else if len(password) < int(t.minPassword.Load().(uint8)) {
 		return nil, helpers.ErrorPasswordLength
 	}
-
 	// Find entry
 	t.eMux.Lock()
 	ue := t.entries[userName]
@@ -302,17 +286,14 @@ func (t *AuthTable) Get(userName string, password string) (*authTableEntry, int)
 		ue = t.altLogins[userName]
 	}
 	t.eMux.Unlock()
-
 	// Check if found
 	if ue == nil {
 		return nil, helpers.ErrorNoEntryFound
 	}
-
 	// Check Password
 	if !ue.CheckPassword(password) {
 		return nil, helpers.ErrorNoEntryFound
 	}
-
 	return ue, 0
 }
 
@@ -347,7 +328,6 @@ func (t *AuthTable) SetEncryptionCost(cost int) int {
 	} else if cost < helpers.EncryptCostMin {
 		cost = helpers.EncryptCostMin
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -356,7 +336,6 @@ func (t *AuthTable) SetEncryptionCost(cost int) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.encryptCost.Store(cost)
 	return 0
 }
@@ -365,7 +344,6 @@ func (t *AuthTable) SetMaxEntries(max uint64) int {
 	if max < 0 {
 		max = 0
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -374,7 +352,6 @@ func (t *AuthTable) SetMaxEntries(max uint64) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.maxEntries.Store(max)
 	return 0
 }
@@ -386,7 +363,6 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) int {
 	if t.passResetLen.Load().(uint8) < min {
 		t.passResetLen.Store(min)
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -395,7 +371,6 @@ func (t *AuthTable) SetMinPasswordLength(min uint8) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.minPassword.Store(min)
 	return 0
 }
@@ -405,7 +380,6 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 	if len < mLen {
 		len = mLen
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -414,7 +388,6 @@ func (t *AuthTable) SetPasswordResetLength(len uint8) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.passResetLen.Store(len)
 	return 0
 }
@@ -427,7 +400,6 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() || !si.Required() {
 		return helpers.ErrorInvalidItem
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -436,7 +408,6 @@ func (t *AuthTable) SetAltLoginItem(item string) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.altLoginItem.Store(item)
 	return 0
 }
@@ -449,7 +420,6 @@ func (t *AuthTable) SetEmailItem(item string) int {
 	} else if si.TypeName() != schema.ItemTypeString || !si.Unique() {
 		return helpers.ErrorInvalidItem
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -458,7 +428,6 @@ func (t *AuthTable) SetEmailItem(item string) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.emailItem.Store(item)
 	return 0
 }
@@ -471,7 +440,6 @@ func (t *AuthTable) SetVerifyItem(item string) int {
 	} else if si.TypeName() != schema.ItemTypeString {
 		return helpers.ErrorInvalidItem
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -480,7 +448,6 @@ func (t *AuthTable) SetVerifyItem(item string) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.verifyItem.Store(item)
 	return 0
 }
@@ -496,7 +463,6 @@ func (t *AuthTable) SetEmailSettings(settings EmailSettings) int {
 	default:
 		return helpers.ErrorIncorrectAuthType
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -505,7 +471,6 @@ func (t *AuthTable) SetEmailSettings(settings EmailSettings) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.emailSettings.Store(settings)
 	return 0
 }
@@ -514,7 +479,6 @@ func (t *AuthTable) SetPartitionMax(max uint16) int {
 	if max < helpers.PartitionMin {
 		max = helpers.DefaultPartitionMax
 	}
-
 	t.eMux.Lock()
 	fileOn := t.fileOn
 	t.eMux.Unlock()
@@ -523,7 +487,6 @@ func (t *AuthTable) SetPartitionMax(max uint16) int {
 	if err := writeConfigFile(t.configFile, conf); err != 0 {
 		return err
 	}
-
 	t.partitionMax.Store(max)
 	return 0
 }
@@ -558,6 +521,7 @@ func writeConfigFile(f *os.File, c authtableConfig) int {
 		return helpers.ErrorFileUpdate
 	}
 	f.Truncate(int64(len(jBytes)))
+	//
 	return 0
 }
 
@@ -569,20 +533,17 @@ func writeConfigFile(f *os.File, c authtableConfig) int {
 func Restore(name string) (*AuthTable, int) {
 	fmt.Printf("Restoring Auth '%v'...\n", name)
 	namePre := dataFolderPrefix + name
-
 	// Open the File
 	f, err := os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR, 0755)
 	if err != nil {
 		return nil, helpers.ErrorFileOpen
 	}
-
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
 		f.Close()
 		return nil, helpers.ErrorFileOpen
 	}
-
 	// Get file bytes
 	bytes := make([]byte, fs.Size())
 	_, rErr := f.ReadAt(bytes, 0)
@@ -590,7 +551,6 @@ func Restore(name string) (*AuthTable, int) {
 		f.Close()
 		return nil, helpers.ErrorFileRead
 	}
-
 	// Make confStruct from json bytes
 	var confStruct authtableConfig
 	mErr := json.Unmarshal(bytes, &confStruct)
@@ -598,58 +558,44 @@ func Restore(name string) (*AuthTable, int) {
 		f.Close()
 		return nil, helpers.ErrorJsonDecoding
 	}
-
 	// Make schema with the schemaList
 	s, schemaErr := schema.Restore(confStruct.Schema)
 	if schemaErr != 0 {
 		f.Close()
 		return nil, schemaErr
 	}
-
 	at, tErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
 	if tErr != 0 {
 		f.Close()
 		return nil, tErr
 	}
-
 	at.eMux.Lock()
 	at.uMux.Lock()
-
 	// Set optional settings if different from defaults
 	if confStruct.EncryptCost != helpers.DefaultEncryptCost {
 		at.encryptCost.Store(confStruct.EncryptCost)
 	}
-
 	if confStruct.MaxEntries != helpers.DefaultMaxEntries {
 		at.maxEntries.Store(confStruct.MaxEntries)
 	}
-
 	if confStruct.PartitionMax != helpers.DefaultPartitionMax {
 		at.partitionMax.Store(confStruct.PartitionMax)
 	}
-
 	if confStruct.MinPass != defaultMinPassword {
 		at.minPassword.Store(confStruct.MinPass)
 	}
-
 	if confStruct.PassResetLen != defaultPassResetLen {
 		at.passResetLen.Store(confStruct.PassResetLen)
 	}
-
 	if confStruct.EmailItem != "" {
 		at.emailItem.Store(confStruct.EmailItem)
 	}
-
 	if confStruct.EmailSettings.AuthType != "" {
 		at.emailSettings.Store(confStruct.EmailSettings)
 	}
-
 	if confStruct.AltLogin != "" {
 		at.altLoginItem.Store(confStruct.AltLogin)
 	}
-
-	// Load data/indexing into memory...
-
 	// Open data folder
 	df, err := os.Open(namePre)
 	if err != nil {
@@ -708,7 +654,7 @@ func Restore(name string) (*AuthTable, int) {
 	}
 	at.uMux.Unlock()
 	at.eMux.Unlock()
-
+	//
 	return at, 0
 }
 
@@ -716,14 +662,10 @@ func restoreDataLine(line []byte) (string, string, []interface{}) {
 	var jEntry jsonEntry
 	mErr := json.Unmarshal(line, &jEntry)
 	if mErr != nil {
-		fmt.Printf("Unmarshaling data E3: %v\n", string(line))
 		return "", "", nil
 	}
-
 	if jEntry.D == nil || jEntry.N == "" || len(jEntry.P) == 0 {
-		fmt.Printf("Unmarshaling data E2: %v\n", string(line))
 		return "", "", nil
 	}
-
 	return jEntry.N, jEntry.P, jEntry.D
 }

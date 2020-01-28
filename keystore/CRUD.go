@@ -39,12 +39,12 @@ func makeJsonBytes(key string, data []interface{}, jBytes *[]byte) int {
 //
 
 // Insert creates a new keystoreEntry in the Keystore, as long as one doesnt already exist
-func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*keystoreEntry, int) {
+func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*keystoreEntry, helpers.Error) {
 	// Key is required
 	if len(key) == 0 {
-		return nil, helpers.ErrorKeyRequired
+		return nil, helpers.NewError(helpers.ErrorKeyRequired, "")
 	} else if strings.ContainsAny(key, ".*\t\n\r") {
-		return nil, helpers.ErrorInvalidKeyCharacters
+		return nil, helpers.NewError(helpers.ErrorInvalidKeyCharacters, "")
 	}
 
 	// Create entry
@@ -59,7 +59,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 		// Item filter
 		err := schema.ItemFilter(insertObj[itemName], nil, &e.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, k.EncryptCost(), false, false)
 		if err != 0 {
-			return nil, err
+			return nil, helpers.NewError(err, itemName)
 		}
 	}
 
@@ -67,7 +67,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	var jBytes []byte
 	if !k.memOnly {
 		if jErr := makeJsonBytes(key, e.data, &jBytes); jErr != 0 {
-			return nil, jErr
+			return nil, helpers.NewError(jErr, "")
 		}
 	}
 
@@ -76,10 +76,10 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	k.eMux.Lock()
 	if k.entries[key] != nil {
 		k.eMux.Unlock()
-		return nil, helpers.ErrorKeyInUse
+		return nil, helpers.NewError(helpers.ErrorKeyInUse, "")
 	} else if maxEntries > 0 && len(k.entries) >= int(maxEntries) {
 		// Table is full
-		return nil, helpers.ErrorTableFull
+		return nil, helpers.NewError(helpers.ErrorTableFull, "")
 	}
 	k.uMux.Lock()
 	// Check unique values
@@ -87,7 +87,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
 			k.uMux.Unlock()
 			k.eMux.Unlock()
-			return nil, helpers.ErrorUniqueValueDuplicate
+			return nil, helpers.NewError(helpers.ErrorUniqueValueDuplicate, itemName)
 		} /* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
@@ -100,7 +100,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 		if aErr != 0 {
 			k.uMux.Unlock()
 			k.eMux.Unlock()
-			return nil, aErr
+			return nil, helpers.NewError(aErr, "")
 		}
 	}
 
@@ -141,7 +141,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	k.entries[key] = &e
 	k.eMux.Unlock()
 
-	return &e, 0
+	return &e, helpers.Error{}
 }
 
 // Example JSON for get query:
@@ -150,21 +150,20 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 //
 
 // Get
-func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]interface{}, int) {
+func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]interface{}, helpers.Error) {
 	// Get entry
 	e, err := k.Get(key)
 	if err != 0 {
-		return nil, err
+		return nil, helpers.NewError(err, "")
 	}
 
 	var data []interface{}
 
 	// Get entry data
 	if k.dataOnDrive {
-		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
-		if dErr != 0 {
-			return nil, dErr
+		data, err = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
+		if err != 0 {
+			return nil, helpers.NewError(err, "")
 		}
 	} else {
 		e.mux.Lock()
@@ -179,13 +178,13 @@ func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]
 			//
 			si := (k.schema)[siName]
 			if !si.QuickValidate() {
-				return nil, helpers.ErrorInvalidItem
+				return nil, helpers.NewError(helpers.ErrorInvalidItem, "")
 			}
 			// Item filter
 			var i interface{}
 			err = schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, k.EncryptCost(), true, false)
 			if err != 0 {
-				return nil, err
+				return nil, helpers.NewError(err, itemName)
 			}
 			items[itemName] = i
 		}
@@ -196,12 +195,12 @@ func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]
 			var i interface{}
 			err = schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, k.EncryptCost(), true, false)
 			if err != 0 {
-				return nil, err
+				return nil, helpers.NewError(err, itemName)
 			}
 			items[itemName] = i
 		}
 	}
-	return items, 0
+	return items, helpers.Error{}
 }
 
 func (k *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int) {
@@ -255,24 +254,23 @@ func (k *Keystore) dataFromDrive(file string, index uint16) ([]interface{}, int)
 //
 
 // Update
-func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
+func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) helpers.Error {
 	if updateObj == nil || len(updateObj) == 0 {
-		return helpers.ErrorQueryInvalidFormat
+		return helpers.NewError(helpers.ErrorQueryInvalidFormat, "")
 	}
 
 	e, err := k.Get(key)
 	if err != 0 {
-		return err
+		return helpers.NewError(err, "")
 	}
 
 	var data []interface{}
 
 	// Get entry data
 	if k.dataOnDrive {
-		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
-		if dErr != 0 {
-			return dErr
+		data, err = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex)
+		if err != 0 {
+			return helpers.NewError(err, "")
 		}
 		e.mux.Lock()
 	} else {
@@ -285,26 +283,27 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	// Iterate through updateObj
 	for updateName, updateItem := range updateObj {
 		var itemMethods []string
-		updateName, itemMethods = schema.GetQueryItemMethods(updateName)
+		var uName string
+		uName, itemMethods = schema.GetQueryItemMethods(updateName)
 
 		// Check if valid schema item
-		schemaItem := k.schema[updateName]
+		schemaItem := k.schema[uName]
 		if !schemaItem.QuickValidate() {
 			e.mux.Unlock()
-			return helpers.ErrorSchemaInvalid
+			return helpers.NewError(helpers.ErrorSchemaInvalid, uName)
 		}
 
 		itemBefore := data[schemaItem.DataIndex()]
 
 		// Item filter
-		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, k.EncryptCost(), false, false)
+		err = schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, k.EncryptCost(), false, false)
 		if err != 0 {
 			e.mux.Unlock()
-			return err
+			return helpers.NewError(err, updateName)
 		}
 		// Check for changed unique value to remove old value from table's uniqueVals
-		if uniqueVals[updateName] != nil && data[schemaItem.DataIndex()] != itemBefore {
-			uniqueValsBefore[updateName] = itemBefore
+		if uniqueVals[uName] != nil && data[schemaItem.DataIndex()] != itemBefore {
+			uniqueValsBefore[uName] = itemBefore
 		}
 	}
 
@@ -312,7 +311,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	var jBytes []byte
 	if !k.memOnly {
 		if jErr := makeJsonBytes(key, data, &jBytes); jErr != 0 {
-			return jErr
+			return helpers.NewError(jErr, "")
 		}
 	}
 	k.uMux.Lock()
@@ -322,18 +321,18 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 		if k.uniqueVals[itemName] != nil && k.uniqueVals[itemName][itemVal] {
 			k.uMux.Unlock()
 			e.mux.Unlock()
-			return helpers.ErrorUniqueValueDuplicate
+			return helpers.NewError(helpers.ErrorUniqueValueDuplicate, itemName)
 		}
 		// DISTRIBUTED UNIQUE CHECKS HERE !!!
 	}
 
 	// Update entry on disk with jBytes
 	if !k.memOnly {
-		uErr := storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex, jBytes)
-		if uErr != 0 {
+		err = storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(e.persistFile))+helpers.FileTypeStorage, e.persistIndex, jBytes)
+		if err != 0 {
 			k.uMux.Unlock()
 			e.mux.Unlock()
-			return uErr
+			return helpers.NewError(err, "")
 		}
 	}
 
@@ -357,14 +356,14 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) int {
 	}
 	e.mux.Unlock()
 
-	return 0
+	return helpers.Error{}
 }
 
 // UpsertKey
-func (k *Keystore) UpsertKey(key string, upsertObj map[string]interface{}) (*keystoreEntry, int) {
+func (k *Keystore) UpsertKey(key string, upsertObj map[string]interface{}) (*keystoreEntry, helpers.Error) {
 	// Key is required
 	if len(key) == 0 {
-		return nil, helpers.ErrorKeyRequired
+		return nil, helpers.NewError(helpers.ErrorKeyRequired, "")
 	}
 
 	ke, err := k.Get(key)
@@ -376,20 +375,19 @@ func (k *Keystore) UpsertKey(key string, upsertObj map[string]interface{}) (*key
 }
 
 // Delete
-func (k *Keystore) DeleteKey(key string) int {
+func (k *Keystore) DeleteKey(key string) helpers.Error {
 	ue, err := k.Get(key)
 	if err != 0 {
-		return err
+		return helpers.NewError(err, "")
 	}
 
 	var data []interface{}
 
 	// Get entry data
 	if k.dataOnDrive {
-		var dErr int
-		data, dErr = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex)
-		if dErr != 0 {
-			return dErr
+		data, err = k.dataFromDrive(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex)
+		if err != 0 {
+			return helpers.NewError(err, "")
 		}
 		ue.mux.Lock()
 	} else {
@@ -408,7 +406,7 @@ func (k *Keystore) DeleteKey(key string) int {
 		if !si.QuickValidate() {
 			ue.mux.Unlock()
 			k.uMux.Unlock()
-			return helpers.ErrorUnexpected
+			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		// Make get filter
 		var i interface{}
@@ -416,7 +414,7 @@ func (k *Keystore) DeleteKey(key string) int {
 		if err != 0 {
 			ue.mux.Unlock()
 			k.uMux.Unlock()
-			return helpers.ErrorUnexpected
+			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		delete(k.uniqueVals[itemName], i)
 	}
@@ -425,9 +423,9 @@ func (k *Keystore) DeleteKey(key string) int {
 
 	// Update entry on disk with []byte{}
 	if !k.memOnly {
-		uErr := storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex, []byte{})
-		if uErr != 0 {
-			return uErr
+		err = storage.Update(dataFolderPrefix+k.name+"/"+strconv.Itoa(int(ue.persistFile))+helpers.FileTypeStorage, ue.persistIndex, []byte{})
+		if err != 0 {
+			return helpers.NewError(err, "")
 		}
 	}
 
@@ -437,7 +435,7 @@ func (k *Keystore) DeleteKey(key string) int {
 	k.eMux.Unlock()
 
 	//
-	return 0
+	return helpers.Error{}
 }
 
 // Restores a key from a config file - NOT concurrently safe on it's own! Must lock Keystore before-hand.

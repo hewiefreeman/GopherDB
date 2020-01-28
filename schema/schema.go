@@ -20,6 +20,7 @@ import (
 	"github.com/hewiefreeman/GopherDB/helpers"
 	"reflect"
 	"strings"
+	"strconv"
 )
 
 // Schema represents a database schema that one or more tables must adhere to.
@@ -114,7 +115,7 @@ type SchemaConfigItem struct {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new schema from a JSON schema object, or recovered Schema from a config file.
-func New(schema interface{}, restore bool) (Schema, int) {
+func New(schema interface{}, restore bool) (Schema, helpers.Error) {
 	s := make(Schema)
 	var i uint32
 	if !restore {
@@ -123,12 +124,12 @@ func New(schema interface{}, restore bool) (Schema, int) {
 			for itemName, itemParams := range schemaInput {
 				// Names cannot have "." or "*"
 				if len(itemName) == 0 || strings.ContainsAny(itemName, ".*\n\t\r") {
-					return nil, helpers.ErrorSchemaInvalidItemName
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemName, itemName)
 				}
 				// Check item format
 				if params, ok := itemParams.([]interface{}); ok {
 					schemaItem, iErr := makeSchemaItem(itemName, params, restore)
-					if iErr != 0 {
+					if iErr.ID != 0 {
 						return nil, iErr
 					}
 					schemaItem.dataIndex = i
@@ -136,43 +137,43 @@ func New(schema interface{}, restore bool) (Schema, int) {
 					s[itemName] = schemaItem
 					i++
 				} else {
-					return nil, helpers.ErrorSchemaInvalidFormat
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidFormat, itemName)
 				}
 			}
 		} else {
-			return nil, helpers.ErrorSchemaInvalidFormat
+			return nil, helpers.NewError(helpers.ErrorSchemaInvalidFormat, "")
 		}
 	} else if schemaInput, ok := schema.([]interface{}); ok {
 		// use []interface{} like []schemaConfigItem
 		posTrack := make([]bool, len(schemaInput))
-		for _, v := range schemaInput {
+		for i, v := range schemaInput {
 			if si, ok := v.(map[string]interface{}); ok {
 				var siName string
 				var ok bool
 				// Get Name and check format
 				if siName, ok = si["Name"].(string); !ok {
-					return nil, helpers.ErrorSchemaInvalidItemParameters
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemParameters, "Index " + strconv.Itoa(i) + ": 'Name' required")
 				}
 				if len(siName) == 0 || strings.ContainsAny(siName, ".*\n\t\r") {
-					return nil, helpers.ErrorSchemaInvalidItemName
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemName, siName)
 				}
 				// Get Position and verify integrity
 				var siPos uint32
 				if siPos, ok = makeUint32(si["Position"]); !ok {
-					return nil, helpers.ErrorSchemaInvalidItemParameters
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemParameters, siName + ": 'Position' required")
 				}
 				if int(siPos) >= len(posTrack) || siPos < 0 || posTrack[int(siPos)] {
-					return nil, helpers.ErrorSchemaInvalidItemPosition
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemPosition, siName + ": 'Position' invalid")
 				}
 				// Get DataType
 				var siDataType []interface{}
 				if siDataType, ok = si["DataType"].([]interface{}); !ok {
-					return nil, helpers.ErrorSchemaInvalidItemParameters
+					return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemParameters, siName + ": 'DataType' required")
 				}
 				// Make SchemaItem from data
-				var err int
+				var err helpers.Error
 				var schemaItem SchemaItem
-				if schemaItem, err = makeSchemaItem(siName, siDataType, restore); err != 0 {
+				if schemaItem, err = makeSchemaItem(siName, siDataType, restore); err.ID != 0 {
 					return nil, err
 				}
 				schemaItem.dataIndex = siPos
@@ -180,26 +181,26 @@ func New(schema interface{}, restore bool) (Schema, int) {
 				s[siName] = schemaItem
 				posTrack[int(siPos)] = true
 			} else {
-				return nil, helpers.ErrorSchemaInvalidFormat
+				return nil, helpers.NewError(helpers.ErrorSchemaInvalidFormat, "Index " + strconv.Itoa(i))
 			}
 		}
 	} else {
-		return nil, helpers.ErrorSchemaInvalidFormat
+		return nil, helpers.NewError(helpers.ErrorSchemaInvalidFormat, "")
 	}
 	//
-	return s, 0
+	return s, helpers.Error{}
 }
 
-func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem, int) {
+func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem, helpers.Error) {
 	if len(params) <= 1 {
 		// Invalid format - requires at least a length of 2 for any item data type
-		return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
+		return SchemaItem{}, helpers.NewError(helpers.ErrorSchemaInvalidItemParameters, name)
 	}
 
 	// Get data type
 	if t, ok := params[0].(string); ok {
 		if !checkTypeFormat(t)(params[1:]) {
-			return SchemaItem{}, helpers.ErrorSchemaInvalidItemParameters
+			return SchemaItem{}, helpers.NewError(helpers.ErrorSchemaInvalidItemParameters, name)
 		}
 		// Execute create for the type
 		si := SchemaItem{name: name, typeName: t, rawParams: params}
@@ -207,90 +208,91 @@ func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem
 		case ItemTypeBool:
 			si.iType = BoolItem{defaultValue: params[1].(bool)}
 
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeInt8:
 			si.iType = Int8Item{defaultValue: int8(params[1].(float64)), min: int8(params[2].(float64)), max: int8(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeInt16:
 			si.iType = Int16Item{defaultValue: int16(params[1].(float64)), min: int16(params[2].(float64)), max: int16(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeInt32:
 			si.iType = Int32Item{defaultValue: int32(params[1].(float64)), min: int32(params[2].(float64)), max: int32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeInt64:
 			si.iType = Int64Item{defaultValue: int64(params[1].(float64)), min: int64(params[2].(float64)), max: int64(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeUint8:
 			si.iType = Uint8Item{defaultValue: uint8(params[1].(float64)), min: uint8(params[2].(float64)), max: uint8(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeUint16:
 			si.iType = Uint16Item{defaultValue: uint16(params[1].(float64)), min: uint16(params[2].(float64)), max: uint16(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeUint32:
 			si.iType = Uint32Item{defaultValue: uint32(params[1].(float64)), min: uint32(params[2].(float64)), max: uint32(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeUint64:
 			si.iType = Uint64Item{defaultValue: uint64(params[1].(float64)), min: uint64(params[2].(float64)), max: uint64(params[3].(float64)), required: params[4].(bool), unique: params[5].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeFloat32:
 			si.iType = Float32Item{defaultValue: float32(params[1].(float64)), min: float32(params[2].(float64)), max: float32(params[3].(float64)), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeFloat64:
 			si.iType = Float64Item{defaultValue: params[1].(float64), min: params[2].(float64), max: params[3].(float64), abs: params[4].(bool), required: params[5].(bool), unique: params[6].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeString:
 			si.iType = StringItem{defaultValue: params[1].(string), maxChars: uint32(params[2].(float64)), encrypted: params[3].(bool), required: params[4].(bool), unique: params[5].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeArray:
 			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}), restore)
-			if iErr != 0 {
+			if iErr.ID != 0 {
 				return SchemaItem{}, iErr
 			}
 			si.iType = ArrayItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeMap:
 			schemaItem, iErr := makeSchemaItem(name, params[1].([]interface{}), restore)
-			if iErr != 0 {
+			if iErr.ID != 0 {
 				return SchemaItem{}, iErr
 			}
 			si.iType = MapItem{dataType: schemaItem, maxItems: uint32(params[2].(float64))}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeObject:
 			// Creating new schema from query...
 			schema, schemaErr := New(params[1], restore)
-			if schemaErr != 0 {
+			if schemaErr.ID != 0 {
+				schemaErr.From = name + "." + schemaErr.From
 				return SchemaItem{}, schemaErr
 			}
 			si.iType = ObjectItem{schema: schema}
-			return si, 0
+			return si, helpers.Error{}
 
 		case ItemTypeTime:
 			var format string = timeFormatInitializor[params[1].(string)]
 			if format == "" {
-				return SchemaItem{}, helpers.ErrorSchemaInvalidTimeFormat
+				return SchemaItem{}, helpers.NewError(helpers.ErrorSchemaInvalidTimeFormat, name)
 			}
 			si.iType = TimeItem{format: format, required: params[2].(bool)}
-			return si, 0
+			return si, helpers.Error{}
 
 		default:
-			return SchemaItem{}, helpers.ErrorUnexpected
+			return SchemaItem{}, helpers.NewError(helpers.ErrorUnexpected, name)
 		}
 	}
-	return SchemaItem{}, helpers.ErrorSchemaInvalidFormat
+	return SchemaItem{}, helpers.Error{}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -298,19 +300,19 @@ func makeSchemaItem(name string, params []interface{}, restore bool) (SchemaItem
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores a schema from a config file with it's Schema array
-func Restore(schema []SchemaConfigItem) (Schema, int) {
+func Restore(schema []SchemaConfigItem) (Schema, helpers.Error) {
 	s := make(Schema)
-	var iErr int
+	var iErr helpers.Error
 	var schemaItem SchemaItem
 	posTrack := make([]bool, len(schema))
-	for _, schemaConfItem := range schema {
+	for i, schemaConfItem := range schema {
 		if int(schemaConfItem.Position) >= len(posTrack) || schemaConfItem.Position < 0 || posTrack[int(schemaConfItem.Position)] {
-			return nil, helpers.ErrorSchemaInvalidItemPosition
+			return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemPosition, "Index " + strconv.Itoa(i))
 		} else if len(schemaConfItem.Name) == 0 || strings.ContainsAny(schemaConfItem.Name, ".*\t\n\r") {
-			return nil, helpers.ErrorSchemaInvalidItemName
+			return nil, helpers.NewError(helpers.ErrorSchemaInvalidItemName, "Index " + strconv.Itoa(i))
 		}
 		schemaItem, iErr = makeSchemaItem(schemaConfItem.Name, schemaConfItem.DataType, true)
-		if iErr != 0 {
+		if iErr.ID != 0 {
 			return nil, iErr
 		}
 		schemaItem.dataIndex = schemaConfItem.Position
@@ -318,7 +320,7 @@ func Restore(schema []SchemaConfigItem) (Schema, int) {
 		s[schemaConfItem.Name] = schemaItem
 		posTrack[int(schemaConfItem.Position)] = true
 	}
-	return s, 0
+	return s, helpers.Error{}
 }
 
 // MakeConfig makes a Schema for a config file

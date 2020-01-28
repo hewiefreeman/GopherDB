@@ -97,13 +97,13 @@ type keystoreConfig struct {
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // New creates a new Keystore with the provided name, schema, and other parameters.
-func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataOnDrive bool, memOnly bool) (*Keystore, int) {
+func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataOnDrive bool, memOnly bool) (*Keystore, helpers.Error) {
 	if len(name) == 0 {
-		return nil, helpers.ErrorTableNameRequired
+		return nil, helpers.NewError(helpers.ErrorTableNameRequired, name)
 	} else if Get(name) != nil {
-		return nil, helpers.ErrorTableExists
+		return nil, helpers.NewError(helpers.ErrorTableExists, name)
 	} else if !s.Validate() {
-		return nil, helpers.ErrorSchemaInvalid
+		return nil, helpers.NewError(helpers.ErrorSchemaInvalid, name)
 	}
 
 	// memOnly overrides dataOnDrive
@@ -116,17 +116,18 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 
 	// Restoring if configFile is not nil
 	if configFile == nil {
+		var err error
 		// Make table storage folder
-		mkErr := storage.MakeDir(namePre)
-		if mkErr != nil {
-			return nil, helpers.ErrorCreatingFolder
+		err = storage.MakeDir(namePre)
+		if err != nil {
+			return nil, helpers.NewError(helpers.ErrorCreatingFolder, namePre + helpers.FileTypeConfig + ": " + err.Error())
 		}
 
 		// Create/open config file
-		var err error
+
 		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR | os.O_CREATE, 0755)
 		if err != nil {
-			return nil, helpers.ErrorFileOpen
+			return nil, helpers.NewError(helpers.ErrorFileOpen, namePre + helpers.FileTypeConfig + ": " + err.Error())
 		}
 
 		// Write config file
@@ -140,7 +141,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 			EncryptCost:  helpers.DefaultEncryptCost,
 			MaxEntries:   helpers.DefaultMaxEntries,
 		}); wErr != 0 {
-			return nil, wErr
+			return nil, helpers.NewError(wErr, namePre + helpers.FileTypeConfig)
 		}
 	}
 
@@ -166,7 +167,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 	stores[name] = &t
 	storesMux.Unlock()
 
-	return &t, 0
+	return &t, helpers.Error{}
 }
 
 // Get retrieves a Keystore by name
@@ -355,43 +356,45 @@ func writeConfigFile(f *os.File, k keystoreConfig) int {
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores a Keystore by name; requires a valid config file and data folder.
-func Restore(name string) (*Keystore, int) {
+func Restore(name string) (*Keystore, helpers.Error) {
 	fmt.Printf("Restoring Keystore '%v'...\n", name)
 	namePre := dataFolderPrefix + name
 	// Open the File
 	f, err := os.OpenFile(namePre+helpers.FileTypeConfig, os.O_RDWR, 0755)
 	if err != nil {
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Config file missing for Keystore '" + name + "'")
 	}
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
 		f.Close()
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Error reading config file for Keystore '"+name+"'")
 	}
 	// Get file bytes
 	bytes := make([]byte, fs.Size())
 	_, rErr := f.ReadAt(bytes, 0)
 	if rErr != nil && rErr != io.EOF {
 		f.Close()
-		return nil, helpers.ErrorFileRead
+		return nil, helpers.NewError(helpers.ErrorFileRead, "Config data is corrupt for Keystore '" + name + "'")
 	}
 	// Make confStruct from json bytes
 	var confStruct keystoreConfig
 	mErr := json.Unmarshal(bytes, &confStruct)
 	if mErr != nil {
 		f.Close()
-		return nil, helpers.ErrorJsonDecoding
+		return nil, helpers.NewError(helpers.ErrorJsonDecoding,
+			"Config contains JSON syntax errors for Keystore '" + name + "': " + mErr.Error())
 	}
 	// Make schema with the schemaList
 	s, schemaErr := schema.Restore(confStruct.Schema)
-	if schemaErr != 0 {
+	if schemaErr.ID != 0 {
 		f.Close()
+		schemaErr.From = "(Keystore '" + name + "') " + schemaErr.From
 		return nil, schemaErr
 	}
 	// Make Keystore table
 	ks, ksErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
-	if ksErr != 0 {
+	if ksErr.ID != 0 {
 		f.Close()
 		return nil, ksErr
 	}
@@ -414,7 +417,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.uMux.Unlock()
 		df.Close()
 		ks.Close(false)
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Missing data folder for Keystore '" + name + "'")
 	}
 	// Get file names
 	files, err := df.Readdir(-1)
@@ -423,7 +426,7 @@ func Restore(name string) (*Keystore, int) {
 		ks.eMux.Unlock()
 		ks.uMux.Unlock()
 		ks.Close(false)
-		return nil, helpers.ErrorFileRead
+		return nil, helpers.NewError(helpers.ErrorFileRead, "Error reading files in data folder for Keystore '" + name + "'")
 	}
 	fmt.Printf("Loading Keystore data for '%v'...\n", name)
 	// Make progress bar
@@ -441,24 +444,25 @@ func Restore(name string) (*Keystore, int) {
 		var of *storage.OpenFile
 		var err int
 		if of, err = storage.GetOpenFile(namePre + "/" + fileStats.Name()); err != 0 {
-			pBar.Finish()
-			return nil, err
+			fmt.Printf("Error: Keystore '%v':: Could not read data file '%v'!\n", name, namePre + "/" + fileStats.Name())
+			pBar.Add(1)
+			continue
 		}
 		for i := 0; i < of.Lines(); i++ {
 			// Get line bytes
 			var lb []byte
 			if lb, err = of.Read(uint16(i+1)); err != 0 {
-				pBar.Finish()
-				return nil, err
+				fmt.Printf("Error: Keystore '%v':: Could not read line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				continue
 			}
 			eKey, eData := restoreDataLine(lb)
 			if eData == nil {
-				pBar.Finish()
-				return nil, helpers.ErrorJsonDataFormat
+				fmt.Printf("Error: Keystore '%v':: Incorrect JSON format on line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				continue
 			}
 			if err = ks.restoreKey(eKey, eData, uint32(fileNum), uint16(i+1)); err != 0 {
-				pBar.Finish()
-				return nil, err
+				fmt.Printf("Error: Keystore '%v':: Line %v of '%v' error code %v\n", name, i + 1, fileStats.Name(), err)
+				continue
 			}
 		}
 		pBar.Add(1)
@@ -466,7 +470,7 @@ func Restore(name string) (*Keystore, int) {
 	ks.uMux.Unlock()
 	ks.eMux.Unlock()
 	fmt.Printf("Successfully restored table '%v'!\n", name)
-	return ks, 0
+	return ks, helpers.Error{}
 }
 
 // Resore a line of data from

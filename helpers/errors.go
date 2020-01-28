@@ -1,8 +1,8 @@
 package helpers
 
 type Error struct {
-	ID  int
-	From string
+	ID   int    // Error ID number
+	From string // From whence it came, and general error messages
 }
 
 const (
@@ -94,3 +94,8 @@ const (
 	ErrorJsonIndexingFormat
 	ErrorInternalFormatting
 )
+
+// NewError creates a new Error message with given ID and From message
+func NewError(id int, from string) Error {
+	return Error{ID: id, From: from}
+}

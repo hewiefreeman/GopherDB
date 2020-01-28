@@ -285,7 +285,11 @@ func TestGet(t *testing.T) {
 	} else if data["friends.*last"].(map[string]interface{})["login"] != "Sir Smackem" {
 		t.Errorf("TestGet expected friend with login 'Sir Smackem', but got: %v\n", data["friends.*last"])
 	}
-	//
+	// Test incorrect password
+	data, err = table.GetUser("Harry Potter", "something", map[string]interface{}{"friends.*last": []interface{}{}})
+	if err != helpers.ErrorNoEntryFound {
+		t.Errorf("TestGet expected error %v but got: %v", helpers.ErrorNoEntryFound, err)
+	}
 }
 
 func TestGetArrayLength(t *testing.T) {
