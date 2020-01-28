@@ -44,7 +44,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	if len(key) == 0 {
 		return nil, helpers.NewError(helpers.ErrorKeyRequired, "")
 	} else if strings.ContainsAny(key, ".*\t\n\r") {
-		return nil, helpers.NewError(helpers.ErrorInvalidKeyCharacters, "")
+		return nil, helpers.NewError(helpers.ErrorInvalidKeyCharacters, key)
 	}
 
 	// Create entry
@@ -67,7 +67,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	var jBytes []byte
 	if !k.memOnly {
 		if jErr := makeJsonBytes(key, e.data, &jBytes); jErr != 0 {
-			return nil, helpers.NewError(jErr, "")
+			return nil, helpers.NewError(jErr, key)
 		}
 	}
 
@@ -76,7 +76,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 	k.eMux.Lock()
 	if k.entries[key] != nil {
 		k.eMux.Unlock()
-		return nil, helpers.NewError(helpers.ErrorKeyInUse, "")
+		return nil, helpers.NewError(helpers.ErrorKeyInUse, key)
 	} else if maxEntries > 0 && len(k.entries) >= int(maxEntries) {
 		// Table is full
 		return nil, helpers.NewError(helpers.ErrorTableFull, "")
@@ -100,7 +100,7 @@ func (k *Keystore) InsertKey(key string, insertObj map[string]interface{}) (*key
 		if aErr != 0 {
 			k.uMux.Unlock()
 			k.eMux.Unlock()
-			return nil, helpers.NewError(aErr, "")
+			return nil, helpers.NewError(aErr, key)
 		}
 	}
 
@@ -178,7 +178,7 @@ func (k *Keystore) GetKey(key string, items map[string]interface{}) (map[string]
 			//
 			si := (k.schema)[siName]
 			if !si.QuickValidate() {
-				return nil, helpers.NewError(helpers.ErrorInvalidItem, "")
+				return nil, helpers.NewError(helpers.ErrorInvalidItem, itemName)
 			}
 			// Item filter
 			var i interface{}
@@ -290,7 +290,7 @@ func (k *Keystore) UpdateKey(key string, updateObj map[string]interface{}) helpe
 		schemaItem := k.schema[uName]
 		if !schemaItem.QuickValidate() {
 			e.mux.Unlock()
-			return helpers.NewError(helpers.ErrorSchemaInvalid, uName)
+			return helpers.NewError(helpers.ErrorSchemaInvalid, updateName)
 		}
 
 		itemBefore := data[schemaItem.DataIndex()]

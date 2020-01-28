@@ -39,15 +39,15 @@ var (
 //
 
 // NewUser creates a new authTableEntry in the AuthTable
-func (t *AuthTable) NewUser(name string, password string, insertObj map[string]interface{}) (*authTableEntry, int) {
+func (t *AuthTable) NewUser(name string, password string, insertObj map[string]interface{}) (*authTableEntry, helpers.Error) {
 	minPass := t.minPassword.Load().(uint8)
 	// Name and password are required
 	if len(name) == 0 {
-		return nil, helpers.ErrorNameRequired
+		return nil, helpers.NewError(helpers.ErrorNameRequired, "")
 	} else if strings.ContainsAny(name, " \t\n\r"){
-		return nil, helpers.ErrorInvalidKeyCharacters
+		return nil, helpers.NewError(helpers.ErrorInvalidNameCharacters, name)
 	} else if len(password) < int(minPass) {
-		return nil, helpers.ErrorPasswordLength
+		return nil, helpers.NewError(helpers.ErrorPasswordLength, "")
 	}
 
 	// Create entry
@@ -66,13 +66,13 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		// Item filter
 		err := schema.ItemFilter(insertObj[itemName], nil, &ute.data[schemaItem.DataIndex()], nil, schemaItem, &uniqueVals, t.EncryptCost(), false, false)
 		if err != 0 {
-			return nil, err
+			return nil, helpers.NewError(err, itemName)
 		}
 
 		if itemName == altLoginItem {
 			altLogin = ute.data[schemaItem.DataIndex()].(string)
 		} else if itemName == emailItem && !emailExp.MatchString(ute.data[schemaItem.DataIndex()].(string)) {
-			return nil, helpers.ErrorInvalidEmail
+			return nil, helpers.NewError(helpers.ErrorInvalidEmail, ute.data[schemaItem.DataIndex()].(string))
 		}
 	}
 
@@ -80,7 +80,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	encryptCost := t.encryptCost.Load().(int)
 	ePass, ePassErr := helpers.EncryptString(password, encryptCost)
 	if ePassErr != nil {
-		return nil, helpers.ErrorPasswordEncryption
+		return nil, helpers.NewError(helpers.ErrorPasswordEncryption, name)
 	}
 	ute.password.Store(ePass)
 
@@ -88,7 +88,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	var jBytes []byte
 	if !t.memOnly {
 		if jErr := makeJsonBytes(name, ePass, ute.data, &jBytes); jErr != 0 {
-			return nil, jErr
+			return nil, helpers.NewError(jErr, name)
 		}
 	}
 
@@ -97,10 +97,10 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	t.eMux.Lock()
 	if t.entries[name] != nil {
 		t.eMux.Unlock()
-		return nil, helpers.ErrorNameInUse
+		return nil, helpers.NewError(helpers.ErrorNameInUse, name)
 	} else if maxEntries > 0 && len(t.entries) >= int(maxEntries) {
 		// Table is full
-		return nil, helpers.ErrorTableFull
+		return nil, helpers.NewError(helpers.ErrorTableFull, "")
 	}
 	t.uMux.Lock()
 	// Check unique values
@@ -108,7 +108,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
-			return nil, helpers.ErrorUniqueValueDuplicate
+			return nil, helpers.NewError(helpers.ErrorUniqueValueDuplicate, itemName)
 		}/* else {
 			// DISTRIBUTED CHECKS HERE !!!
 		}*/
@@ -121,7 +121,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		if aErr != 0 {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
-			return nil, aErr
+			return nil, helpers.NewError(aErr, name)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	t.entries[name] = &ute
 	t.eMux.Unlock()
 
-	return &ute, 0
+	return &ute, helpers.Error{}
 }
 
 // Example JSON for get query:
@@ -169,10 +169,10 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 //
 
 // GetUserData
-func (t *AuthTable) GetUser(userName string, password string, items map[string]interface{}) (map[string]interface{}, int) {
+func (t *AuthTable) GetUser(userName string, password string, items map[string]interface{}) (map[string]interface{}, helpers.Error) {
 	e, err := t.Get(userName, password)
 	if err != 0 {
-		return nil, err
+		return nil, helpers.NewError(err, userName)
 	}
 
 	var data []interface{}
@@ -182,7 +182,7 @@ func (t *AuthTable) GetUser(userName string, password string, items map[string]i
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
-			return nil, dErr
+			return nil, helpers.NewError(dErr, userName)
 		}
 	} else {
 		e.mux.Lock()
@@ -197,13 +197,13 @@ func (t *AuthTable) GetUser(userName string, password string, items map[string]i
 			//
 			si := t.schema[siName]
 			if !si.QuickValidate() {
-				return nil, helpers.ErrorInvalidItem
+				return nil, helpers.NewError(helpers.ErrorInvalidItem, itemName)
 			}
 			// Item filter
 			var i interface{}
 			err := schema.ItemFilter(methodParams, itemMethods, &i, data[si.DataIndex()], si, nil, t.EncryptCost(), true, false)
 			if err != 0 {
-				return nil, err
+				return nil, helpers.NewError(err, itemName)
 			}
 			items[itemName] = i
 		}
@@ -214,12 +214,12 @@ func (t *AuthTable) GetUser(userName string, password string, items map[string]i
 			var i interface{}
 			err := schema.ItemFilter(nil, nil, &i, data[si.DataIndex()], si, nil, t.EncryptCost(), true, false)
 			if err != 0 {
-				return nil, err
+				return nil, helpers.NewError(err, itemName)
 			}
 			items[itemName] = i
 		}
 	}
-	return items, 0
+	return items, helpers.Error{}
 }
 
 func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int) {
@@ -273,14 +273,14 @@ func (t *AuthTable) dataFromDrive(file string, index uint16) ([]interface{}, int
 //
 
 // UpdateUserData
-func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[string]interface{}) int {
+func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[string]interface{}) helpers.Error {
 	if updateObj == nil || len(updateObj) == 0 {
-		return helpers.ErrorQueryInvalidFormat
+		return helpers.NewError(helpers.ErrorQueryInvalidFormat, userName)
 	}
 
 	e, err := t.Get(userName, password)
 	if err != 0 {
-		return err
+		return helpers.NewError(err, userName)
 	}
 
 	var data []interface{}
@@ -290,7 +290,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
-			return dErr
+			return helpers.NewError(dErr, userName)
 		}
 		e.mux.Lock()
 	} else {
@@ -312,18 +312,18 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		schemaItem := t.schema[updateName]
 		if !schemaItem.QuickValidate() {
 			e.mux.Unlock()
-			return helpers.ErrorSchemaInvalid
+			return helpers.NewError(helpers.ErrorSchemaInvalid, updateName)
 		}
 		// Check for email format if email item
 		if updateName == emailItem && !emailExp.MatchString(data[schemaItem.DataIndex()].(string)) {
-			return helpers.ErrorInvalidEmail
+			return helpers.NewError(helpers.ErrorInvalidEmail, data[schemaItem.DataIndex()].(string))
 		}
 		itemBefore := data[schemaItem.DataIndex()]
 		// Item filter
 		err := schema.ItemFilter(updateItem, itemMethods, &data[schemaItem.DataIndex()], itemBefore, schemaItem, &uniqueVals, t.EncryptCost(), false, false)
 		if err != 0 {
 			e.mux.Unlock()
-			return err
+			return helpers.NewError(err, updateName)
 		}
 		// Check for changed unique value to remove old value from table's uniqueVals
 		if uniqueVals[updateName] != nil && data[schemaItem.DataIndex()] != itemBefore {
@@ -335,7 +335,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 	var jBytes []byte
 	if !t.memOnly {
 		if jErr := makeJsonBytes(userName, e.password.Load().([]byte), data, &jBytes); jErr != 0 {
-			return jErr
+			return helpers.NewError(jErr, userName)
 		}
 	}
 	t.uMux.Lock()
@@ -345,7 +345,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		if t.uniqueVals[itemName] != nil && t.uniqueVals[itemName][itemVal] {
 			t.uMux.Unlock()
 			e.mux.Unlock()
-			return helpers.ErrorUniqueValueDuplicate
+			return helpers.NewError(helpers.ErrorUniqueValueDuplicate, itemName)
 		}
 
 		// DISTRIBUTED UNIQUE CHECKS HERE !!!
@@ -357,7 +357,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		if uErr != 0 {
 			t.uMux.Unlock()
 			e.mux.Unlock()
-			return uErr
+			return helpers.NewError(uErr, userName)
 		}
 	}
 
@@ -387,24 +387,24 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 	}
 	e.mux.Unlock()
 
-	return 0
+	return helpers.Error{}
 }
 
 // ChangePassword
-func (t *AuthTable) ChangeUserPassword(userName string, password string, newPassword string) int {
+func (t *AuthTable) ChangeUserPassword(userName string, password string, newPassword string) helpers.Error {
 	if len(newPassword) < int(t.minPassword.Load().(uint8)) {
-		return helpers.ErrorPasswordLength
+		return helpers.NewError(helpers.ErrorPasswordLength, userName)
 	}
 
 	ue, err := t.Get(userName, password)
 	if err != 0 {
-		return err
+		return helpers.NewError(err, userName)
 	}
 
 	// Encrypt new password
 	ePass, eErr := helpers.EncryptString(newPassword, t.encryptCost.Load().(int))
 	if eErr != nil {
-		return helpers.ErrorPasswordEncryption
+		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
 	}
 
 	var data []interface{}
@@ -414,7 +414,7 @@ func (t *AuthTable) ChangeUserPassword(userName string, password string, newPass
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
-			return dErr
+			return helpers.NewError(dErr, userName)
 		}
 	} else {
 		ue.mux.Lock()
@@ -426,36 +426,36 @@ func (t *AuthTable) ChangeUserPassword(userName string, password string, newPass
 		// Make JSON []byte for entry
 		var jBytes []byte
 		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
-			return jErr
+			return helpers.NewError(jErr, userName)
 		}
 
 		// Update entry on disk with jBytes
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
-			return uErr
+			return helpers.NewError(uErr, userName)
 		}
 	}
 
 	ue.password.Store(ePass)
 
 	//
-	return 0
+	return helpers.Error{}
 }
 
 // ResetPassword
-func (t *AuthTable) ResetUserPassword(userName string) int {
+func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 	// Name and password are required
 	if len(userName) == 0 {
-		return helpers.ErrorNameRequired
+		return helpers.NewError(helpers.ErrorNameRequired, "")
 	} else if t.emailItem.Load().(string) == "" {
 		// Database shouldn't change password without sending an email to the user
-		return helpers.ErrorNoEmailItem
+		return helpers.NewError(helpers.ErrorNoEmailItem, "")
 	}
 
 	// Generate new password
 	newPass, pErr := helpers.GenerateRandomBytes(int(t.passResetLen.Load().(uint8)))
 	if pErr != nil {
-		return helpers.ErrorPasswordEncryption
+		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
 	}
 
 	// Send newPass to emailItem, do not proceed unless the email was a success !!!
@@ -472,7 +472,7 @@ func (t *AuthTable) ResetUserPassword(userName string) int {
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
-			return dErr
+			return helpers.NewError(dErr, userName)
 		}
 	} else {
 		ue.mux.Lock()
@@ -486,12 +486,12 @@ func (t *AuthTable) ResetUserPassword(userName string) int {
 
 	//
 	if ue == nil {
-		return helpers.ErrorNoEntryFound
+		return helpers.NewError(helpers.ErrorNoEntryFound, userName)
 	}
 	// Change password
 	ePass, eErr := helpers.EncryptString(string(newPass), t.encryptCost.Load().(int))
 	if eErr != nil {
-		return helpers.ErrorPasswordEncryption
+		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
 	}
 
 	// Delete auto-login hashes !!!
@@ -500,27 +500,27 @@ func (t *AuthTable) ResetUserPassword(userName string) int {
 		// Make JSON []byte for entry
 		var jBytes []byte
 		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
-			return jErr
+			return helpers.NewError(jErr, userName)
 		}
 
 		// Update entry on disk with jBytes
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
-			return uErr
+			return helpers.NewError(uErr, userName)
 		}
 	}
 
 	ue.password.Store(ePass)
 
 	//
-	return 0
+	return helpers.Error{}
 }
 
 // DeleteUser
-func (t *AuthTable) DeleteUser(userName string, password string) int {
+func (t *AuthTable) DeleteUser(userName string, password string) helpers.Error {
 	ue, err := t.Get(userName, password)
 	if err != 0 {
-		return err
+		return helpers.NewError(err, userName)
 	}
 
 	var data []interface{}
@@ -530,7 +530,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
-			return dErr
+			return helpers.NewError(dErr, userName)
 		}
 		ue.mux.Lock()
 	} else {
@@ -550,7 +550,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		if !si.QuickValidate() {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
-			return helpers.ErrorUnexpected
+			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		// Make get filter
 		var i interface{}
@@ -558,7 +558,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 		if err != 0 {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
-			return helpers.ErrorUnexpected
+			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		if itemName == altLoginItem {
 			t.eMux.Lock()
@@ -579,12 +579,12 @@ func (t *AuthTable) DeleteUser(userName string, password string) int {
 	if !t.memOnly {
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
-			return uErr
+			return helpers.NewError(uErr, userName)
 		}
 	}
 
 	//
-	return 0
+	return helpers.Error{}
 }
 
 // RestoreUser is NOT concurrently safe! Use authtable.Restore() instead.

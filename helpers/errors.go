@@ -64,6 +64,7 @@ const (
 	// Auth Table Query Errors
 	ErrorNameRequired = 4001 + iota
 	ErrorNameInUse
+	ErrorInvalidNameCharacters
 	ErrorPasswordLength
 	ErrorPasswordEncryption
 	ErrorNoEmailItem

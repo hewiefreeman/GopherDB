@@ -2,90 +2,6 @@
    "Name": "test",
    "Schema": [
       {
-         "Position": 3,
-         "Name": "friends",
-         "DataType": [
-            "Array",
-            [
-               "Object",
-               [
-                  {
-                     "Position": 2,
-                     "Name": "labels",
-                     "DataType": [
-                        "Object",
-                        [
-                           {
-                              "Position": 1,
-                              "Name": "nickname",
-                              "DataType": [
-                                 "String",
-                                 "",
-                                 16,
-                                 false,
-                                 false,
-                                 true
-                              ]
-                           },
-                           {
-                              "Position": 0,
-                              "Name": "friendNum",
-                              "DataType": [
-                                 "Int8",
-                                 0,
-                                 0,
-                                 0,
-                                 false,
-                                 false,
-                                 true
-                              ]
-                           }
-                        ]
-                     ]
-                  },
-                  {
-                     "Position": 0,
-                     "Name": "login",
-                     "DataType": [
-                        "String",
-                        "",
-                        16,
-                        false,
-                        true,
-                        true
-                     ]
-                  },
-                  {
-                     "Position": 1,
-                     "Name": "status",
-                     "DataType": [
-                        "Uint8",
-                        0,
-                        0,
-                        2,
-                        false,
-                        false
-                     ]
-                  }
-               ]
-            ],
-            30,
-            false
-         ]
-      },
-      {
-         "Position": 1,
-         "Name": "email",
-         "DataType": [
-            "String",
-            "",
-            30,
-            false,
-            true,
-            true
-         ]
-      },
-      {
          "Position": 4,
          "Name": "actions",
          "DataType": [
@@ -195,6 +111,90 @@
             ],
             0,
             false
+         ]
+      },
+      {
+         "Position": 3,
+         "Name": "friends",
+         "DataType": [
+            "Array",
+            [
+               "Object",
+               [
+                  {
+                     "Position": 0,
+                     "Name": "login",
+                     "DataType": [
+                        "String",
+                        "",
+                        16,
+                        false,
+                        true,
+                        true
+                     ]
+                  },
+                  {
+                     "Position": 1,
+                     "Name": "status",
+                     "DataType": [
+                        "Uint8",
+                        0,
+                        0,
+                        2,
+                        false,
+                        false
+                     ]
+                  },
+                  {
+                     "Position": 2,
+                     "Name": "labels",
+                     "DataType": [
+                        "Object",
+                        [
+                           {
+                              "Position": 1,
+                              "Name": "nickname",
+                              "DataType": [
+                                 "String",
+                                 "",
+                                 16,
+                                 false,
+                                 false,
+                                 true
+                              ]
+                           },
+                           {
+                              "Position": 0,
+                              "Name": "friendNum",
+                              "DataType": [
+                                 "Int8",
+                                 0,
+                                 0,
+                                 0,
+                                 false,
+                                 false,
+                                 true
+                              ]
+                           }
+                        ]
+                     ]
+                  }
+               ]
+            ],
+            30,
+            false
+         ]
+      },
+      {
+         "Position": 1,
+         "Name": "email",
+         "DataType": [
+            "String",
+            "",
+            30,
+            false,
+            true,
+            true
          ]
       }
    ],

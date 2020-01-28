@@ -146,13 +146,13 @@ type authtableConfig struct {
 //
 
 // New creates a new AuthTable with the provided name, schema, and other parameters.
-func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, int) {
+func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataOnDrive bool, memOnly bool) (*AuthTable, helpers.Error) {
 	if len(name) == 0 {
-		return nil, helpers.ErrorTableNameRequired
+		return nil, helpers.NewError(helpers.ErrorTableNameRequired, name)
 	} else if Get(name) != nil {
-		return nil, helpers.ErrorTableExists
+		return nil, helpers.NewError(helpers.ErrorTableExists, name)
 	} else if !s.Validate() {
-		return nil, helpers.ErrorTableExists
+		return nil, helpers.NewError(helpers.ErrorSchemaInvalid, name)
 	}
 	// memOnly overrides dataOnDrive
 	if memOnly {
@@ -161,16 +161,16 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	namePre := dataFolderPrefix + name
 	// Restoring if configFile is not nil
 	if configFile == nil {
+		var err error
 		// Make table storage folder
-		mkErr := storage.MakeDir(namePre)
-		if mkErr != nil {
-			return nil, helpers.ErrorCreatingFolder
+		err = storage.MakeDir(namePre)
+		if err != nil {
+			return nil, helpers.NewError(helpers.ErrorCreatingFolder, namePre + helpers.FileTypeConfig + ": " + err.Error())
 		}
 		// Create/open config file
-		var err error
 		configFile, err = os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR|os.O_CREATE, 0755)
 		if err != nil {
-			return nil, helpers.ErrorFileOpen
+			return nil, helpers.NewError(helpers.ErrorFileOpen, namePre + helpers.FileTypeConfig + ": " + err.Error())
 		}
 		// Write config file
 		if wErr := writeConfigFile(configFile, authtableConfig{
@@ -189,7 +189,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 			EmailSettings: EmailSettings{},
 			AltLogin: "",
 		}); wErr != 0 {
-			return nil, wErr
+			return nil, helpers.NewError(wErr, namePre + helpers.FileTypeConfig)
 		}
 	}
 	// Make table
@@ -219,7 +219,7 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint16, dataO
 	tablesMux.Lock()
 	tables[name] = &t
 	tablesMux.Unlock()
-	return &t, 0
+	return &t, helpers.Error{}
 }
 
 func (t *AuthTable) Close(save bool) {
@@ -530,42 +530,44 @@ func writeConfigFile(f *os.File, c authtableConfig) int {
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Restore restores an AuthTable by name; requires a valid config file and data folder
-func Restore(name string) (*AuthTable, int) {
+func Restore(name string) (*AuthTable, helpers.Error) {
 	fmt.Printf("Restoring Auth '%v'...\n", name)
 	namePre := dataFolderPrefix + name
 	// Open the File
 	f, err := os.OpenFile(namePre + helpers.FileTypeConfig, os.O_RDWR, 0755)
 	if err != nil {
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Config file missing for Auth '" + name + "'")
 	}
 	// Get file stats
 	fs, fsErr := f.Stat()
 	if fsErr != nil {
 		f.Close()
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Error reading config file for Auth '"+name+"'")
 	}
 	// Get file bytes
 	bytes := make([]byte, fs.Size())
 	_, rErr := f.ReadAt(bytes, 0)
 	if rErr != nil && rErr != io.EOF {
 		f.Close()
-		return nil, helpers.ErrorFileRead
+		return nil, helpers.NewError(helpers.ErrorFileRead, "Config data is corrupt for Auth '" + name + "'")
 	}
 	// Make confStruct from json bytes
 	var confStruct authtableConfig
 	mErr := json.Unmarshal(bytes, &confStruct)
 	if mErr != nil {
 		f.Close()
-		return nil, helpers.ErrorJsonDecoding
+		return nil, helpers.NewError(helpers.ErrorJsonDecoding,
+			"Config contains JSON syntax errors for Auth '" + name + "': " + mErr.Error())
 	}
 	// Make schema with the schemaList
 	s, schemaErr := schema.Restore(confStruct.Schema)
-	if schemaErr != 0 {
+	if schemaErr.ID != 0 {
 		f.Close()
+		schemaErr.From = "(Auth '" + name + "') " + schemaErr.From
 		return nil, schemaErr
 	}
 	at, tErr := New(name, f, s, confStruct.FileOn, confStruct.DataOnDrive, confStruct.MemOnly)
-	if tErr != 0 {
+	if tErr.ID != 0 {
 		f.Close()
 		return nil, tErr
 	}
@@ -603,7 +605,7 @@ func Restore(name string) (*AuthTable, int) {
 		at.uMux.Unlock()
 		df.Close()
 		at.Close(false)
-		return nil, helpers.ErrorFileOpen
+		return nil, helpers.NewError(helpers.ErrorFileOpen, "Missing data folder for Auth '" + name + "'")
 	}
 	files, err := df.Readdir(-1)
 	df.Close()
@@ -611,7 +613,7 @@ func Restore(name string) (*AuthTable, int) {
 		at.eMux.Unlock()
 		at.uMux.Unlock()
 		at.Close(false)
-		return nil, helpers.ErrorFileRead
+		return nil, helpers.NewError(helpers.ErrorFileRead, "Error reading files in data folder for Auth '" + name + "'")
 	}
 	fmt.Printf("Loading Auth data for '%v'...\n", name)
 	// Make progress bar
@@ -655,7 +657,7 @@ func Restore(name string) (*AuthTable, int) {
 	at.uMux.Unlock()
 	at.eMux.Unlock()
 	//
-	return at, 0
+	return at, helpers.Error{}
 }
 
 func restoreDataLine(line []byte) (string, string, []interface{}) {
