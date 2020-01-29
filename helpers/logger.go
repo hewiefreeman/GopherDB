@@ -4,13 +4,14 @@ import (
 	"time"
 	"os"
 	"sync"
-	"sync/atomic"
 	"strings"
 	"strconv"
+	"fmt"
 )
 
 const (
-	logsFolder string = "/logs"
+	logsFolder string = "logs"
+	endOfLog   string = "   --- END OF LOG ---\n"
 )
 
 var (
@@ -18,15 +19,17 @@ var (
 	logFile *os.File
 	logMux  sync.Mutex
 	byteOn  int64
-	entryOn int64
-	logNum  int64
+	entryOn int
+	logNum  int
 	logInit bool
 
 	// Settings
-	maxLogFileSize int = 500 // Maximum log messages in a single log file
-	logPrio        int = 5   // Minimum priority level to display. Priority level can be from 1 to 5
+	maxLogFileSize int // Maximum log messages in a single log file
+	logPrio        int // Minimum priority level to display. Priority level can be from 1 to 5
 )
 
+// InitLogger initializes the logging system and returns an error if anything goes wrong. The logger can only be used if
+// it is successfully initialized.
 func InitLogger(prio int, maxSize int) error {
 	if logInit {
 		return nil
@@ -44,6 +47,8 @@ func InitLogger(prio int, maxSize int) error {
 	logMux.Lock()
 	logNum = 1
 	if logFile == nil {
+		now := time.Now()
+		var today string = strconv.Itoa(now.Day()) + "-" + strconv.Itoa(int(now.Month())) + "-" + strconv.Itoa(now.Year())
 		// Check if log folder exists
 		if _, err := os.Stat(logsFolder); os.IsNotExist(err) {
 			// Create logs folder
@@ -68,7 +73,7 @@ func InitLogger(prio int, maxSize int) error {
 				if fileNameSplit[0][:len(today)] == today {
 					// Found log file from today.
 					// Get logNum
-					ln, lnErr := strconv.Atoi(fileNameSplit[0][len(today) + 3:])
+					ln, lnErr := strconv.Atoi(fileNameSplit[0][len(today) + 2:len(fileNameSplit[0]) - 1])
 					if lnErr != nil || len(fileNameSplit) < 2 || "." + fileNameSplit[1] != FileTypeLog {
 						continue
 					} else if logNum <= ln {
@@ -79,7 +84,7 @@ func InitLogger(prio int, maxSize int) error {
 		}
 		// Create new log file
 		var err error
-		if logFile, err = os.OpenFile(today + " : " + strconv.Itoa(logNum), os.O_CREATE, 0755); err != nil {
+		if logFile, err = os.OpenFile(logsFolder + "/" + today + " (" + strconv.Itoa(logNum) + ")" + FileTypeLog, os.O_RDWR | os.O_CREATE, 0755); err != nil {
 			logMux.Unlock()
 			return err
 		}
@@ -92,24 +97,30 @@ func InitLogger(prio int, maxSize int) error {
 	return nil
 }
 
+// Log appends the given string to the current log file. If the priority level is less than the minimum priority level
+// threshold, the log will not be written.
 func Log(in string, priority int) {
 	if !logInit || priority < logPrio {
+		fmt.Println("Logger not initialized, or priority too low!")
 		return
 	}
 	var now time.Time = time.Now()
-	var today string = strconv.Itoa(now.Day()) + "/" + strconv.Itoa(now.Month()) + "/" + strconv.Itoa(now.Year())
 	logMux.Lock()
 	if logFile == nil {
 		// Logger was not properly initialized - output error to console instead
 		fmt.Println("[GopherDB Logger]: " + in)
 		return
 	} else if maxLogFileSize > 0 && entryOn >= maxLogFileSize {
+		//
+		logFile.WriteAt([]byte(endOfLog), byteOn)
+		// Get today's date
+		var today string = strconv.Itoa(now.Day()) + "-" + strconv.Itoa(int(now.Month())) + "-" + strconv.Itoa(now.Year())
 		// Close current log file and increase logNum
 		logFile.Close()
 		logNum++
 		// Create new log file
 		var err error
-		if logFile, err = os.OpenFile(today + " : " + strconv.Itoa(logNum), os.O_CREATE, 0755); err != nil {
+		if logFile, err = os.OpenFile(logsFolder + "/" + today + " (" + strconv.Itoa(logNum) + ")" + FileTypeLog, os.O_RDWR | os.O_CREATE, 0755); err != nil {
 			logMux.Unlock()
 			return
 		}
@@ -117,19 +128,24 @@ func Log(in string, priority int) {
 		byteOn = 0
 		entryOn = 0
 	}
-	log := []byte(now.Format("2006-01-02T15:04:05Z07:00") + ": " + in + "\n")
+	log := []byte("[" + now.Format("2006-01-02T15:04:05Z07:00") + "]: " + in + "\n")
 	// Append log to logFile
 	if _, wErr := logFile.WriteAt(log, byteOn); wErr != nil {
+		fmt.Println("Failed to write to logger with error: ", wErr)
 		logMux.Unlock()
 		return
 	}
-	byteOn += len(log)
+	byteOn += int64(len(log))
 	entryOn++
 	logMux.Unlock()
 }
 
+// CloseLogger closes the logger. Any subsequent logs will only be output to the console.
 func CloseLogger() {
 	logMux.Lock()
+	logFile.WriteAt([]byte(endOfLog), byteOn)
 	logFile.Close()
+	logFile = nil
 	logMux.Unlock()
+
 }
