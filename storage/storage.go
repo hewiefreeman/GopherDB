@@ -37,21 +37,11 @@ const (
 	defaultMaxOpenFiles  uint16        = 25
 )
 
-// File actions
-const (
-	FileActionClose = iota
-	FileActionRead
-	FileActionInsert
-	FileActionInsertMulti
-	FileActionUpdate
-	FileActionUpdateMulti
-)
-
 var (
 	// Open Files
 	openFilesMux   sync.Mutex
 	openFiles      map[string]*OpenFile
-	inited           bool
+	inited         bool
 
 	// Settings
 	fileOpenTime atomic.Value // time.Duration *int64* in seconds

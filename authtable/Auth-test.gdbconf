@@ -2,44 +2,6 @@
    "Name": "test",
    "Schema": [
       {
-         "Position": 4,
-         "Name": "actions",
-         "DataType": [
-            "Map",
-            [
-               "Object",
-               [
-                  {
-                     "Position": 0,
-                     "Name": "id",
-                     "DataType": [
-                        "Uint16",
-                        0,
-                        0,
-                        0,
-                        true,
-                        true
-                     ]
-                  },
-                  {
-                     "Position": 1,
-                     "Name": "type",
-                     "DataType": [
-                        "String",
-                        "greeting",
-                        0,
-                        false,
-                        true,
-                        true
-                     ]
-                  }
-               ]
-            ],
-            0,
-            false
-         ]
-      },
-      {
          "Position": 2,
          "Name": "subbed",
          "DataType": [
@@ -195,6 +157,44 @@
             false,
             true,
             true
+         ]
+      },
+      {
+         "Position": 4,
+         "Name": "actions",
+         "DataType": [
+            "Map",
+            [
+               "Object",
+               [
+                  {
+                     "Position": 0,
+                     "Name": "id",
+                     "DataType": [
+                        "Uint16",
+                        0,
+                        0,
+                        0,
+                        true,
+                        true
+                     ]
+                  },
+                  {
+                     "Position": 1,
+                     "Name": "type",
+                     "DataType": [
+                        "String",
+                        "greeting",
+                        0,
+                        false,
+                        true,
+                        true
+                     ]
+                  }
+               ]
+            ],
+            0,
+            false
          ]
       }
    ],

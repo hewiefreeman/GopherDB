@@ -99,17 +99,14 @@ func InitLogger(prio int, maxSize int) error {
 
 // Log appends the given string to the current log file. If the priority level is less than the minimum priority level
 // threshold, the log will not be written.
-func Log(in string, priority int) {
+func Log(in string, priority int) bool {
 	if !logInit || priority < logPrio {
-		fmt.Println("Logger not initialized, or priority too low!")
-		return
+		return false
 	}
 	var now time.Time = time.Now()
 	logMux.Lock()
 	if logFile == nil {
-		// Logger was not properly initialized - output error to console instead
-		fmt.Println("[GopherDB Logger]: " + in)
-		return
+		return false
 	} else if maxLogFileSize > 0 && entryOn >= maxLogFileSize {
 		//
 		logFile.WriteAt([]byte(endOfLog), byteOn)
@@ -122,7 +119,7 @@ func Log(in string, priority int) {
 		var err error
 		if logFile, err = os.OpenFile(logsFolder + "/" + today + " (" + strconv.Itoa(logNum) + ")" + FileTypeLog, os.O_RDWR | os.O_CREATE, 0755); err != nil {
 			logMux.Unlock()
-			return
+			return false
 		}
 		// set byteOn and entryOn to 0
 		byteOn = 0
@@ -131,13 +128,21 @@ func Log(in string, priority int) {
 	log := []byte("[" + now.Format("2006-01-02T15:04:05Z07:00") + "]: " + in + "\n")
 	// Append log to logFile
 	if _, wErr := logFile.WriteAt(log, byteOn); wErr != nil {
-		fmt.Println("Failed to write to logger with error: ", wErr)
 		logMux.Unlock()
-		return
+		return false
 	}
 	byteOn += int64(len(log))
 	entryOn++
 	logMux.Unlock()
+	return true
+}
+
+func LogAndPrint(in string, priority int) bool {
+	if !Log(in, priority) {
+		return false
+	}
+	fmt.Println("[GopherDB Logger @ " + time.Now().Format("2006-01-02T15:04:05Z07:00") + "]: " + in)
+	return true
 }
 
 // CloseLogger closes the logger. Any subsequent logs will only be output to the console.
@@ -147,5 +152,4 @@ func CloseLogger() {
 	logFile.Close()
 	logFile = nil
 	logMux.Unlock()
-
 }

@@ -80,6 +80,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	encryptCost := t.encryptCost.Load().(int)
 	ePass, ePassErr := helpers.EncryptString(password, encryptCost)
 	if ePassErr != nil {
+		helpers.LogAndPrint("Auth '" + t.name + "' password encryption failure on a NewUser() request", 4)
 		return nil, helpers.NewError(helpers.ErrorPasswordEncryption, name)
 	}
 	ute.password.Store(ePass)
@@ -88,6 +89,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 	var jBytes []byte
 	if !t.memOnly {
 		if jErr := makeJsonBytes(name, ePass, ute.data, &jBytes); jErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' JSON failure on a NewUser() request", 4)
 			return nil, helpers.NewError(jErr, name)
 		}
 	}
@@ -100,6 +102,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		return nil, helpers.NewError(helpers.ErrorNameInUse, name)
 	} else if maxEntries > 0 && len(t.entries) >= int(maxEntries) {
 		// Table is full
+		helpers.LogAndPrint("Auth '" + t.name + "' is full and rejected a NewUser() request", 5)
 		return nil, helpers.NewError(helpers.ErrorTableFull, "")
 	}
 	t.uMux.Lock()
@@ -121,6 +124,7 @@ func (t *AuthTable) NewUser(name string, password string, insertObj map[string]i
 		if aErr != 0 {
 			t.uMux.Unlock()
 			t.eMux.Unlock()
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to store a NewUser() request", 4)
 			return nil, helpers.NewError(aErr, name)
 		}
 	}
@@ -182,6 +186,7 @@ func (t *AuthTable) GetUser(userName string, password string, items map[string]i
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to retrieve data for a GetUser() request", 4)
 			return nil, helpers.NewError(dErr, userName)
 		}
 	} else {
@@ -290,6 +295,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(e.persistFile)) + helpers.FileTypeStorage, e.persistIndex)
 		if dErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to retrieve data for an UpdateUser() request", 4)
 			return helpers.NewError(dErr, userName)
 		}
 		e.mux.Lock()
@@ -335,6 +341,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 	var jBytes []byte
 	if !t.memOnly {
 		if jErr := makeJsonBytes(userName, e.password.Load().([]byte), data, &jBytes); jErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' JSON failure on an UpdateUser() request", 4)
 			return helpers.NewError(jErr, userName)
 		}
 	}
@@ -357,6 +364,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 		if uErr != 0 {
 			t.uMux.Unlock()
 			e.mux.Unlock()
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to store an UpdateUser() request", 4)
 			return helpers.NewError(uErr, userName)
 		}
 	}
@@ -390,7 +398,7 @@ func (t *AuthTable) UpdateUser(userName string, password string, updateObj map[s
 	return helpers.Error{}
 }
 
-// ChangePassword
+// ChangeUserPassword
 func (t *AuthTable) ChangeUserPassword(userName string, password string, newPassword string) helpers.Error {
 	if len(newPassword) < int(t.minPassword.Load().(uint8)) {
 		return helpers.NewError(helpers.ErrorPasswordLength, userName)
@@ -404,6 +412,7 @@ func (t *AuthTable) ChangeUserPassword(userName string, password string, newPass
 	// Encrypt new password
 	ePass, eErr := helpers.EncryptString(newPassword, t.encryptCost.Load().(int))
 	if eErr != nil {
+		helpers.LogAndPrint("Auth '" + t.name + "' password encryption failure on a ChangeUserPassword() request", 4)
 		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
 	}
 
@@ -414,6 +423,7 @@ func (t *AuthTable) ChangeUserPassword(userName string, password string, newPass
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to retrieve data for a ChangeUserPassword() request", 4)
 			return helpers.NewError(dErr, userName)
 		}
 	} else {
@@ -426,12 +436,14 @@ func (t *AuthTable) ChangeUserPassword(userName string, password string, newPass
 		// Make JSON []byte for entry
 		var jBytes []byte
 		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' JSON failure on a ChangeUserPassword() request", 4)
 			return helpers.NewError(jErr, userName)
 		}
 
 		// Update entry on disk with jBytes
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to store a ChangeUserPassword() request", 4)
 			return helpers.NewError(uErr, userName)
 		}
 	}
@@ -449,13 +461,15 @@ func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 		return helpers.NewError(helpers.ErrorNameRequired, "")
 	} else if t.emailItem.Load().(string) == "" {
 		// Database shouldn't change password without sending an email to the user
+		helpers.LogAndPrint("Auth '" + t.name + "' failed to execute ResetUserPassword() request due to no email item!", 5)
 		return helpers.NewError(helpers.ErrorNoEmailItem, "")
 	}
 
 	// Generate new password
 	newPass, pErr := helpers.GenerateRandomBytes(int(t.passResetLen.Load().(uint8)))
 	if pErr != nil {
-		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
+		helpers.LogAndPrint("Auth '" + t.name + "' password generation failure on a ResetUserPassword() request", 4)
+		return helpers.NewError(helpers.ErrorPasswordEncryption, "")
 	}
 
 	// Send newPass to emailItem, do not proceed unless the email was a success !!!
@@ -465,6 +479,14 @@ func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 	ue := t.entries[userName]
 	t.eMux.Unlock()
 
+	if ue == nil && t.altLoginItem.Load().(string) != "" {
+		ue = t.altLogins[userName]
+	}
+	if ue == nil {
+		// Silently return no error
+		return helpers.Error{}
+	}
+
 	var data []interface{}
 
 	// Get entry data
@@ -472,7 +494,8 @@ func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
-			return helpers.NewError(dErr, userName)
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to retrieve data for a ResetUserPassword() request", 4)
+			return helpers.Error{}
 		}
 	} else {
 		ue.mux.Lock()
@@ -480,18 +503,11 @@ func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 		ue.mux.Unlock()
 	}
 
-	if ue == nil && t.altLoginItem.Load().(string) != "" {
-		ue = t.altLogins[userName]
-	}
-
-	//
-	if ue == nil {
-		return helpers.NewError(helpers.ErrorNoEntryFound, userName)
-	}
 	// Change password
 	ePass, eErr := helpers.EncryptString(string(newPass), t.encryptCost.Load().(int))
 	if eErr != nil {
-		return helpers.NewError(helpers.ErrorPasswordEncryption, userName)
+		helpers.LogAndPrint("Auth '" + t.name + "' password encryption failure on a ResetUserPassword() request", 4)
+		return helpers.Error{}
 	}
 
 	// Delete auto-login hashes !!!
@@ -500,13 +516,15 @@ func (t *AuthTable) ResetUserPassword(userName string) helpers.Error {
 		// Make JSON []byte for entry
 		var jBytes []byte
 		if jErr := makeJsonBytes(userName, ePass, data, &jBytes); jErr != 0 {
-			return helpers.NewError(jErr, userName)
+			helpers.LogAndPrint("Auth '" + t.name + "' JSON failure on a ResetUserPassword() request", 4)
+			return helpers.Error{}
 		}
 
 		// Update entry on disk with jBytes
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, jBytes)
 		if uErr != 0 {
-			return helpers.NewError(uErr, userName)
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to store a ResetUserPassword() request", 4)
+			return helpers.Error{}
 		}
 	}
 
@@ -530,6 +548,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) helpers.Error {
 		var dErr int
 		data, dErr = t.dataFromDrive(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex)
 		if dErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed to retrieve data for a DeleteUser() request", 4)
 			return helpers.NewError(dErr, userName)
 		}
 		ue.mux.Lock()
@@ -550,6 +569,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) helpers.Error {
 		if !si.QuickValidate() {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
+			helpers.LogAndPrint("Auth '" + t.name + "' failed execute a DeleteUser() request due to internal schema validation error", 4)
 			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		// Make get filter
@@ -558,6 +578,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) helpers.Error {
 		if err != 0 {
 			t.uMux.Unlock()
 			ue.mux.Unlock()
+			helpers.LogAndPrint("Auth '" + t.name + "' failed execute a DeleteUser() request due to internal item filter error", 4)
 			return helpers.NewError(helpers.ErrorUnexpected, "")
 		}
 		if itemName == altLoginItem {
@@ -579,6 +600,7 @@ func (t *AuthTable) DeleteUser(userName string, password string) helpers.Error {
 	if !t.memOnly {
 		uErr := storage.Update(dataFolderPrefix + t.name + "/" + strconv.Itoa(int(ue.persistFile)) + helpers.FileTypeStorage, ue.persistIndex, []byte{})
 		if uErr != 0 {
+			helpers.LogAndPrint("Auth '" + t.name + "' failed execute a DeleteUser() request due to internal storage engine error", 4)
 			return helpers.NewError(uErr, userName)
 		}
 	}

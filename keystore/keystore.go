@@ -189,16 +189,10 @@ func (k *Keystore) Close(save bool) {
 		k.eMux.Lock()
 		fileOn := k.fileOn
 		k.eMux.Unlock()
-		writeConfigFile(k.configFile, keystoreConfig{
-			Name:         k.name,
-			Schema:       k.schema.MakeConfig(),
-			FileOn:       fileOn,
-			DataOnDrive:  k.dataOnDrive,
-			MemOnly:      k.memOnly,
-			PartitionMax: k.partitionMax.Load().(uint16),
-			EncryptCost:  k.encryptCost.Load().(int),
-			MaxEntries:   k.maxEntries.Load().(uint64),
-		})
+		conf := k.makeDefaultConfig(fileOn)
+		if err := writeConfigFile(k.configFile, conf); err != 0 {
+			helpers.LogAndPrint("Failed to write config file for Keystore '" + k.name + "' while closing, with error code: " + strconv.Itoa(err), 5)
+		}
 	}
 
 	storesMux.Lock()
@@ -213,11 +207,13 @@ func (k *Keystore) Delete() int {
 
 	// Delete data directory
 	if err := os.RemoveAll(dataFolderPrefix + k.name); err != nil {
+		helpers.LogAndPrint("Failed delete Keystore '" + k.name + "' with error: " + err.Error(), 5)
 		return helpers.ErrorFileDelete
 	}
 
 	// Delete config file
 	if err := os.Remove(dataFolderPrefix + k.name + helpers.FileTypeConfig); err != nil {
+		helpers.LogAndPrint("Failed delete Keystore '" + k.name + "' with error: " + err.Error(), 5)
 		return helpers.ErrorFileDelete
 	}
 
@@ -283,6 +279,7 @@ func (k *Keystore) SetEncryptionCost(cost int) int {
 	conf := k.makeDefaultConfig(fileOn)
 	conf.EncryptCost = cost
 	if err := writeConfigFile(k.configFile, conf); err != 0 {
+		helpers.LogAndPrint("Failed to set encryption cost for Keystore '" + k.name + "' with error code: " + strconv.Itoa(err), 4)
 		return err
 	}
 	k.encryptCost.Store(cost)
@@ -298,6 +295,7 @@ func (k *Keystore) SetMaxEntries(max uint64) int {
 	conf := k.makeDefaultConfig(fileOn)
 	conf.MaxEntries = max
 	if err := writeConfigFile(k.configFile, conf); err != 0 {
+		helpers.LogAndPrint("Failed to set maximum entries for Keystore '" + k.name + "' with error code: " + strconv.Itoa(err), 4)
 		return err
 	}
 	k.maxEntries.Store(max)
@@ -317,6 +315,7 @@ func (k *Keystore) SetPartitionMax(max uint16) int {
 	conf := k.makeDefaultConfig(fileOn)
 	conf.PartitionMax = max
 	if err := writeConfigFile(k.configFile, conf); err != 0 {
+		helpers.LogAndPrint("Failed to set partition max size for Keystore '" + k.name + "' with error code: " + strconv.Itoa(err), 4)
 		return err
 	}
 	k.partitionMax.Store(max)
@@ -444,7 +443,7 @@ func Restore(name string) (*Keystore, helpers.Error) {
 		var of *storage.OpenFile
 		var err int
 		if of, err = storage.GetOpenFile(namePre + "/" + fileStats.Name()); err != 0 {
-			fmt.Printf("Error: Keystore '%v':: Could not read data file '%v'!\n", name, namePre + "/" + fileStats.Name())
+			helpers.LogAndPrint("Error: Keystore '" + name + "':: Could not read data file '" + namePre + "/" + fileStats.Name() + "'!\n", 4)
 			pBar.Add(1)
 			continue
 		}
@@ -452,16 +451,16 @@ func Restore(name string) (*Keystore, helpers.Error) {
 			// Get line bytes
 			var lb []byte
 			if lb, err = of.Read(uint16(i+1)); err != 0 {
-				fmt.Printf("Error: Keystore '%v':: Could not read line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				helpers.LogAndPrint("Error: Keystore '" + name + "':: Could not read line " + strconv.Itoa(i + 1) + " of '" + fileStats.Name() + "'!\n", 4)
 				continue
 			}
 			eKey, eData := restoreDataLine(lb)
 			if eData == nil {
-				fmt.Printf("Error: Keystore '%v':: Incorrect JSON format on line %v of '%v'!\n", name, i + 1, fileStats.Name())
+				helpers.LogAndPrint("Error: Keystore '" + name + "':: Incorrect JSON format on line " + strconv.Itoa(i + 1) + " of '" + fileStats.Name() + "'!\n", 4)
 				continue
 			}
 			if err = ks.restoreKey(eKey, eData, uint32(fileNum), uint16(i+1)); err != 0 {
-				fmt.Printf("Error: Keystore '%v':: Line %v of '%v' error code %v\n", name, i + 1, fileStats.Name(), err)
+				fmt.Printf("Error: Keystore '" + name + "':: Line " + strconv.Itoa(i + 1) + " of '" + fileStats.Name() + "', with error code " + strconv.Itoa(err) + "\n", 4)
 				continue
 			}
 		}
