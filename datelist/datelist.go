@@ -83,7 +83,7 @@ type DateList struct {
 
 	// date list & entry counter
 	eMux       sync.Mutex // entries lock
-	datelist   map[int]Year
+	datelist   []Year
 	entryCount uint64
 
 	// unique values
@@ -92,6 +92,7 @@ type DateList struct {
 }
 
 type Year struct {
+
 	months []Month
 }
 
@@ -143,7 +144,7 @@ func New(name string, s *schema.Schema, fileOn uint16, dataOnDrive bool, memOnly
 		memOnly:       memOnly,
 		dataOnDrive:   dataOnDrive,
 		schema:        s,
-		datelist:      make(map[int]Year),
+		datelist:      make([]Year),
 		entryCount:    0,
 		uniqueVals:    make(map[string]map[interface{}]bool),
 		fileOn:        fileOn,

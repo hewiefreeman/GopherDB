@@ -251,15 +251,15 @@ func (t *AuthTable) Close(save bool) {
 }
 
 // Delete deletes the AuthTable from memory and disk
-func (t *AuthTable) Delete() int {
+func (t *AuthTable) Delete() helpers.Error {
 	t.Close(false)
 	// Delete data directory
 	if err := os.RemoveAll(dataFolderPrefix + t.name); err != nil {
-		return helpers.ErrorFileDelete
+		return helpers.NewError(helpers.ErrorFileDelete, "Data directory")
 	}
 	// Delete config file
 	if err := os.Remove(dataFolderPrefix + t.name + helpers.FileTypeConfig); err != nil {
-		return helpers.ErrorFileDelete
+		return helpers.NewError(helpers.ErrorFileDelete, "Config file")
 	}
 	return 0
 }
