@@ -4,7 +4,7 @@ package main
 //////////////////
 //////////////////     - Password reset for AuthTable:
 //////////////////         - Setting server name/address, subject & body message for password reset emails
-//////////////////         - Send emails for password resets
+//////////////////         - Send configurable emails for password resets
 //////////////////
 //////////////////     - Database server
 //////////////////         - Connection authentication
@@ -16,10 +16,14 @@ package main
 //////////////////         - Connect to cluster nodes & agree upon master node
 //////////////////         - Master assigns nodes key numbers and creates a keyspace unless valid ones have been created already
 //////////////////         - Master ensures all nodes contain the same table schemas
-//////////////////         -
+//////////////////         - ...
 //////////////////         - Global unique values
 //////////////////
 //////////////////     - Ordered tables
+//////////////////
+////////////////// MAYBEs
+//////////////////
+//////////////////     - Repair-in-place after schema changes (repair table entries as they're accessed)
 
 import (
 	"github.com/hewiefreeman/GopherDB/helpers"

@@ -43,15 +43,19 @@ var (
 
 // Keystore
 type Keystore struct {
-	fileOn uint32 // locked by eMux - placed for memory efficiency
+	fileOn uint32 // locked by eMux
 
 	// Settings and schema - read only
 	// Changing some of these setting requires a reformat and/or restore of the Keystore
-	memOnly     bool          // Store data in memory only (overrides dataOnDrive)
-	dataOnDrive bool          // when true, entry data is not stored in memory, only indexing
-	name        string        // table's logger/persist folder name
-	schema      schema.Schema // table's schema
-	configFile  *os.File      // configuration file
+	memOnly     bool            // Store data in memory only (overrides dataOnDrive)
+	dataOnDrive bool            // when true, entry data is not stored in memory, only indexing
+	name        string          // table's logger/persist folder name
+	schema      schema.Schema   // table's schema
+	configFile  *os.File        // configuration file
+
+	// Schema history for repair-in-place
+	schemaH  []schema.Schema // table's schema history - index is the schema ID
+	schemaID uint32          // current schema's ID (schemaH's length + 1)
 
 	// Atomic changeable settings values - 99% read
 	partitionMax atomic.Value // *uint16* maximum entries per data file
@@ -74,6 +78,7 @@ type Keystore struct {
 }
 
 type keystoreEntry struct {
+	schemaID     uint32
 	persistFile  uint32
 	persistIndex uint16
 
@@ -84,6 +89,8 @@ type keystoreEntry struct {
 type keystoreConfig struct {
 	Name         string
 	Schema       []schema.SchemaConfigItem
+	SchemaID     uint32
+	SchemaH      [][]schema.SchemaConfigItem
 	FileOn       uint32
 	DataOnDrive  bool
 	MemOnly      bool
@@ -134,6 +141,8 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 		if wErr := writeConfigFile(configFile, keystoreConfig{
 			Name:         name,
 			Schema:       s.MakeConfig(),
+			SchemaID:     0,
+			ShemaH:       make([][]schema.SchemaConfigItem, 0),
 			FileOn:       fileOn,
 			DataOnDrive:  dataOnDrive,
 			MemOnly:      memOnly,
@@ -151,6 +160,8 @@ func New(name string, configFile *os.File, s schema.Schema, fileOn uint32, dataO
 		memOnly:     memOnly,
 		dataOnDrive: dataOnDrive,
 		schema:      s,
+		schemaID:    0,
+		schemaH:     make([]schema.Schema, 0),
 		configFile:  configFile,
 		entries:     make(map[string]*keystoreEntry),
 		uniqueVals:  make(map[string]map[interface{}]bool),
@@ -326,6 +337,8 @@ func (k *Keystore) makeDefaultConfig(fileOn uint32) keystoreConfig {
 	return keystoreConfig {
 		Name:         k.name,
 		Schema:       k.schema.MakeConfig(),
+		SchemaID:     k.schemaID,
+		SchemaH:      k.MakeSchemaHConfig(),
 		FileOn:       fileOn,
 		DataOnDrive:  k.dataOnDrive,
 		MemOnly:      k.memOnly,
